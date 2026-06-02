@@ -309,6 +309,46 @@
     filter: drop-shadow(0 0 12px rgba(68,136,255,0.6));
   }
 
+  .player-name-tag {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--blue);
+    background: #00081a;
+    border: 2px solid var(--blue);
+    padding: 4px 8px;
+  }
+
+  .player-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+    width: 150px;
+  }
+  .pstat-row { display: flex; align-items: center; gap: 6px; }
+  .pstat-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    width: 16px;
+    color: var(--gray);
+  }
+  .pstat-bar-wrap {
+    flex: 1;
+    height: 11px;
+    background: #222;
+    border: 2px solid #555;
+  }
+  .pstat-bar { height: 100%; transition: width 0.35s; }
+  .pstat-hp { background: linear-gradient(90deg, var(--green), #22cc66); }
+  .pstat-sp { background: linear-gradient(90deg, var(--blue), #22aaff); }
+  .pstat-val {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: var(--white);
+    min-width: 44px;
+    text-align: right;
+  }
+
   /* Battle Panel */
   #battlePanel {
     background: var(--panel2);
@@ -316,12 +356,14 @@
     padding: 12px 16px;
     display: flex;
     gap: 12px;
-    align-items: flex-start;
+    align-items: stretch;
+    flex-shrink: 0;
   }
 
   #battleLog {
     flex: 1;
-    min-height: 70px;
+    height: 104px;          /* fixed height →內部捲動，不會把畫面往上頂 */
+    min-height: 0;
     font-size: 13px;
     line-height: 1.8;
     color: var(--white);
@@ -329,7 +371,10 @@
     padding: 8px 12px;
     background: #0a0a1a;
     overflow-y: auto;
+    scroll-behavior: smooth;
   }
+  #battleLog::-webkit-scrollbar { width: 8px; }
+  #battleLog::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
 
   .battle-log-line { margin-bottom: 2px; }
   .log-player { color: var(--blue); }
@@ -593,10 +638,11 @@
     #battlePanel { flex-direction: column-reverse; padding: 10px 12px; }
     #battleActions { width: 100%; grid-template-columns: 1fr 1fr; }
     .action-btn { font-size: 8px; padding: 12px 6px; }
-    #battleLog { width: 100%; min-height: 56px; font-size: 12px; }
+    #battleLog { width: 100%; height: 84px; font-size: 12px; }
     #battleBg { padding: 12px 14px; }
     .enemy-sprite { font-size: 60px; }
-    #battleHeroCanvas { width: 64px; height: 64px; }
+    #battleHeroCanvas { width: 56px; height: 56px; }
+    .player-stats { width: 130px; }
     .enemy-hp-wrap { width: 110px; }
     .hud-stats { gap: 10px; }
     .stat-bar-wrap { width: 52px; }
@@ -666,6 +712,8 @@
     <div id="progressTracker">
       <div class="prog-label">任務進度</div>
       <div id="progText">遭遇戰: 0/5</div>
+      <div id="progTarget" style="color:#ffd700;margin-top:4px">下一目標：尋找中…</div>
+      <div id="progTargetDesc" style="color:#99aabb;font-size:6px;margin-top:1px"></div>
     </div>
 
     <!-- Controls hint -->
@@ -707,8 +755,20 @@
       <div class="enemy-sprite" id="enemySprite">👹</div>
     </div>
     <div class="player-area">
+      <div class="player-name-tag">勇者 <span id="battleHeroLv">Lv.1</span></div>
+      <div class="player-stats">
+        <div class="pstat-row">
+          <span class="pstat-label">HP</span>
+          <div class="pstat-bar-wrap"><div class="pstat-bar pstat-hp" id="battleHpBar" style="width:100%"></div></div>
+          <span class="pstat-val" id="battleHpTxt">100/100</span>
+        </div>
+        <div class="pstat-row">
+          <span class="pstat-label" style="color:#88ccff">SP</span>
+          <div class="pstat-bar-wrap"><div class="pstat-bar pstat-sp" id="battleSpBar" style="width:100%"></div></div>
+          <span class="pstat-val" id="battleSpTxt">50/50</span>
+        </div>
+      </div>
       <canvas id="battleHeroCanvas" width="84" height="84" class="player-sprite"></canvas>
-      <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:var(--blue);margin-top:4px">勇者</div>
     </div>
   </div>
 
@@ -850,6 +910,7 @@ let enemyDefeated = new Set();
 let npcSpoken = new Set();
 let enemyPositions = [];
 let lastMoveTime = -9999;
+let nearestEnemy = null;
 
 // ============================================================
 // INIT
@@ -994,11 +1055,31 @@ function renderMap() {
     }
   }
 
-  // Draw enemies
+  // Find nearest remaining enemy = recommended next target
+  nearestEnemy=null; let nearestD=Infinity;
+  enemyPositions.forEach(ep=>{
+    if(ep.defeated) return;
+    const d=Math.abs(ep.x-player.x)+Math.abs(ep.y-player.y);
+    if(d<nearestD){ nearestD=d; nearestEnemy=ep; }
+  });
+
+  // Draw enemies (with name labels + target highlight)
   enemyPositions.forEach(ep => {
     if(ep.defeated) return;
     const sx = ep.x*TILE+mapOffX, sy = ep.y*TILE+mapOffY;
-    // Floating animation
+    const isTarget = (ep===nearestEnemy);
+
+    // Pulsing ring around the recommended target
+    if(isTarget){
+      const pulse = 13 + Math.sin(tick*0.12)*3;
+      ctx.strokeStyle='rgba(255,215,0,'+(0.55+Math.sin(tick*0.12)*0.3)+')';
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.arc(sx+TILE/2, sy+TILE/2, pulse, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    // Floating sprite
     const float = Math.sin(tick*0.05+ep.x)*3;
     ctx.font = '22px serif';
     ctx.textAlign = 'center';
@@ -1008,6 +1089,19 @@ function renderMap() {
     ctx.beginPath();
     ctx.ellipse(sx+TILE/2,sy+TILE-4,12,4,0,0,Math.PI*2);
     ctx.fill();
+
+    // Name label above the enemy (so you know what it represents)
+    const label = ep.enemy.name;
+    ctx.font = 'bold 9px "Noto Sans TC", sans-serif';
+    const lw = ctx.measureText(label).width + 8;
+    const lx = sx+TILE/2, ly = sy - 6;
+    ctx.fillStyle = isTarget ? 'rgba(90,68,0,0.92)' : 'rgba(0,0,0,0.7)';
+    ctx.fillRect(lx-lw/2, ly-10, lw, 13);
+    ctx.strokeStyle = isTarget ? '#ffd700' : 'rgba(255,90,90,0.55)';
+    ctx.lineWidth=1;
+    ctx.strokeRect(lx-lw/2, ly-10, lw, 13);
+    ctx.fillStyle = isTarget ? '#ffe680' : '#ff9d9d';
+    ctx.fillText(label, lx, ly);
   });
 
   // Draw NPCs
@@ -1040,11 +1134,37 @@ function renderMap() {
   const bob = moving ? 0 : (Math.sin(tick*0.06) > 0 ? 0 : 1);
   drawHeroSprite(ctx, px, py - bob, TILE/16, player.dir, frame);
 
+  // Guidance arrow: floats around the hero, points toward the next target
+  if(nearestEnemy){
+    const ang = Math.atan2(nearestEnemy.y-player.y, nearestEnemy.x-player.x);
+    const cxp=px+TILE/2, cyp=py+TILE/2, rad=30;
+    const ax=cxp+Math.cos(ang)*rad, ay=cyp+Math.sin(ang)*rad;
+    ctx.save();
+    ctx.translate(ax,ay);
+    ctx.rotate(ang);
+    ctx.fillStyle='rgba(255,215,0,'+(0.55+Math.sin(tick*0.15)*0.4)+')';
+    ctx.beginPath();
+    ctx.moveTo(9,0); ctx.lineTo(-5,-6); ctx.lineTo(-5,6);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
   // Draw minimap
   renderMinimap();
 
-  // Update progress
+  // Update progress + next-target guidance
   document.getElementById('progText').textContent = `遭遇戰: ${STATE.battles}/${STATE.maxBattles}`;
+  const pt=document.getElementById('progTarget');
+  const ptd=document.getElementById('progTargetDesc');
+  if(pt && ptd){
+    if(nearestEnemy){
+      pt.textContent = `下一目標：${nearestEnemy.enemy.name}`;
+      ptd.textContent = nearestEnemy.enemy.desc;
+    } else {
+      pt.textContent = '全部挑戰完成！';
+      ptd.textContent = '前往任意處即可結算';
+    }
+  }
 }
 
 function renderMinimap() {
@@ -1060,11 +1180,16 @@ function renderMinimap() {
   // Player dot
   mx.fillStyle='#fff';
   mx.fillRect(player.x*tw-1,player.y*th-1,4,4);
-  // Enemies
+  // Enemies (next target highlighted gold + pulsing)
   enemyPositions.forEach(ep=>{
     if(ep.defeated)return;
-    mx.fillStyle='#f44';
-    mx.fillRect(ep.x*tw,ep.y*th,3,3);
+    if(ep===nearestEnemy){
+      mx.fillStyle = (tick%40<20) ? '#ffd700' : '#fff7b0';
+      mx.fillRect(ep.x*tw-1,ep.y*th-1,5,5);
+    } else {
+      mx.fillStyle='#f44';
+      mx.fillRect(ep.x*tw,ep.y*th,3,3);
+    }
   });
 }
 
@@ -1589,6 +1714,16 @@ function updateHUD(){
   document.getElementById('hudHpVal').textContent=p.hp;
   document.getElementById('hudSpVal').textContent=p.sp;
   document.getElementById('hudLv').textContent='Lv.'+p.lv;
+
+  // Mirror status onto the in-battle player panel
+  const bhp=document.getElementById('battleHpBar');
+  if(bhp){
+    bhp.style.width=(p.hp/p.maxHp*100)+'%';
+    document.getElementById('battleSpBar').style.width=(p.sp/p.maxSp*100)+'%';
+    document.getElementById('battleHpTxt').textContent=p.hp+'/'+p.maxHp;
+    document.getElementById('battleSpTxt').textContent=p.sp+'/'+p.maxSp;
+    document.getElementById('battleHeroLv').textContent='Lv.'+p.lv;
+  }
 }
 
 // ============================================================
