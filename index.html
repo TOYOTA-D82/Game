@@ -349,7 +349,8 @@
     text-align: right;
   }
 
-  /* Battle Panel */
+  /* Battle Panel — fixed-height slab pinned at the bottom.
+     戰鬥訊息再多都只在內部捲動，永遠不會撐大面板、不會把畫面往上頂。 */
   #battlePanel {
     background: var(--panel2);
     border-top: 3px solid var(--border);
@@ -358,11 +359,13 @@
     gap: 12px;
     align-items: stretch;
     flex-shrink: 0;
+    height: 152px;
+    overflow: hidden;
   }
 
   #battleLog {
     flex: 1;
-    height: 104px;          /* fixed height →內部捲動，不會把畫面往上頂 */
+    height: 100%;
     min-height: 0;
     font-size: 13px;
     line-height: 1.8;
@@ -635,10 +638,10 @@
 
   /* ===== RESPONSIVE: small screens / phones ===== */
   @media (max-width: 600px) {
-    #battlePanel { flex-direction: column-reverse; padding: 10px 12px; }
+    #battlePanel { flex-direction: column-reverse; padding: 10px 12px; height: auto; }
     #battleActions { width: 100%; grid-template-columns: 1fr 1fr; }
     .action-btn { font-size: 8px; padding: 12px 6px; }
-    #battleLog { width: 100%; height: 84px; font-size: 12px; }
+    #battleLog { width: 100%; height: 88px; flex: 0 0 auto; font-size: 12px; }
     #battleBg { padding: 12px 14px; }
     .enemy-sprite { font-size: 60px; }
     #battleHeroCanvas { width: 56px; height: 56px; }
@@ -900,6 +903,38 @@ const NPC_DIALOGS = [
 ];
 
 // ============================================================
+// INTERACTIVE PROPS (按 ENTER / 互動鍵 互動，讓地圖更豐富)
+// type: 'sign'=看字, 'villager'=閒聊, 'fountain'=回復(可重複), 'chest'=寶箱(一次性, 給 EXP/加分)
+// ============================================================
+const PROPS = [
+  { id:'sign1', sprite:'🪧', x:5, y:7, type:'sign', name:'路標',
+    lines:['「北方：城市通勤試煉」','「東方：山岳與家族試煉」','跟著金色箭頭，依序前進吧！'] },
+  { id:'fountain1', sprite:'⛲', x:2, y:5, type:'fountain', name:'回復之泉',
+    msg:'你喝下清涼的泉水，HP / SP 完全回復了！' },
+  { id:'campfire', sprite:'🔥', x:16, y:8, type:'fountain', name:'營火',
+    msg:'在溫暖的營火旁休息片刻，HP / SP 回復了！' },
+  { id:'chest1', sprite:'🎁', x:12, y:1, type:'chest', name:'寶箱',
+    reward:{ exp:30, score:{rav4:3} }, msg:'寶箱裡是一本越野探險手冊！(EXP +30，RAV4 +3)' },
+  { id:'chest2', sprite:'🎁', x:17, y:2, type:'chest', name:'寶箱',
+    reward:{ exp:25, score:{prius:3} }, msg:'寶箱裡是一張節能駕駛證書！(EXP +25，Prius +3)' },
+  { id:'chest3', sprite:'🎁', x:12, y:12, type:'chest', name:'寶箱',
+    reward:{ exp:25, score:{alphard:3} }, msg:'寶箱裡有個舒適頭枕，全家都愛！(EXP +25，Alphard +3)' },
+  { id:'chest4', sprite:'🎁', x:3, y:1, type:'chest', name:'寶箱',
+    reward:{ exp:20, score:{yaris:3} }, msg:'寶箱裡是一把都會停車神器！(EXP +20，Yaris +3)' },
+  { id:'merchant', sprite:'🧙', x:2, y:9, type:'villager', name:'神祕商人',
+    lines:['呵呵，旅途順利嗎？','小提示：常用「必殺技」的人個性果斷，','常用「防禦技」的人則細心顧家喔！'] },
+  { id:'cat', sprite:'🐈', x:3, y:13, type:'villager', name:'小貓',
+    lines:['喵～(牠慵懶地伸了個懶腰)','似乎完全不在意世界的試煉。'] },
+  { id:'dog', sprite:'🐕', x:18, y:13, type:'villager', name:'忠犬',
+    lines:['汪汪！','(牠開心地繞著你轉圈圈)','好像在幫你加油！'] },
+  { id:'flower', sprite:'🌻', x:9, y:12, type:'villager', name:'向日葵田',
+    lines:['一整片向日葵迎風搖曳，','讓你想起與家人出遊的溫暖時光。'] },
+  { id:'statue', sprite:'🗿', x:17, y:6, type:'sign', name:'古老石像',
+    lines:['石像上刻著：','「真正的座駕，會回應你的選擇。」'] },
+];
+let propUsed = new Set();   // 一次性道具(寶箱)是否已開啟
+
+// ============================================================
 // PLAYER POSITION
 // ============================================================
 let player = { x: 5, y: 5, dir: 'down', step: 0 }; // tile coords + facing + walk frame
@@ -1109,6 +1144,33 @@ function renderMap() {
     ctx.strokeRect(lx-lw/2, ly-10, lw, 13);
     ctx.fillStyle = isTarget ? '#ffe680' : '#8890a0';
     ctx.fillText(label, lx, ly);
+  });
+
+  // Draw interactive props
+  PROPS.forEach(pr => {
+    const sx = pr.x*TILE+mapOffX, sy = pr.y*TILE+mapOffY;
+    const used = propUsed.has(pr.id);
+    const adjacent = Math.abs(pr.x-player.x)<=1 && Math.abs(pr.y-player.y)<=1;
+    ctx.save();
+    if(pr.type==='chest' && used) ctx.globalAlpha = 0.4;
+    const bob = (pr.type==='chest'&&!used) ? Math.sin(tick*0.08)*2 : 0;
+    ctx.font = '20px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(used && pr.type==='chest' ? '📭' : pr.sprite, sx+TILE/2, sy+TILE/2+bob);
+    ctx.restore();
+    // Interact hint when player is next to it (and still useful)
+    const interactable = !(pr.type==='chest' && used);
+    if(adjacent && interactable){
+      const b = Math.sin(tick*0.14)*2;
+      ctx.fillStyle='#ffd700';
+      ctx.font='bold 13px sans-serif';
+      ctx.fillText('↵', sx+TILE/2, sy-6+b);
+    } else if(pr.type==='chest' && !used){
+      // gentle sparkle so chests stand out from afar
+      ctx.fillStyle='rgba(255,215,0,'+(0.4+Math.sin(tick*0.1)*0.3)+')';
+      ctx.font='10px serif';
+      ctx.fillText('✨', sx+TILE/2+8, sy+TILE/2-8);
+    }
   });
 
   // Draw NPCs
@@ -1406,13 +1468,51 @@ function checkNPCProximity() {
 }
 
 function checkInteraction() {
-  // Check adjacent NPCs
-  NPC_DIALOGS.forEach(npc => {
-    const dx=Math.abs(npc.x-player.x), dy=Math.abs(npc.y-player.y);
+  // Gather every interactable (NPC or prop) the player is standing next to,
+  // then act on the single closest one so ENTER never triggers two at once.
+  let best=null, bestD=Infinity;
+  const consider=(obj)=>{
+    const dx=Math.abs(obj.x-player.x), dy=Math.abs(obj.y-player.y);
     if(dx<=1&&dy<=1){
-      showDialog(npc.name, npc.lines, null);
+      const d=dx+dy;
+      if(d<bestD){ bestD=d; best=obj; }
     }
-  });
+  };
+  NPC_DIALOGS.forEach(n=>consider({...n, _kind:'npc'}));
+  PROPS.forEach(p=>consider({...p, _kind:'prop'}));
+
+  if(!best) return;
+  if(best._kind==='npc'){
+    showDialog(best.name, best.lines, null);
+  } else {
+    interactProp(best);
+  }
+}
+
+// Handle interacting with a prop based on its type
+function interactProp(pr){
+  if(pr.type==='sign' || pr.type==='villager'){
+    showDialog(pr.name, pr.lines, null);
+  } else if(pr.type==='fountain'){
+    STATE.player.hp = STATE.player.maxHp;
+    STATE.player.sp = STATE.player.maxSp;
+    updateHUD();
+    showDialog(pr.name, [pr.msg], null);
+  } else if(pr.type==='chest'){
+    if(propUsed.has(pr.id)){
+      showDialog(pr.name, ['這個寶箱已經空空如也了。'], null);
+      return;
+    }
+    propUsed.add(pr.id);
+    const rw = pr.reward || {};
+    if(rw.exp) STATE.player.exp += rw.exp;
+    if(rw.hp){ STATE.player.hp = Math.min(STATE.player.maxHp, STATE.player.hp+rw.hp); }
+    if(rw.sp){ STATE.player.sp = Math.min(STATE.player.maxSp, STATE.player.sp+rw.sp); }
+    if(rw.score){ for(const k in rw.score){ STATE.scores[k]=(STATE.scores[k]||0)+rw.score[k]; } }
+    updateHUD();
+    showNotification('🎁 開啟寶箱！');
+    showDialog(pr.name, [pr.msg], null);
+  }
 }
 
 // ============================================================
