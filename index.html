@@ -904,7 +904,8 @@ const NPC_DIALOGS = [
 
 // ============================================================
 // INTERACTIVE PROPS (按 ENTER / 互動鍵 互動，讓地圖更豐富)
-// type: 'sign'=看字, 'villager'=閒聊, 'fountain'=回復(可重複), 'chest'=寶箱(一次性, 給 EXP/加分)
+// type: 'sign'=看字, 'villager'=閒聊, 'fountain'=回復(可重複), 'chest'=寶箱(一次性)
+// 寶箱只給 EXP / 補血等中性獎勵，「不會影響最終座駕判斷」
 // ============================================================
 const PROPS = [
   { id:'sign1', sprite:'🪧', x:5, y:7, type:'sign', name:'路標',
@@ -914,15 +915,15 @@ const PROPS = [
   { id:'campfire', sprite:'🔥', x:16, y:8, type:'fountain', name:'營火',
     msg:'在溫暖的營火旁休息片刻，HP / SP 回復了！' },
   { id:'chest1', sprite:'🎁', x:12, y:1, type:'chest', name:'寶箱',
-    reward:{ exp:30, score:{rav4:3} }, msg:'寶箱裡是一本越野探險手冊！(EXP +30，RAV4 +3)' },
+    reward:{ exp:30, hp:50, sp:25 }, msg:'寶箱裡裝滿補給品！(EXP +30，回復 HP/SP)' },
   { id:'chest2', sprite:'🎁', x:17, y:2, type:'chest', name:'寶箱',
-    reward:{ exp:25, score:{prius:3} }, msg:'寶箱裡是一張節能駕駛證書！(EXP +25，Prius +3)' },
+    reward:{ exp:25, sp:40 }, msg:'寶箱裡是一瓶能量飲！(EXP +25，SP 大幅回復)' },
   { id:'chest3', sprite:'🎁', x:12, y:12, type:'chest', name:'寶箱',
-    reward:{ exp:25, score:{alphard:3} }, msg:'寶箱裡有個舒適頭枕，全家都愛！(EXP +25，Alphard +3)' },
+    reward:{ exp:25, hp:60 }, msg:'寶箱裡是一份美味便當！(EXP +25，HP 大幅回復)' },
   { id:'chest4', sprite:'🎁', x:3, y:1, type:'chest', name:'寶箱',
-    reward:{ exp:20, score:{yaris:3} }, msg:'寶箱裡是一把都會停車神器！(EXP +20，Yaris +3)' },
+    reward:{ exp:35 }, msg:'寶箱裡是一袋金幣，化為經驗！(EXP +35)' },
   { id:'merchant', sprite:'🧙', x:2, y:9, type:'villager', name:'神祕商人',
-    lines:['呵呵，旅途順利嗎？','小提示：常用「必殺技」的人個性果斷，','常用「防禦技」的人則細心顧家喔！'] },
+    lines:['呵呵，旅途順利嗎？','小提示：常用「必殺技」的人個性果斷，','常用「防禦技」的人則細心顧家喔！','(寶箱獎勵只是補給，不會左右你的命運座駕)'] },
   { id:'cat', sprite:'🐈', x:3, y:13, type:'villager', name:'小貓',
     lines:['喵～(牠慵懶地伸了個懶腰)','似乎完全不在意世界的試煉。'] },
   { id:'dog', sprite:'🐕', x:18, y:13, type:'villager', name:'忠犬',
@@ -933,6 +934,35 @@ const PROPS = [
     lines:['石像上刻著：','「真正的座駕，會回應你的選擇。」'] },
 ];
 let propUsed = new Set();   // 一次性道具(寶箱)是否已開啟
+
+// ============================================================
+// MAP TRAPS / MECHANISMS (機關)
+// 'spike' 尖刺：踩到扣血(有冷卻、不會致死)；'teleport' 傳送門：成對互傳
+// ============================================================
+const TRAPS = [
+  { id:'spike1', type:'spike', x:7,  y:4,  dmg:8 },
+  { id:'spike2', type:'spike', x:13, y:5,  dmg:8 },
+  { id:'spike3', type:'spike', x:14, y:8,  dmg:10 },
+  { id:'portalA', type:'teleport', x:2,  y:13, tx:18, ty:1 },
+  { id:'portalB', type:'teleport', x:18, y:1,  tx:2,  ty:13 },
+];
+let trapCooldown = {};      // 尖刺冷卻
+let teleportLock = false;   // 避免落地後立刻又被傳送回去
+
+// ============================================================
+// ROAMING MOBS (會遊走的小怪)
+// 隨機出現、靠近 2 格會追過來開戰；只給 EXP，不影響最終判斷
+// ============================================================
+const MOB_TYPES = [
+  { name:'路怒蝙蝠', sprite:'🦇', hp:24, atk:6, dialogue:'吱吱吱！別擋我的路！' },
+  { name:'坑洞地鼠', sprite:'🐀', hp:30, atk:7, dialogue:'吱——這是我的地盤！' },
+  { name:'迷途幽魂', sprite:'👻', hp:22, atk:5, dialogue:'嗚……陪我玩嘛……' },
+  { name:'路面石魔', sprite:'🪨', hp:36, atk:8, dialogue:'轟……擋路者……粉碎……' },
+  { name:'噪音飛蟲', sprite:'🐝', hp:20, atk:6, dialogue:'嗡嗡嗡嗡嗡！' },
+];
+let mobs = [];
+const MAX_MOBS = 4;
+let currentBattleIsMob = false;
 
 // ============================================================
 // PLAYER POSITION
@@ -969,6 +999,10 @@ function startGame() {
   setupTouchControls();
   requestAnimationFrame(gameLoop);
 
+  // Roaming mobs: periodically spawn, and move/chase on a steady tick
+  setInterval(spawnMobTick, 4500);
+  setInterval(updateMobs, 480);
+
   // Show intro dialog
   setTimeout(() => {
     showDialog('旅館老闆', ['歡迎勇者！這片大地等著你去探索。','途中你會遭遇各種困難...', '你的應對方式，將決定最適合你的 Toyota 座駕！','準備好了嗎？GO！'], null);
@@ -993,6 +1027,111 @@ function spawnEnemies() {
   ENEMIES.forEach((e,i) => {
     enemyPositions.push({...positions[i], enemy: e, defeated: false});
   });
+}
+
+// ============================================================
+// ROAMING MOB HELPERS
+// ============================================================
+function tilePassable(x,y){
+  if(x<0||x>=MAP_W||y<0||y>=MAP_H) return false;
+  return !!TILE_PASSABLE[MAP_DATA[y][x]];
+}
+
+// Is a tile occupied by something that a mob shouldn't stand on?
+function tileBlockedForMob(x,y){
+  if(enemyPositions.some(ep=>!ep.defeated && ep.x===x && ep.y===y)) return true;
+  if(mobs.some(m=>m.x===x && m.y===y)) return true;
+  if(NPC_DIALOGS.some(n=>n.x===x && n.y===y)) return true;
+  return false;
+}
+
+function spawnMobTick(){
+  if(STATE.inBattle || STATE.inDialog) return;
+  if(document.getElementById('gameContainer').style.display==='none') return;
+  if(mobs.length >= MAX_MOBS) return;
+  // Find a random passable tile a few tiles away from the player
+  for(let tries=0; tries<30; tries++){
+    const x = 1+Math.floor(Math.random()*(MAP_W-2));
+    const y = 1+Math.floor(Math.random()*(MAP_H-2));
+    if(!tilePassable(x,y) || tileBlockedForMob(x,y)) continue;
+    const dist = Math.max(Math.abs(x-player.x), Math.abs(y-player.y));
+    if(dist < 4) continue; // don't spawn on top of the player
+    const t = MOB_TYPES[Math.floor(Math.random()*MOB_TYPES.length)];
+    mobs.push({ x, y, type:t, spawnTick:tick });
+    break;
+  }
+}
+
+function updateMobs(){
+  if(STATE.inBattle || STATE.inDialog) return;
+  if(document.getElementById('gameContainer').style.display==='none') return;
+  for(const m of mobs){
+    const dx = player.x-m.x, dy = player.y-m.y;
+    const cheby = Math.max(Math.abs(dx), Math.abs(dy));
+    // Touching the player → fight
+    if(cheby<=1){ startMobBattle(m); return; }
+    if(cheby<=2){
+      // Chase: step toward the player along the dominant axis
+      m.chasing = true;
+      let nx=m.x, ny=m.y;
+      if(Math.abs(dx) >= Math.abs(dy)) nx += Math.sign(dx);
+      else ny += Math.sign(dy);
+      if(tilePassable(nx,ny) && !tileBlockedForMob(nx,ny)){ m.x=nx; m.y=ny; }
+      else { // try the other axis if blocked
+        nx=m.x; ny=m.y;
+        if(Math.abs(dx) >= Math.abs(dy)) ny += Math.sign(dy||1);
+        else nx += Math.sign(dx||1);
+        if(tilePassable(nx,ny) && !tileBlockedForMob(nx,ny)){ m.x=nx; m.y=ny; }
+      }
+      // After chasing, re-check contact
+      if(Math.max(Math.abs(player.x-m.x),Math.abs(player.y-m.y))<=1){ startMobBattle(m); return; }
+    } else if(Math.random()<0.5){
+      // Idle wander
+      const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+      const d=dirs[Math.floor(Math.random()*4)];
+      const nx=m.x+d[0], ny=m.y+d[1];
+      if(tilePassable(nx,ny) && !tileBlockedForMob(nx,ny)){ m.x=nx; m.y=ny; }
+      m.chasing=false;
+    }
+  }
+}
+
+// Player walked onto / next to a mob
+function checkMobEncounter(){
+  for(const m of mobs){
+    if(Math.max(Math.abs(player.x-m.x), Math.abs(player.y-m.y))<=1){
+      startMobBattle(m); return;
+    }
+  }
+}
+
+// ============================================================
+// TRAP / MECHANISM HELPERS
+// ============================================================
+function checkTraps(){
+  const onPortal = TRAPS.find(t=>t.type==='teleport' && t.x===player.x && t.y===player.y);
+  // Spikes
+  const spike = TRAPS.find(t=>t.type==='spike' && t.x===player.x && t.y===player.y);
+  if(spike){
+    const now=performance.now();
+    if(!trapCooldown[spike.id] || now-trapCooldown[spike.id]>900){
+      trapCooldown[spike.id]=now;
+      STATE.player.hp=Math.max(1, STATE.player.hp-spike.dmg);
+      updateHUD();
+      showNotification('⚠️ 踩到尖刺機關！-'+spike.dmg+' HP');
+      const area=document.getElementById('mapArea');
+      area.style.animation='none'; void area.offsetWidth; area.style.animation='shake 0.3s';
+    }
+  }
+  // Teleporters (locked right after arriving so we don't bounce back)
+  if(onPortal){
+    if(teleportLock) return;       // just arrived here; wait until we step off
+    teleportLock=true;
+    player.x=onPortal.tx; player.y=onPortal.ty;
+    showNotification('🌀 傳送門！瞬間移動');
+  } else {
+    teleportLock=false;            // stepped off a portal → re-arm
+  }
 }
 
 // ============================================================
@@ -1089,6 +1228,55 @@ function renderMap() {
       ctx.strokeRect(sx,sy,TILE,TILE);
     }
   }
+
+  // Draw traps / mechanisms (on the ground, beneath actors)
+  TRAPS.forEach(tr => {
+    const sx = tr.x*TILE+mapOffX, sy = tr.y*TILE+mapOffY;
+    if(tr.type==='spike'){
+      const out = (tick%70)<35;          // spikes pop in/out
+      ctx.fillStyle='#3a3320';
+      ctx.fillRect(sx+3,sy+3,TILE-6,TILE-6);
+      ctx.fillStyle = out ? '#cfd6e0' : '#6a7080';
+      for(let i=0;i<3;i++){
+        const bx=sx+7+i*7;
+        ctx.beginPath();
+        ctx.moveTo(bx, sy+TILE-7);
+        ctx.lineTo(bx+3, out? sy+8 : sy+16);
+        ctx.lineTo(bx+6, sy+TILE-7);
+        ctx.closePath(); ctx.fill();
+      }
+    } else if(tr.type==='teleport'){
+      const r = 9 + Math.sin(tick*0.15)*2;
+      ctx.save();
+      ctx.translate(sx+TILE/2, sy+TILE/2);
+      ctx.rotate(tick*0.06);
+      const grd=ctx.createRadialGradient(0,0,1,0,0,r);
+      grd.addColorStop(0,'#cdaaff'); grd.addColorStop(1,'rgba(120,60,255,0.15)');
+      ctx.fillStyle=grd;
+      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#a86bff'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(0,0,r,0.3,Math.PI*1.3); ctx.stroke();
+      ctx.restore();
+    }
+  });
+
+  // Draw roaming mobs
+  mobs.forEach(m => {
+    const sx = m.x*TILE+mapOffX, sy = m.y*TILE+mapOffY;
+    const float = Math.sin(tick*0.1+m.x)*2;
+    // chase indicator (it spotted you!)
+    if(m.chasing){
+      ctx.fillStyle='rgba(255,120,0,'+(0.25+Math.sin(tick*0.2)*0.15)+')';
+      ctx.beginPath(); ctx.arc(sx+TILE/2, sy+TILE/2, 13, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#ff7a00';
+      ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('!', sx+TILE/2, sy-4+Math.sin(tick*0.2)*2);
+    }
+    ctx.font='18px serif'; ctx.textAlign='center';
+    ctx.fillText(m.type.sprite, sx+TILE/2, sy+TILE/2+float);
+    ctx.fillStyle='rgba(0,0,0,0.25)';
+    ctx.beginPath(); ctx.ellipse(sx+TILE/2,sy+TILE-5,8,3,0,0,Math.PI*2); ctx.fill();
+  });
 
   // Active target = first undefeated enemy in sequence (sequential levels)
   nearestEnemy = getActiveEnemy();
@@ -1261,6 +1449,15 @@ function renderMinimap() {
       mx.fillRect(ep.x*tw,ep.y*th,3,3);
     }
   });
+  // Roaming mobs (orange)
+  mobs.forEach(m=>{
+    mx.fillStyle = m.chasing ? '#ff7a00' : '#ffae5c';
+    mx.fillRect(m.x*tw, m.y*th, 3, 3);
+  });
+  // Teleporters (purple)
+  TRAPS.forEach(tr=>{
+    if(tr.type==='teleport'){ mx.fillStyle='#b07bff'; mx.fillRect(tr.x*tw, tr.y*th, 3, 3); }
+  });
 }
 
 // ============================================================
@@ -1419,8 +1616,12 @@ function tryMove(dir) {
   player.step=(player.step+1)%2;
   lastMoveTime=performance.now();
 
-  // Check enemy encounter & NPC interaction
+  // Map mechanisms (spikes / teleporters) react to the new tile first
+  checkTraps();
+
+  // Check encounters & interactions
   checkEnemyEncounter();
+  checkMobEncounter();
   checkNPCProximity();
 }
 
@@ -1641,22 +1842,21 @@ function drawBattleHero() {
   drawHeroSprite(c, 0, 0, cv.width / 16, 'left', battleHeroFrame);
 }
 
-function startBattle(ep) {
-  if(STATE.battles >= STATE.maxBattles) return;
+// Shared battle setup for both story enemies and roaming mobs
+function beginBattle(enemyData, isMob){
   STATE.inBattle = true;
-  STATE.battles++;
-  battleEnemy = {...ep.enemy, currentHp: ep.enemy.hp};
-  ep.defeated = true; // Remove from map
+  currentBattleIsMob = isMob;
+  battleEnemy = {...enemyData, maxHp: enemyData.hp, currentHp: enemyData.hp};
 
-  // Reset battle UI
   const bs = document.getElementById('battleScreen');
   bs.style.display = 'flex';
   document.getElementById('enemyName').textContent = battleEnemy.name;
   document.getElementById('enemySprite').textContent = battleEnemy.sprite;
   updateEnemyHp();
 
+  const tag = isMob ? '🐾 野生的' : '⚔️';
   const log = document.getElementById('battleLog');
-  log.innerHTML = `<div class="battle-log-line log-system">⚔️ ${battleEnemy.name} 出現了！</div>
+  log.innerHTML = `<div class="battle-log-line log-system">${tag} ${battleEnemy.name} 出現了！</div>
 <div class="battle-log-line log-system" style="color:#aaa;font-size:11px">"${battleEnemy.dialogue}"</div>`;
 
   playerTurn = true;
@@ -1674,12 +1874,29 @@ function startBattle(ep) {
   }, 450);
 }
 
+// Story enemy (sequential level)
+function startBattle(ep) {
+  if(STATE.battles >= STATE.maxBattles) return;
+  STATE.battles++;
+  ep.defeated = true; // Remove from map
+  beginBattle(ep.enemy, false);
+}
+
+// Roaming mob — does NOT count toward the 5 levels and does NOT affect the result
+function startMobBattle(mob){
+  if(STATE.inBattle) return;
+  mobs = mobs.filter(m=>m!==mob);   // consume the mob
+  beginBattle({ name:mob.type.name, sprite:mob.type.sprite, hp:mob.type.hp,
+                atk:mob.type.atk, dialogue:mob.type.dialogue, scores:{} }, true);
+}
+
 function playerAction(type) {
   if(!battleActionsEnabled || !playerTurn) return;
   battleActionsEnabled = false;
   setActionsEnabled(false);
 
-  STATE.preferredStyle[type]++;
+  // Only story battles shape the personality result; mob fights are just for fun/EXP
+  if(!currentBattleIsMob) STATE.preferredStyle[type]++;
 
   let dmg=0, spCost=0, msg='';
 
@@ -1757,6 +1974,17 @@ function enemyTurn() {
 }
 
 function battleVictory() {
+  // Roaming mob: EXP + small heal only. No scores, no level count, no result trigger.
+  if(currentBattleIsMob){
+    const expGain=8+Math.floor(Math.random()*8);
+    STATE.player.exp+=expGain;
+    STATE.player.hp=Math.min(STATE.player.maxHp,STATE.player.hp+10);
+    STATE.player.sp=Math.min(STATE.player.maxSp,STATE.player.sp+6);
+    addLog(`🎉 擊退了 ${battleEnemy.name}！獲得 ${expGain} EXP`,'log-system');
+    setTimeout(()=>{ closeBattle(); showNotification(`擊退小怪！+${expGain} EXP`); },1000);
+    return;
+  }
+
   STATE.battlesWon++;
   // Add scores
   Object.keys(battleEnemy.scores).forEach(k=>{
@@ -1790,7 +2018,7 @@ function battleVictory() {
 }
 
 function battleDefeat() {
-  STATE.battlesLost++;
+  if(!currentBattleIsMob) STATE.battlesLost++;  // mob losses don't affect the result
   STATE.player.hp=30;
   addLog('💀 勇者倒下了... 但意志未滅！復活！','log-system');
   setTimeout(()=>{
