@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TOYOTA Quest - 找尋你的夥伴</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+TC:wght@400;700&display=swap');
+
+  :root {
+    --pixel: 4px;
+    --bg: #0a0a1a;
+    --bg2: #111128;
+    --panel: #1a1a3a;
+    --panel2: #12122a;
+    --border: #4a4aff;
+    --border2: #2a2a8a;
+    --gold: #ffd700;
+    --red: #ff4444;
+    --green: #44ff88;
+    --blue: #4488ff;
+    --white: #e8e8ff;
+    --gray: #888899;
+    --toyota-red: #eb0a1e;
+    --toyota-dark: #1a0005;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; image-rendering: pixelated; }
+
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'Noto Sans TC', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* ===== TITLE SCREEN ===== */
+  #titleScreen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(ellipse at center, #1a0020 0%, #0a0010 60%, #000 100%);
+    position: fixed;
+    z-index: 100;
+  }
+
+  .title-logo {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(14px, 3vw, 28px);
+    color: var(--toyota-red);
+    text-shadow: 4px 4px 0 #600, 0 0 30px #ff000055;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+    animation: titlePulse 2s ease-in-out infinite;
+  }
+
+  .title-sub {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(8px, 1.5vw, 12px);
+    color: var(--gold);
+    text-shadow: 2px 2px 0 #660;
+    margin-bottom: 50px;
+    letter-spacing: 2px;
+  }
+
+  .title-car {
+    font-size: 80px;
+    margin-bottom: 30px;
+    animation: carBounce 1s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px var(--toyota-red));
+  }
+
+  .start-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(8px, 1.5vw, 11px);
+    color: var(--white);
+    background: var(--toyota-red);
+    border: 3px solid #ff8888;
+    padding: 14px 28px;
+    cursor: pointer;
+    transition: all 0.1s;
+    animation: blink 1.2s step-end infinite;
+    letter-spacing: 2px;
+  }
+
+  .start-btn:hover {
+    background: #ff2233;
+    transform: scale(1.05);
+    animation: none;
+  }
+
+  @keyframes titlePulse { 0%,100%{opacity:1} 50%{opacity:.85} }
+  @keyframes carBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ===== GAME CONTAINER ===== */
+  #gameContainer {
+    display: none;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  /* ===== TOP HUD ===== */
+  #hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--panel2);
+    border-bottom: 3px solid var(--border2);
+    flex-shrink: 0;
+  }
+
+  .hud-name {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--gold);
+  }
+
+  .hud-stats {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .stat-block { display: flex; align-items: center; gap: 5px; }
+  .stat-label { font-size: 10px; color: var(--gray); }
+  .stat-bar-wrap { width: 70px; height: 10px; background: #222; border: 1px solid #444; }
+  .stat-bar { height: 100%; transition: width 0.3s; }
+  .hp-bar { background: linear-gradient(90deg, var(--green), #22cc66); }
+  .sp-bar { background: linear-gradient(90deg, var(--blue), #22aaff); }
+  .stat-val { font-size: 10px; color: var(--white); min-width: 30px; font-family: 'Press Start 2P', monospace; }
+
+  .hud-lv {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--gold);
+    background: #2a2a00;
+    border: 2px solid var(--gold);
+    padding: 3px 7px;
+  }
+
+  /* ===== MAP AREA ===== */
+  #mapArea {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #0a1a0a;
+  }
+
+  #mapCanvas {
+    position: absolute;
+    top: 0; left: 0;
+    image-rendering: pixelated;
+  }
+
+  /* ===== DIALOG BOX ===== */
+  #dialogBox {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: var(--panel2);
+    border-top: 3px solid var(--border);
+    padding: 14px 18px 14px;
+    display: none;
+    min-height: 100px;
+    z-index: 10;
+  }
+
+  #dialogSpeaker {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+
+  #dialogText {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--white);
+    min-height: 38px;
+  }
+
+  #dialogChoices {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .choice-btn {
+    font-size: 12px;
+    background: #1a1a3a;
+    border: 2px solid var(--border2);
+    color: var(--white);
+    padding: 7px 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.1s;
+  }
+  .choice-btn:hover, .choice-btn.selected {
+    background: var(--border);
+    border-color: var(--border);
+    color: #fff;
+  }
+
+  #dialogNext {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--gray);
+    text-align: right;
+    margin-top: 6px;
+    animation: blink 0.8s step-end infinite;
+  }
+
+  /* ===== BATTLE SCREEN ===== */
+  #battleScreen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: #000;
+    flex-direction: column;
+  }
+
+  #battleBg {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 40px;
+    background: linear-gradient(180deg, #1a0a2a 0%, #0a0a1a 60%, #1a1a00 100%);
+    overflow: hidden;
+  }
+
+  .battle-ground {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: repeating-linear-gradient(90deg, #2a2a1a 0px, #2a2a1a 8px, #221a00 8px, #221a00 16px);
+  }
+
+  /* Enemy side */
+  .enemy-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    z-index: 1;
+  }
+
+  .enemy-name-tag {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--red);
+    background: #1a0000;
+    border: 2px solid var(--red);
+    padding: 4px 8px;
+  }
+
+  .enemy-hp-wrap {
+    width: 140px;
+    height: 12px;
+    background: #222;
+    border: 2px solid #666;
+  }
+
+  .enemy-hp-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red), #ff8844);
+    transition: width 0.5s;
+  }
+
+  .enemy-sprite {
+    font-size: 90px;
+    filter: drop-shadow(0 0 15px rgba(255,68,68,0.5));
+    animation: enemyFloat 2s ease-in-out infinite;
+    margin: 10px 0;
+  }
+
+  @keyframes enemyFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  @keyframes enemyHit { 0%,100%{filter:drop-shadow(0 0 15px rgba(255,68,68,0.5))} 50%{filter:drop-shadow(0 0 30px rgba(255,255,255,1)) brightness(3)} }
+  @keyframes playerHit { 0%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} 100%{transform:translateX(0)} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-5px)} 40%,80%{transform:translateX(5px)} }
+
+  /* Player side */
+  .player-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    z-index: 1;
+  }
+
+  .player-sprite {
+    font-size: 70px;
+    filter: drop-shadow(0 0 12px rgba(68,136,255,0.6));
+  }
+
+  /* Battle Panel */
+  #battlePanel {
+    background: var(--panel2);
+    border-top: 3px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  #battleLog {
+    flex: 1;
+    min-height: 70px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--white);
+    border: 2px solid var(--border2);
+    padding: 8px 12px;
+    background: #0a0a1a;
+    overflow-y: auto;
+  }
+
+  .battle-log-line { margin-bottom: 2px; }
+  .log-player { color: var(--blue); }
+  .log-enemy { color: var(--red); }
+  .log-system { color: var(--gold); }
+
+  #battleActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 200px;
+    flex-shrink: 0;
+  }
+
+  .action-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    background: var(--panel);
+    border: 2px solid var(--border2);
+    color: var(--white);
+    padding: 9px 6px;
+    cursor: pointer;
+    transition: all 0.1s;
+    letter-spacing: 1px;
+  }
+
+  .action-btn:hover:not(:disabled) {
+    background: var(--border);
+    border-color: #8888ff;
+    transform: translateY(-1px);
+  }
+
+  .action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .action-btn.sp-btn { border-color: #224488; color: #88ccff; }
+  .action-btn.sp-btn:hover:not(:disabled) { background: #224488; border-color: var(--blue); }
+
+  /* ===== RESULT SCREEN ===== */
+  #resultScreen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: rgba(0,0,0,0.92);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .result-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(10px, 2vw, 18px);
+    color: var(--gold);
+    text-shadow: 3px 3px 0 #660;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .result-cars {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 24px;
+    max-width: 700px;
+  }
+
+  .car-card {
+    background: var(--panel);
+    border: 3px solid var(--border2);
+    padding: 16px;
+    width: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .car-card.top-pick {
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(255,215,0,0.3);
+  }
+
+  .car-card.top-pick::before {
+    content: '★ 最適合';
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    background: var(--gold);
+    color: #000;
+    padding: 3px 6px;
+    position: absolute;
+    top: 0; right: 0;
+  }
+
+  .car-emoji { font-size: 40px; }
+  .car-name { font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--gold); text-align: center; }
+  .car-score-bar { width: 100%; height: 8px; background: #222; border: 1px solid #444; }
+  .car-score-fill { height: 100%; background: linear-gradient(90deg, var(--toyota-red), #ff8844); transition: width 1s ease; }
+  .car-desc { font-size: 10px; color: var(--gray); text-align: center; line-height: 1.5; }
+
+  .result-profile {
+    background: var(--panel);
+    border: 2px solid var(--border2);
+    padding: 14px 20px;
+    max-width: 500px;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .profile-title { font-family: 'Press Start 2P', monospace; font-size: 9px; color: var(--blue); margin-bottom: 10px; }
+  .profile-text { font-size: 13px; line-height: 1.8; color: var(--white); }
+
+  .result-replay {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    background: var(--toyota-red);
+    border: 3px solid #ff8888;
+    color: #fff;
+    padding: 12px 24px;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: all 0.1s;
+    margin-top: 8px;
+  }
+  .result-replay:hover { background: #ff2233; transform: scale(1.05); }
+
+  /* ===== MAP CONTROLS HINT ===== */
+  #controlsHint {
+    position: absolute;
+    bottom: 8px;
+    right: 10px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: var(--gray);
+    line-height: 1.8;
+    text-align: right;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  /* ===== MINIMAP ===== */
+  #minimap {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 80px;
+    height: 80px;
+    border: 2px solid var(--border2);
+    background: rgba(0,0,0,0.7);
+    z-index: 5;
+  }
+
+  /* ===== NOTIFICATION ===== */
+  #notification {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: #000;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    padding: 8px 16px;
+    z-index: 500;
+    display: none;
+    letter-spacing: 1px;
+    animation: slideDown 0.3s ease;
+  }
+
+  @keyframes slideDown { from{transform:translateX(-50%) translateY(-20px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
+
+  /* ===== PROGRESS TRACKER ===== */
+  #progressTracker {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(0,0,0,0.75);
+    border: 2px solid var(--border2);
+    padding: 6px 10px;
+    z-index: 5;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: var(--gray);
+    line-height: 1.8;
+  }
+
+  .prog-label { color: var(--gold); margin-bottom: 2px; }
+</style>
+</head>
+<body>
+
+<!-- TITLE SCREEN -->
+<div id="titleScreen">
+  <div class="title-car">🚗</div>
+  <div class="title-logo">TOYOTA QUEST</div>
+  <div class="title-sub">找尋你的命運座駕</div>
+  <div style="font-size:12px;color:var(--gray);margin-bottom:40px;text-align:center;line-height:2;max-width:380px">
+    在這片世界裡，每一場冒險都在訴說你的個性。<br>
+    你的戰鬥風格，將決定最適合你的 Toyota 夥伴。
+  </div>
+  <button class="start-btn" onclick="startGame()">▶ 開始冒險</button>
+</div>
+
+<!-- NOTIFICATION -->
+<div id="notification"></div>
+
+<!-- GAME CONTAINER -->
+<div id="gameContainer">
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-name">🧑 勇者</div>
+    <div class="hud-stats">
+      <div class="stat-block">
+        <span class="stat-label">HP</span>
+        <div class="stat-bar-wrap"><div class="stat-bar hp-bar" id="hudHpBar" style="width:100%"></div></div>
+        <span class="stat-val" id="hudHpVal">100</span>
+      </div>
+      <div class="stat-block">
+        <span class="stat-label">SP</span>
+        <div class="stat-bar-wrap"><div class="stat-bar sp-bar" id="hudSpBar" style="width:100%"></div></div>
+        <span class="stat-val" id="hudSpVal">50</span>
+      </div>
+    </div>
+    <div class="hud-lv" id="hudLv">Lv.1</div>
+  </div>
+
+  <!-- MAP AREA -->
+  <div id="mapArea">
+    <canvas id="mapCanvas"></canvas>
+
+    <!-- Minimap -->
+    <canvas id="minimap"></canvas>
+
+    <!-- Progress -->
+    <div id="progressTracker">
+      <div class="prog-label">任務進度</div>
+      <div id="progText">遭遇戰: 0/5</div>
+    </div>
+
+    <!-- Controls hint -->
+    <div id="controlsHint">
+      方向鍵 移動<br>
+      ENTER 互動<br>
+      靠近敵人觸發戰鬥
+    </div>
+
+    <!-- Dialog -->
+    <div id="dialogBox">
+      <div id="dialogSpeaker"></div>
+      <div id="dialogText"></div>
+      <div id="dialogChoices"></div>
+      <div id="dialogNext">▼ 按 ENTER 繼續</div>
+    </div>
+  </div>
+</div>
+
+<!-- BATTLE SCREEN -->
+<div id="battleScreen">
+  <div id="battleBg">
+    <div class="battle-ground"></div>
+    <div class="enemy-area">
+      <div class="enemy-name-tag" id="enemyName">???</div>
+      <div class="enemy-hp-wrap"><div class="enemy-hp-bar" id="enemyHpBar"></div></div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#666" id="enemyHpTxt">HP: 100/100</div>
+      <div class="enemy-sprite" id="enemySprite">👹</div>
+    </div>
+    <div class="player-area">
+      <div class="player-sprite">🧑‍💼</div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:var(--blue);margin-top:4px">勇者</div>
+    </div>
+  </div>
+
+  <div id="battlePanel">
+    <div id="battleLog">
+      <div class="battle-log-line log-system">⚔️ 戰鬥開始！</div>
+    </div>
+    <div id="battleActions">
+      <button class="action-btn" onclick="playerAction('attack')">⚔️ 攻擊</button>
+      <button class="action-btn sp-btn" onclick="playerAction('skill1')" id="btnSkill1">✨ 必殺技<br><span style="color:#556;font-size:6px">SP 15</span></button>
+      <button class="action-btn sp-btn" onclick="playerAction('skill2')" id="btnSkill2">🛡️ 防禦技<br><span style="color:#556;font-size:6px">SP 10</span></button>
+      <button class="action-btn" onclick="playerAction('item')" style="color:#ffcc44;border-color:#443300">🧪 道具</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT SCREEN -->
+<div id="resultScreen">
+  <div class="result-title">⭐ 冒險結束 — 你的命運座駕 ⭐</div>
+  <div id="resultProfile" class="result-profile">
+    <div class="profile-title">🧑 你的冒險者類型</div>
+    <div class="profile-text" id="profileText"></div>
+  </div>
+  <div class="result-cars" id="resultCars"></div>
+  <button class="result-replay" onclick="location.reload()">↺ 重新冒險</button>
+</div>
+
+<script>
+// ============================================================
+// GAME STATE
+// ============================================================
+const STATE = {
+  player: { hp: 100, maxHp: 100, sp: 50, maxSp: 50, lv: 1, exp: 0 },
+  scores: { yaris: 0, corolla: 0, rav4: 0, alphard: 0, prius: 0 },
+  battles: 0,
+  maxBattles: 5,
+  dialogQueue: [],
+  dialogCallback: null,
+  inDialog: false,
+  inBattle: false,
+  battlesWon: 0,
+  battlesLost: 0,
+  totalDamageDealt: 0,
+  totalSkillsUsed: 0,
+  preferredStyle: {attack:0, skill:0, defend:0, item:0}
+};
+
+// ============================================================
+// MAP CONFIG
+// ============================================================
+const TILE = 32;
+const MAP_W = 20, MAP_H = 15;
+
+// Tile types: 0=grass, 1=path, 2=tree, 3=water, 4=town, 5=mountain
+const MAP_DATA = [
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+  [2,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,4,4,0,1,0,1,0,0,0,0,0,5,5,0,0,0,0,2],
+  [2,0,4,4,0,1,0,1,0,0,0,0,0,5,5,0,0,0,0,2],
+  [2,0,0,0,0,1,0,1,0,0,3,3,0,0,0,0,0,0,0,2],
+  [2,0,0,0,0,1,0,1,1,1,3,3,1,1,1,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,3,3,0,0,1,0,0,0,0,2],
+  [2,0,0,2,2,0,0,0,0,0,0,0,0,0,1,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,2],
+  [2,0,0,0,0,0,0,4,4,0,0,0,0,0,1,0,0,0,0,2],
+  [2,0,0,0,0,0,0,4,4,0,0,0,0,1,1,0,0,0,0,2],
+  [2,0,0,0,0,2,0,0,0,0,0,0,0,1,0,0,0,0,0,2],
+  [2,0,0,0,0,2,0,0,0,0,0,0,0,1,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+];
+
+const TILE_COLORS = {
+  0: '#2d5a1b', // grass
+  1: '#8b7355', // path
+  2: '#1a3a0a', // tree (darker)
+  3: '#1a3a6a', // water
+  4: '#5a4a2a', // building
+  5: '#6a6a7a', // mountain
+};
+
+const TILE_PASSABLE = { 0:true,1:true,2:false,3:false,4:false,5:false };
+
+// ============================================================
+// ENEMIES
+// ============================================================
+const ENEMIES = [
+  {
+    id:'e1', name:'堵塞魔王', sprite:'🚧', hp:60, maxHp:60, atk:12, desc:'代表城市通勤壓力',
+    scores:{yaris:5,corolla:3,prius:4},
+    dialogue: '嘿！你以為在城市裡開車很輕鬆？來嘗嘗我的塞車地獄！',
+  },
+  {
+    id:'e2', name:'山路妖精', sprite:'🏔️', hp:50, maxHp:50, atk:10, desc:'代表山路挑戰',
+    scores:{rav4:6,corolla:3},
+    dialogue: '山路彎道可不是鬧著玩的！你敢挑戰嗎？',
+  },
+  {
+    id:'e3', name:'家族巨龍', sprite:'🐉', hp:80, maxHp:80, atk:15, desc:'代表全家出遊需求',
+    scores:{alphard:7,rav4:4},
+    dialogue: '想要帶全家出遊？先打敗我再說！',
+  },
+  {
+    id:'e4', name:'油費幽靈', sprite:'👻', hp:45, maxHp:45, atk:8, desc:'代表油費焦慮',
+    scores:{prius:7,yaris:4},
+    dialogue: '油價一直漲漲漲！你的荷包受得了嗎？',
+  },
+  {
+    id:'e5', name:'科技守衛', sprite:'🤖', hp:70, maxHp:70, atk:13, desc:'代表科技安全需求',
+    scores:{corolla:5,rav4:4,prius:3},
+    dialogue: '現代駕駛需要最先進的安全科技！展示你的實力！',
+  },
+];
+
+// ============================================================
+// NPC DIALOGS
+// ============================================================
+const NPC_DIALOGS = [
+  {
+    id:'n1', sprite:'🏪', x:2, y:2, name:'旅館老闆',
+    lines:['歡迎光臨！這裡是冒險者的出發點。','聽說這片土地上潛藏著各種考驗...','每克服一個挑戰，你就更接近自己真正的座駕！'],
+    choices:null
+  },
+  {
+    id:'n2', sprite:'🏢', x:7, y:9, name:'汽車賢者',
+    lines:['勇者啊，你的戰鬥風格能說明一切。','積極進攻的人，需要靈活的都會座駕。','喜歡謀略的人，則適合安全感滿點的家庭車。'],
+    choices:null
+  }
+];
+
+// ============================================================
+// PLAYER POSITION
+// ============================================================
+let player = { x: 5, y: 5 }; // tile coords
+let canvas, ctx, minimapCanvas, minimapCtx;
+let mapOffX = 0, mapOffY = 0;
+let currentBattleEnemy = null;
+let enemyDefeated = new Set();
+let npcSpoken = new Set();
+let enemyPositions = [];
+
+// ============================================================
+// INIT
+// ============================================================
+function startGame() {
+  document.getElementById('titleScreen').style.display = 'none';
+  document.getElementById('gameContainer').style.display = 'flex';
+
+  canvas = document.getElementById('mapCanvas');
+  ctx = canvas.getContext('2d');
+  minimapCanvas = document.getElementById('minimap');
+  minimapCtx = minimapCanvas.getContext('2d');
+
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  // Place enemies randomly on passable tiles
+  spawnEnemies();
+
+  document.addEventListener('keydown', handleKey);
+  requestAnimationFrame(gameLoop);
+
+  // Show intro dialog
+  setTimeout(() => {
+    showDialog('旅館老闆', ['歡迎勇者！這片大地等著你去探索。','途中你會遭遇各種困難...', '你的應對方式，將決定最適合你的 Toyota 座駕！','準備好了嗎？GO！'], null);
+  }, 500);
+
+  updateHUD();
+}
+
+function resizeCanvas() {
+  const area = document.getElementById('mapArea');
+  canvas.width = area.clientWidth;
+  canvas.height = area.clientHeight;
+  minimapCanvas.width = 80;
+  minimapCanvas.height = 80;
+}
+
+function spawnEnemies() {
+  enemyPositions = [];
+  const positions = [
+    {x:8,y:3},{x:14,y:5},{x:11,y:9},{x:4,y:11},{x:16,y:11}
+  ];
+  ENEMIES.forEach((e,i) => {
+    enemyPositions.push({...positions[i], enemy: e, defeated: false});
+  });
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+let lastTime = 0;
+let tick = 0;
+function gameLoop(ts) {
+  const dt = ts - lastTime;
+  lastTime = ts;
+  tick++;
+  renderMap();
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderMap() {
+  if(!canvas || !ctx) return;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // Center camera on player
+  mapOffX = Math.floor(W/2 - player.x*TILE - TILE/2);
+  mapOffY = Math.floor(H/2 - player.y*TILE - TILE/2);
+
+  // Draw tiles
+  for(let ty=0;ty<MAP_H;ty++){
+    for(let tx=0;tx<MAP_W;tx++){
+      const t = MAP_DATA[ty][tx];
+      const sx = tx*TILE+mapOffX, sy = ty*TILE+mapOffY;
+      if(sx > W || sy > H || sx < -TILE || sy < -TILE) continue;
+
+      ctx.fillStyle = TILE_COLORS[t];
+      ctx.fillRect(sx,sy,TILE,TILE);
+
+      // Tile details
+      if(t===0){ // grass pattern
+        ctx.fillStyle = '#3a6a20';
+        if((tx+ty)%3===0) ctx.fillRect(sx+4,sy+4,4,4);
+        if((tx*ty)%5===0) ctx.fillRect(sx+20,sy+16,4,4);
+      }
+      if(t===1){ // path lines
+        ctx.fillStyle = '#7a6045';
+        ctx.fillRect(sx,sy+14,TILE,4);
+      }
+      if(t===2){ // tree
+        ctx.fillStyle = '#0d2206';
+        ctx.fillRect(sx,sy,TILE,TILE);
+        ctx.fillStyle = '#2a7a10';
+        ctx.beginPath();
+        ctx.arc(sx+TILE/2,sy+TILE/2,12,0,Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#1a5a08';
+        ctx.fillRect(sx+12,sy+20,8,12);
+      }
+      if(t===3){ // water
+        ctx.fillStyle = t===3?'#1e4a8a':'#1a3a6a';
+        ctx.fillRect(sx,sy,TILE,TILE);
+        if(tick%60<30){
+          ctx.fillStyle='rgba(255,255,255,0.15)';
+          ctx.fillRect(sx+4,sy+12,12,2);
+          ctx.fillRect(sx+16,sy+20,10,2);
+        }
+      }
+      if(t===4){ // building
+        ctx.fillStyle='#7a6a3a';
+        ctx.fillRect(sx+2,sy+8,TILE-4,TILE-8);
+        ctx.fillStyle='#5a4a2a';
+        ctx.fillRect(sx,sy+2,TILE,8);
+        ctx.fillStyle='#ffcc44';
+        ctx.fillRect(sx+10,sy+18,12,TILE-18);
+      }
+      if(t===5){ // mountain
+        ctx.fillStyle='#888';
+        ctx.beginPath();
+        ctx.moveTo(sx+TILE/2,sy+4);
+        ctx.lineTo(sx+TILE-4,sy+TILE-4);
+        ctx.lineTo(sx+4,sy+TILE-4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle='#fff';
+        ctx.beginPath();
+        ctx.moveTo(sx+TILE/2,sy+4);
+        ctx.lineTo(sx+TILE/2+6,sy+14);
+        ctx.lineTo(sx+TILE/2-6,sy+14);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Grid lines (subtle)
+      ctx.strokeStyle='rgba(0,0,0,0.1)';
+      ctx.strokeRect(sx,sy,TILE,TILE);
+    }
+  }
+
+  // Draw enemies
+  enemyPositions.forEach(ep => {
+    if(ep.defeated) return;
+    const sx = ep.x*TILE+mapOffX, sy = ep.y*TILE+mapOffY;
+    // Floating animation
+    const float = Math.sin(tick*0.05+ep.x)*3;
+    ctx.font = '22px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(ep.enemy.sprite, sx+TILE/2, sy+TILE/2+float);
+    // Red glow
+    ctx.fillStyle='rgba(255,0,0,0.15)';
+    ctx.beginPath();
+    ctx.ellipse(sx+TILE/2,sy+TILE-4,12,4,0,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // Draw NPCs
+  NPC_DIALOGS.forEach(npc => {
+    const sx = npc.x*TILE+mapOffX, sy = npc.y*TILE+mapOffY;
+    ctx.font = '22px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(npc.sprite, sx+TILE/2, sy+TILE/2);
+    if(!npcSpoken.has(npc.id)){
+      // Bounce "!" above
+      const bounce = Math.sin(tick*0.08)*3;
+      ctx.fillStyle='#ffcc00';
+      ctx.font='bold 14px sans-serif';
+      ctx.fillText('!', sx+TILE/2, sy-4+bounce);
+    }
+  });
+
+  // Draw player
+  const px = player.x*TILE+mapOffX, py = player.y*TILE+mapOffY;
+  ctx.font = '24px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🧑', px+TILE/2, py+TILE/2+2);
+
+  // Player shadow
+  ctx.fillStyle='rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(px+TILE/2,py+TILE-2,10,4,0,0,Math.PI*2);
+  ctx.fill();
+
+  // Draw minimap
+  renderMinimap();
+
+  // Update progress
+  document.getElementById('progText').textContent = `遭遇戰: ${STATE.battles}/${STATE.maxBattles}`;
+}
+
+function renderMinimap() {
+  const mc = minimapCanvas, mx = minimapCtx;
+  mc.width = 80; mc.height = 80;
+  const tw = 80/MAP_W, th = 80/MAP_H;
+  for(let ty=0;ty<MAP_H;ty++){
+    for(let tx=0;tx<MAP_W;tx++){
+      mx.fillStyle = TILE_COLORS[MAP_DATA[ty][tx]];
+      mx.fillRect(tx*tw,ty*th,tw,th);
+    }
+  }
+  // Player dot
+  mx.fillStyle='#fff';
+  mx.fillRect(player.x*tw-1,player.y*th-1,4,4);
+  // Enemies
+  enemyPositions.forEach(ep=>{
+    if(ep.defeated)return;
+    mx.fillStyle='#f44';
+    mx.fillRect(ep.x*tw,ep.y*th,3,3);
+  });
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+function handleKey(e) {
+  if(STATE.inBattle) return;
+
+  if(STATE.inDialog) {
+    if(e.key==='Enter' || e.key===' ') advanceDialog();
+    return;
+  }
+
+  let nx=player.x, ny=player.y;
+  if(e.key==='ArrowUp'||e.key==='w') ny--;
+  else if(e.key==='ArrowDown'||e.key==='s') ny++;
+  else if(e.key==='ArrowLeft'||e.key==='a') nx--;
+  else if(e.key==='ArrowRight'||e.key==='d') nx++;
+  else if(e.key==='Enter') { checkInteraction(); return; }
+  else return;
+
+  e.preventDefault();
+
+  // Boundary & passable check
+  if(ny<0||ny>=MAP_H||nx<0||nx>=MAP_W) return;
+  if(!TILE_PASSABLE[MAP_DATA[ny][nx]]) return;
+
+  player.x=nx; player.y=ny;
+
+  // Check enemy encounter (adjacent)
+  checkEnemyEncounter();
+  // Check NPC interaction
+  checkNPCProximity();
+}
+
+function checkEnemyEncounter() {
+  enemyPositions.forEach(ep => {
+    if(ep.defeated) return;
+    if(Math.abs(ep.x-player.x)<=1 && Math.abs(ep.y-player.y)<=1) {
+      if(ep.x===player.x && ep.y===player.y) {
+        startBattle(ep);
+      }
+    }
+  });
+}
+
+function checkNPCProximity() {
+  NPC_DIALOGS.forEach(npc => {
+    if(npc.x===player.x && npc.y===player.y) {
+      if(!npcSpoken.has(npc.id)){
+        npcSpoken.add(npc.id);
+        showDialog(npc.name, npc.lines, null);
+      }
+    }
+  });
+}
+
+function checkInteraction() {
+  // Check adjacent NPCs
+  NPC_DIALOGS.forEach(npc => {
+    const dx=Math.abs(npc.x-player.x), dy=Math.abs(npc.y-player.y);
+    if(dx<=1&&dy<=1){
+      showDialog(npc.name, npc.lines, null);
+    }
+  });
+}
+
+// ============================================================
+// DIALOG SYSTEM
+// ============================================================
+let dialogLines = [];
+let dialogIdx = 0;
+let dialogTyping = false;
+let typeInterval = null;
+
+function showDialog(speaker, lines, callback) {
+  STATE.inDialog = true;
+  dialogLines = lines;
+  dialogIdx = 0;
+  STATE.dialogCallback = callback;
+
+  const box = document.getElementById('dialogBox');
+  box.style.display = 'block';
+  document.getElementById('dialogSpeaker').textContent = speaker ? `▶ ${speaker}` : '';
+  document.getElementById('dialogChoices').style.display = 'none';
+  document.getElementById('dialogNext').style.display = 'block';
+
+  typeLine(dialogLines[0]);
+}
+
+function typeLine(text) {
+  const el = document.getElementById('dialogText');
+  el.textContent = '';
+  dialogTyping = true;
+  let i=0;
+  clearInterval(typeInterval);
+  typeInterval = setInterval(() => {
+    if(i>=text.length){
+      clearInterval(typeInterval);
+      dialogTyping=false;
+    } else {
+      el.textContent += text[i++];
+    }
+  }, 28);
+}
+
+function advanceDialog() {
+  if(dialogTyping){
+    // Skip typing
+    clearInterval(typeInterval);
+    dialogTyping=false;
+    document.getElementById('dialogText').textContent = dialogLines[dialogIdx];
+    return;
+  }
+  dialogIdx++;
+  if(dialogIdx < dialogLines.length){
+    typeLine(dialogLines[dialogIdx]);
+  } else {
+    closeDialog();
+  }
+}
+
+function closeDialog() {
+  STATE.inDialog = false;
+  document.getElementById('dialogBox').style.display = 'none';
+  if(STATE.dialogCallback) STATE.dialogCallback();
+}
+
+// ============================================================
+// BATTLE SYSTEM
+// ============================================================
+let battleEnemy = null;
+let playerTurn = true;
+let battleActionsEnabled = true;
+
+function startBattle(ep) {
+  if(STATE.battles >= STATE.maxBattles) return;
+  STATE.inBattle = true;
+  STATE.battles++;
+  battleEnemy = {...ep.enemy, currentHp: ep.enemy.hp};
+  ep.defeated = true; // Remove from map
+
+  // Reset battle UI
+  const bs = document.getElementById('battleScreen');
+  bs.style.display = 'flex';
+  document.getElementById('enemyName').textContent = battleEnemy.name;
+  document.getElementById('enemySprite').textContent = battleEnemy.sprite;
+  updateEnemyHp();
+
+  const log = document.getElementById('battleLog');
+  log.innerHTML = `<div class="battle-log-line log-system">⚔️ ${battleEnemy.name} 出現了！</div>
+<div class="battle-log-line log-system" style="color:#aaa;font-size:11px">"${battleEnemy.dialogue}"</div>`;
+
+  playerTurn = true;
+  battleActionsEnabled = true;
+  setActionsEnabled(true);
+  updateHUD();
+}
+
+function playerAction(type) {
+  if(!battleActionsEnabled || !playerTurn) return;
+  battleActionsEnabled = false;
+  setActionsEnabled(false);
+
+  STATE.preferredStyle[type]++;
+
+  let dmg=0, spCost=0, msg='';
+
+  if(type==='attack'){
+    dmg = 15 + Math.floor(Math.random()*10);
+    msg = `⚔️ 勇者發動攻擊！造成 <b style="color:#ffd">${dmg}</b> 點傷害！`;
+  } else if(type==='skill1'){
+    spCost=15;
+    if(STATE.player.sp<spCost){
+      addLog('SP 不足！無法使用必殺技', 'log-system');
+      battleActionsEnabled=true; setActionsEnabled(true); return;
+    }
+    STATE.player.sp=Math.max(0,STATE.player.sp-spCost);
+    dmg = 30 + Math.floor(Math.random()*15);
+    STATE.totalSkillsUsed++;
+    msg = `✨ 勇者使出必殺技！爆發性攻擊造成 <b style="color:#ffd">${dmg}</b> 點傷害！`;
+  } else if(type==='skill2'){
+    spCost=10;
+    if(STATE.player.sp<spCost){
+      addLog('SP 不足！', 'log-system');
+      battleActionsEnabled=true; setActionsEnabled(true); return;
+    }
+    STATE.player.sp=Math.max(0,STATE.player.sp-spCost);
+    const heal = 20+Math.floor(Math.random()*10);
+    STATE.player.hp=Math.min(STATE.player.maxHp, STATE.player.hp+heal);
+    dmg=8+Math.floor(Math.random()*5);
+    msg = `🛡️ 防禦反擊！回復 ${heal} HP，反傷 ${dmg} 點！`;
+  } else if(type==='item'){
+    const heal=30;
+    STATE.player.hp=Math.min(STATE.player.maxHp,STATE.player.hp+heal);
+    STATE.player.sp=Math.min(STATE.player.maxSp,STATE.player.sp+15);
+    msg=`🧪 使用道具！回復 ${heal} HP 和 15 SP！`;
+    dmg=0;
+  }
+
+  STATE.totalDamageDealt+=dmg;
+  battleEnemy.currentHp=Math.max(0,battleEnemy.currentHp-dmg);
+  updateEnemyHp();
+  addLog(msg,'log-player');
+  updateHUD();
+
+  // Animate
+  const es = document.getElementById('enemySprite');
+  if(dmg>0){
+    es.style.animation='none';
+    setTimeout(()=>{es.style.animation='enemyHit 0.4s ease, enemyFloat 2s ease-in-out 0.4s infinite';},10);
+  }
+
+  setTimeout(()=>{
+    if(battleEnemy.currentHp<=0){
+      battleVictory();
+    } else {
+      enemyTurn();
+    }
+  }, 700);
+}
+
+function enemyTurn() {
+  const dmg = battleEnemy.atk + Math.floor(Math.random()*8) - 3;
+  const finalDmg = Math.max(2,dmg);
+  STATE.player.hp=Math.max(0,STATE.player.hp-finalDmg);
+  addLog(`💥 ${battleEnemy.name} 攻擊！勇者受到 <b style="color:#f88">${finalDmg}</b> 點傷害！`,'log-enemy');
+  updateHUD();
+
+  setTimeout(()=>{
+    if(STATE.player.hp<=0){
+      battleDefeat();
+    } else {
+      playerTurn=true;
+      battleActionsEnabled=true;
+      setActionsEnabled(true);
+      addLog('---你的回合---','log-system');
+    }
+  },600);
+}
+
+function battleVictory() {
+  STATE.battlesWon++;
+  // Add scores
+  Object.keys(battleEnemy.scores).forEach(k=>{
+    STATE.scores[k]=(STATE.scores[k]||0)+battleEnemy.scores[k];
+  });
+  const expGain=20+STATE.battles*5;
+  STATE.player.exp+=expGain;
+  // Level up check
+  if(STATE.player.exp>=STATE.player.lv*50){
+    STATE.player.lv++;
+    STATE.player.maxHp+=10;
+    STATE.player.maxSp+=5;
+    STATE.player.hp=STATE.player.maxHp;
+    STATE.player.sp=STATE.player.maxSp;
+    showNotification(`⬆️ 升等！LV ${STATE.player.lv}`);
+  } else {
+    // Partial recover
+    STATE.player.hp=Math.min(STATE.player.maxHp,STATE.player.hp+20);
+    STATE.player.sp=Math.min(STATE.player.maxSp,STATE.player.sp+10);
+  }
+  addLog(`🎉 勝利！獲得 ${expGain} EXP！`,'log-system');
+
+  setTimeout(()=>{
+    closeBattle();
+    if(STATE.battles>=STATE.maxBattles){
+      setTimeout(showResult, 800);
+    } else {
+      showNotification(`勝利！還有 ${STATE.maxBattles-STATE.battles} 場冒險等著你！`);
+    }
+  },1200);
+}
+
+function battleDefeat() {
+  STATE.battlesLost++;
+  STATE.player.hp=30;
+  addLog('💀 勇者倒下了... 但意志未滅！復活！','log-system');
+  setTimeout(()=>{
+    closeBattle();
+    showNotification('雖然敗北，但你學到了寶貴的一課！');
+  },1500);
+}
+
+function closeBattle() {
+  STATE.inBattle=false;
+  document.getElementById('battleScreen').style.display='none';
+  updateHUD();
+}
+
+function updateEnemyHp() {
+  const pct=battleEnemy.currentHp/battleEnemy.maxHp*100;
+  document.getElementById('enemyHpBar').style.width=pct+'%';
+  document.getElementById('enemyHpTxt').textContent=`HP: ${battleEnemy.currentHp}/${battleEnemy.maxHp}`;
+}
+
+function addLog(html,cls=''){
+  const log=document.getElementById('battleLog');
+  const div=document.createElement('div');
+  div.className='battle-log-line '+(cls||'');
+  div.innerHTML=html;
+  log.appendChild(div);
+  log.scrollTop=log.scrollHeight;
+}
+
+function setActionsEnabled(on){
+  document.querySelectorAll('.action-btn').forEach(b=>b.disabled=!on);
+}
+
+// ============================================================
+// HUD UPDATE
+// ============================================================
+function updateHUD(){
+  const p=STATE.player;
+  document.getElementById('hudHpBar').style.width=(p.hp/p.maxHp*100)+'%';
+  document.getElementById('hudSpBar').style.width=(p.sp/p.maxSp*100)+'%';
+  document.getElementById('hudHpVal').textContent=p.hp;
+  document.getElementById('hudSpVal').textContent=p.sp;
+  document.getElementById('hudLv').textContent='Lv.'+p.lv;
+}
+
+// ============================================================
+// NOTIFICATION
+// ============================================================
+function showNotification(msg){
+  const el=document.getElementById('notification');
+  el.textContent=msg;
+  el.style.display='block';
+  setTimeout(()=>el.style.display='none',2500);
+}
+
+// ============================================================
+// RESULT SCREEN
+// ============================================================
+const CAR_INFO = {
+  yaris: { name:'Yaris Cross', emoji:'🚗', desc:'靈活、省油、城市通勤首選。適合獨立都市族。' },
+  corolla: { name:'Corolla Cross', emoji:'🚙', desc:'科技感十足、安全配備完整。理性型駕駛的最愛。' },
+  rav4: { name:'RAV4', emoji:'🛻', desc:'越野實力強、多功能。喜歡探索的冒險家首選。' },
+  alphard: { name:'Alphard', emoji:'🚐', desc:'頂級豪華、寬敞舒適。重視家人的溫柔守護者。' },
+  prius: { name:'Prius', emoji:'🔋', desc:'節能環保、科技感強。有責任感的理想主義者。' },
+};
+
+function showResult(){
+  // Factor in battle style
+  const style=STATE.preferredStyle;
+  if(style.attack>style.skill&&style.attack>style.defend) STATE.scores.yaris+=5;
+  if(style.skill>style.attack) { STATE.scores.corolla+=4; STATE.scores.rav4+=3; }
+  if(style.defend>style.attack) { STATE.scores.alphard+=5; STATE.scores.prius+=3; }
+  if(style.item>2) STATE.scores.prius+=3;
+  if(STATE.battlesWon>=4) { STATE.scores.rav4+=4; }
+  if(STATE.battlesLost>=2) { STATE.scores.prius+=3; }
+
+  // Sort cars
+  const sorted=Object.entries(STATE.scores).sort((a,b)=>b[1]-a[1]);
+  const maxScore=sorted[0][1]||1;
+
+  // Profile text
+  const topCar=sorted[0][0];
+  const profiles={
+    yaris:'你是行動派！城市叢林中的靈活獵手。你習慣直覺行事，反應迅速。',
+    corolla:'你是策略家！做事謹慎、重視細節，科技與安全對你很重要。',
+    rav4:'你是冒險者！不怕挑戰，充滿探索精神，喜歡突破極限。',
+    alphard:'你是守護者！最重視身邊的人，寧可犧牲自己也要保護家人。',
+    prius:'你是智者！具有長遠眼光，關心環境與未來，理性又有責任感。',
+  };
+
+  document.getElementById('profileText').textContent=profiles[topCar]||'';
+
+  // Cars ranking
+  const carsEl=document.getElementById('resultCars');
+  carsEl.innerHTML='';
+  sorted.slice(0,4).forEach((entry,i)=>{
+    const [key,score]=entry;
+    const info=CAR_INFO[key];
+    const pct=Math.round(score/maxScore*100);
+    const card=document.createElement('div');
+    card.className='car-card'+(i===0?' top-pick':'');
+    card.innerHTML=`
+      <div class="car-emoji">${info.emoji}</div>
+      <div class="car-name">${info.name}</div>
+      <div class="car-score-bar"><div class="car-score-fill" style="width:0%" data-pct="${pct}"></div></div>
+      <div class="car-desc">${info.desc}</div>
+    `;
+    carsEl.appendChild(card);
+  });
+
+  document.getElementById('resultScreen').style.display='flex';
+
+  // Animate bars
+  setTimeout(()=>{
+    document.querySelectorAll('.car-score-fill').forEach(el=>{
+      el.style.width=el.dataset.pct+'%';
+    });
+  },200);
+}
+</script>
+</body>
+</html>
