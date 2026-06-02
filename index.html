@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>TOYOTA Quest - 找尋你的夥伴</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+TC:wght@400;700&display=swap');
@@ -525,6 +525,97 @@
   }
 
   .prog-label { color: var(--gold); margin-bottom: 2px; }
+
+  /* ===== TOUCH CONTROLS ===== */
+  button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+  #touchControls {
+    display: none;
+    position: absolute;
+    bottom: 14px; left: 0; right: 0;
+    z-index: 8;
+    pointer-events: none;
+    padding: 0 18px;
+    justify-content: space-between;
+    align-items: flex-end;
+    user-select: none;
+  }
+  body.touch #touchControls { display: flex; }
+
+  #dpad {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    pointer-events: none;
+  }
+
+  .dbtn {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: rgba(26,26,58,0.78);
+    border: 2px solid var(--border2);
+    color: var(--white);
+    font-size: 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.08s;
+  }
+  .dbtn:active { background: var(--border); }
+  .dbtn.up    { top: 0;    left: 50px; }
+  .dbtn.left  { top: 50px; left: 0; }
+  .dbtn.right { top: 50px; left: 100px; }
+  .dbtn.down  { top: 100px;left: 50px; }
+
+  #btnInteract {
+    pointer-events: auto;
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: rgba(235,10,30,0.82);
+    border: 3px solid #ff8888;
+    color: #fff;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    cursor: pointer;
+    letter-spacing: 1px;
+  }
+  #btnInteract:active { background: #ff2233; }
+
+  body.touch #controlsHint { display: none; }
+
+  /* ===== RESPONSIVE: small screens / phones ===== */
+  @media (max-width: 600px) {
+    #battlePanel { flex-direction: column-reverse; padding: 10px 12px; }
+    #battleActions { width: 100%; grid-template-columns: 1fr 1fr; }
+    .action-btn { font-size: 8px; padding: 12px 6px; }
+    #battleLog { width: 100%; min-height: 56px; font-size: 12px; }
+    #battleBg { padding: 12px 14px; }
+    .enemy-sprite { font-size: 60px; }
+    #battleHeroCanvas { width: 64px; height: 64px; }
+    .enemy-hp-wrap { width: 110px; }
+    .hud-stats { gap: 10px; }
+    .stat-bar-wrap { width: 52px; }
+    #minimap { width: 64px; height: 64px; }
+  }
+
+  @media (max-height: 520px) {
+    #touchControls { bottom: 6px; }
+    #dpad { width: 126px; height: 126px; }
+    .dbtn { width: 42px; height: 42px; }
+    .dbtn.up{left:42px} .dbtn.left{top:42px} .dbtn.right{top:42px;left:84px} .dbtn.down{top:84px;left:42px}
+    #btnInteract { width: 64px; height: 64px; }
+  }
+
+  #battleHeroCanvas {
+    width: 84px; height: 84px;
+    filter: drop-shadow(0 0 12px rgba(68,136,255,0.6));
+    image-rendering: pixelated;
+  }
 </style>
 </head>
 <body>
@@ -584,6 +675,17 @@
       靠近敵人觸發戰鬥
     </div>
 
+    <!-- Touch controls (phones) -->
+    <div id="touchControls">
+      <div id="dpad">
+        <button class="dbtn up"    data-dir="up"    aria-label="上">▲</button>
+        <button class="dbtn left"  data-dir="left"  aria-label="左">◀</button>
+        <button class="dbtn right" data-dir="right" aria-label="右">▶</button>
+        <button class="dbtn down"  data-dir="down"  aria-label="下">▼</button>
+      </div>
+      <button id="btnInteract" aria-label="互動">互動<br>/確定</button>
+    </div>
+
     <!-- Dialog -->
     <div id="dialogBox">
       <div id="dialogSpeaker"></div>
@@ -605,7 +707,7 @@
       <div class="enemy-sprite" id="enemySprite">👹</div>
     </div>
     <div class="player-area">
-      <div class="player-sprite">🧑‍💼</div>
+      <canvas id="battleHeroCanvas" width="84" height="84" class="player-sprite"></canvas>
       <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:var(--blue);margin-top:4px">勇者</div>
     </div>
   </div>
@@ -740,13 +842,14 @@ const NPC_DIALOGS = [
 // ============================================================
 // PLAYER POSITION
 // ============================================================
-let player = { x: 5, y: 5 }; // tile coords
+let player = { x: 5, y: 5, dir: 'down', step: 0 }; // tile coords + facing + walk frame
 let canvas, ctx, minimapCanvas, minimapCtx;
 let mapOffX = 0, mapOffY = 0;
 let currentBattleEnemy = null;
 let enemyDefeated = new Set();
 let npcSpoken = new Set();
 let enemyPositions = [];
+let lastMoveTime = -9999;
 
 // ============================================================
 // INIT
@@ -767,6 +870,7 @@ function startGame() {
   spawnEnemies();
 
   document.addEventListener('keydown', handleKey);
+  setupTouchControls();
   requestAnimationFrame(gameLoop);
 
   // Show intro dialog
@@ -921,17 +1025,20 @@ function renderMap() {
     }
   });
 
-  // Draw player
+  // Draw player (pixel-art hero)
   const px = player.x*TILE+mapOffX, py = player.y*TILE+mapOffY;
-  ctx.font = '24px serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('🧑', px+TILE/2, py+TILE/2+2);
 
-  // Player shadow
+  // Player shadow (under feet)
   ctx.fillStyle='rgba(0,0,0,0.3)';
   ctx.beginPath();
-  ctx.ellipse(px+TILE/2,py+TILE-2,10,4,0,0,Math.PI*2);
+  ctx.ellipse(px+TILE/2,py+TILE-3,10,4,0,0,Math.PI*2);
   ctx.fill();
+
+  // Idle breathing / walk bob
+  const moving = (performance.now()-lastMoveTime) < 220;
+  const frame = moving ? (player.step % 2) : 0;
+  const bob = moving ? 0 : (Math.sin(tick*0.06) > 0 ? 0 : 1);
+  drawHeroSprite(ctx, px, py - bob, TILE/16, player.dir, frame);
 
   // Draw minimap
   renderMinimap();
@@ -962,6 +1069,117 @@ function renderMinimap() {
 }
 
 // ============================================================
+// HERO SPRITE (pixel art, drawn on canvas)
+// ============================================================
+const HERO = {
+  hair:'#4a2f17', hairLt:'#6b4423',
+  skin:'#f6c79f', skinSh:'#d99c72',
+  tunic:'#eb0a1e', tunicSh:'#a30012', tunicLt:'#ff5a66',
+  collar:'#ffe6ad',
+  belt:'#33220f', buckle:'#ffd700',
+  pants:'#2b3f6b', pantsSh:'#1d2c4e',
+  boots:'#241a12',
+  eye:'#23203a'
+};
+
+// Returns array of pixel rects {x,y,w,h,c} on a 16x16 grid for the given
+// direction. 'left' is rendered by mirroring the 'right' design.
+function heroRects(dir, frame) {
+  const H = HERO;
+  const r = [];
+  const f = frame ? 1 : 0; // walk frame 0/1
+
+  if (dir === 'up') {
+    // Back of head + body
+    r.push({x:5,y:1,w:6,h:1,c:H.hair});
+    r.push({x:4,y:2,w:8,h:5,c:H.hair});
+    r.push({x:5,y:2,w:6,h:1,c:H.hairLt});
+    // neck
+    r.push({x:6,y:7,w:4,h:1,c:H.skinSh});
+  } else if (dir === 'left' || dir === 'right') {
+    // Profile (designed facing right; mirrored for left)
+    r.push({x:5,y:1,w:5,h:1,c:H.hair});
+    r.push({x:4,y:2,w:6,h:2,c:H.hair});
+    r.push({x:4,y:4,w:2,h:2,c:H.hair});           // back hair
+    r.push({x:6,y:4,w:4,h:3,c:H.skin});           // face
+    r.push({x:10,y:5,w:1,h:1,c:H.skin});          // nose
+    r.push({x:6,y:4,w:1,h:1,c:H.hair});           // fringe
+    r.push({x:8,y:5,w:1,h:1,c:H.eye});            // eye
+    r.push({x:7,y:6,w:2,h:1,c:H.skinSh});         // jaw shade
+  } else { // down (default)
+    r.push({x:5,y:1,w:6,h:1,c:H.hair});
+    r.push({x:4,y:2,w:8,h:2,c:H.hair});
+    r.push({x:5,y:2,w:6,h:1,c:H.hairLt});         // hair shine
+    r.push({x:5,y:4,w:6,h:3,c:H.skin});           // face
+    r.push({x:4,y:4,w:1,h:2,c:H.hair});           // L sideburn
+    r.push({x:11,y:4,w:1,h:2,c:H.hair});          // R sideburn
+    r.push({x:5,y:4,w:6,h:1,c:H.hair});           // bangs
+    r.push({x:6,y:5,w:1,h:1,c:H.eye});            // L eye
+    r.push({x:9,y:5,w:1,h:1,c:H.eye});            // R eye
+    r.push({x:5,y:6,w:1,h:1,c:H.skinSh});         // cheek
+    r.push({x:10,y:6,w:1,h:1,c:H.skinSh});        // cheek
+    r.push({x:7,y:6,w:2,h:1,c:H.skinSh});         // mouth
+  }
+
+  if (dir === 'left' || dir === 'right') {
+    // Body (profile) – slimmer
+    r.push({x:6,y:7,w:1,h:1,c:H.skinSh});         // neck
+    r.push({x:5,y:8,w:6,h:4,c:H.tunic});
+    r.push({x:5,y:8,w:1,h:4,c:H.tunicSh});
+    r.push({x:9,y:8,w:1,h:1,c:H.tunicLt});
+    // swinging arm + hand
+    const armX = f ? 9 : 6;
+    r.push({x:armX,y:9,w:1,h:2,c:H.tunicSh});
+    r.push({x:armX,y:11,w:1,h:1,c:H.skin});
+    r.push({x:5,y:12,w:6,h:1,c:H.belt});
+    r.push({x:7,y:12,w:1,h:1,c:H.buckle});
+    r.push({x:6,y:13,w:5,h:2,c:H.pants});
+    r.push({x:6,y:13,w:1,h:2,c:H.pantsSh});
+    // legs stride
+    if (f) { r.push({x:8,y:15,w:3,h:1,c:H.boots}); r.push({x:5,y:15,w:2,h:1,c:H.boots}); }
+    else   { r.push({x:6,y:15,w:3,h:1,c:H.boots}); r.push({x:9,y:15,w:2,h:1,c:H.boots}); }
+  } else {
+    // Body (front/back)
+    r.push({x:6,y:7,w:4,h:1,c:H.collar});         // collar
+    r.push({x:4,y:8,w:8,h:1,c:H.tunic});          // shoulders
+    r.push({x:4,y:9,w:8,h:3,c:H.tunic});          // torso
+    r.push({x:4,y:8,w:1,h:4,c:H.tunicSh});        // L shade
+    r.push({x:11,y:8,w:1,h:4,c:H.tunicSh});       // R shade
+    r.push({x:5,y:8,w:1,h:1,c:H.tunicLt});        // highlight
+    // hands at sides
+    r.push({x:3,y:10,w:1,h:2,c:H.skin});
+    r.push({x:12,y:10,w:1,h:2,c:H.skin});
+    // belt
+    r.push({x:4,y:12,w:8,h:1,c:H.belt});
+    r.push({x:7,y:12,w:2,h:1,c:H.buckle});
+    // pants
+    r.push({x:5,y:13,w:6,h:2,c:H.pants});
+    r.push({x:5,y:13,w:1,h:2,c:H.pantsSh});
+    // boots with walk stride
+    if (f) { r.push({x:5,y:14,w:2,h:2,c:H.boots}); r.push({x:9,y:15,w:2,h:1,c:H.boots}); }
+    else   { r.push({x:5,y:15,w:2,h:1,c:H.boots}); r.push({x:9,y:14,w:2,h:2,c:H.boots}); }
+  }
+  return r;
+}
+
+function drawHeroSprite(c, ox, oy, P, dir, frame) {
+  const rects = heroRects(dir, frame);
+  const mirror = (dir === 'left');
+  c.save();
+  rects.forEach(rc => {
+    const gx = mirror ? (16 - rc.x - rc.w) : rc.x;
+    c.fillStyle = rc.c;
+    c.fillRect(
+      Math.round(ox + gx * P),
+      Math.round(oy + rc.y * P),
+      Math.ceil(rc.w * P),
+      Math.ceil(rc.h * P)
+    );
+  });
+  c.restore();
+}
+
+// ============================================================
 // INPUT
 // ============================================================
 function handleKey(e) {
@@ -972,26 +1190,50 @@ function handleKey(e) {
     return;
   }
 
-  let nx=player.x, ny=player.y;
-  if(e.key==='ArrowUp'||e.key==='w') ny--;
-  else if(e.key==='ArrowDown'||e.key==='s') ny++;
-  else if(e.key==='ArrowLeft'||e.key==='a') nx--;
-  else if(e.key==='ArrowRight'||e.key==='d') nx++;
-  else if(e.key==='Enter') { checkInteraction(); return; }
+  let dir=null;
+  if(e.key==='ArrowUp'||e.key==='w'||e.key==='W') dir='up';
+  else if(e.key==='ArrowDown'||e.key==='s'||e.key==='S') dir='down';
+  else if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') dir='left';
+  else if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') dir='right';
+  else if(e.key==='Enter'||e.key===' ') { e.preventDefault(); doInteract(); return; }
   else return;
 
   e.preventDefault();
+  tryMove(dir);
+}
+
+// Move the hero one tile in a direction. Used by keyboard AND touch controls.
+function tryMove(dir) {
+  if(STATE.inBattle) return;
+  if(STATE.inDialog) { advanceDialog(); return; }
+
+  // Always turn to face the chosen direction (even if blocked)
+  player.dir = dir;
+
+  let nx=player.x, ny=player.y;
+  if(dir==='up') ny--;
+  else if(dir==='down') ny++;
+  else if(dir==='left') nx--;
+  else if(dir==='right') nx++;
 
   // Boundary & passable check
   if(ny<0||ny>=MAP_H||nx<0||nx>=MAP_W) return;
   if(!TILE_PASSABLE[MAP_DATA[ny][nx]]) return;
 
   player.x=nx; player.y=ny;
+  player.step=(player.step+1)%2;
+  lastMoveTime=performance.now();
 
-  // Check enemy encounter (adjacent)
+  // Check enemy encounter & NPC interaction
   checkEnemyEncounter();
-  // Check NPC interaction
   checkNPCProximity();
+}
+
+// Unified interact / confirm. Used by keyboard ENTER and the touch button.
+function doInteract() {
+  if(STATE.inBattle) return;
+  if(STATE.inDialog) { advanceDialog(); return; }
+  checkInteraction();
 }
 
 function checkEnemyEncounter() {
@@ -1024,6 +1266,53 @@ function checkInteraction() {
       showDialog(npc.name, npc.lines, null);
     }
   });
+}
+
+// ============================================================
+// TOUCH CONTROLS (mobile)
+// ============================================================
+function setupTouchControls() {
+  // Detect touch-capable device and reveal on-screen controls
+  const isTouch = ('ontouchstart' in window) ||
+                  (navigator.maxTouchPoints > 0) ||
+                  window.matchMedia('(pointer: coarse)').matches;
+  if (isTouch) document.body.classList.add('touch');
+
+  // D-pad buttons: tap to step, hold to repeat
+  document.querySelectorAll('.dbtn').forEach(btn => {
+    const dir = btn.dataset.dir;
+    let repeat = null;
+    const press = (ev) => {
+      ev.preventDefault();
+      tryMove(dir);
+      clearInterval(repeat);
+      repeat = setInterval(() => tryMove(dir), 170);
+    };
+    const release = (ev) => { if(ev) ev.preventDefault(); clearInterval(repeat); repeat=null; };
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointerleave', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('contextmenu', e => e.preventDefault());
+  });
+
+  // Interact / confirm button
+  const ib = document.getElementById('btnInteract');
+  if (ib) {
+    ib.addEventListener('pointerdown', (e) => { e.preventDefault(); doInteract(); });
+    ib.addEventListener('contextmenu', e => e.preventDefault());
+  }
+
+  // Tapping the dialog box advances it (mobile-friendly)
+  const dbox = document.getElementById('dialogBox');
+  if (dbox) dbox.addEventListener('pointerdown', (e) => {
+    if (STATE.inDialog) { e.preventDefault(); advanceDialog(); }
+  });
+
+  // Block pinch / double-tap zoom and rubber-band scroll inside the game
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
 }
 
 // ============================================================
@@ -1093,6 +1382,17 @@ function closeDialog() {
 let battleEnemy = null;
 let playerTurn = true;
 let battleActionsEnabled = true;
+let battleHeroFrame = 0;
+let battleHeroTimer = null;
+
+function drawBattleHero() {
+  const cv = document.getElementById('battleHeroCanvas');
+  if (!cv) return;
+  const c = cv.getContext('2d');
+  c.clearRect(0, 0, cv.width, cv.height);
+  // Hero faces left toward the enemy; gentle idle step animation
+  drawHeroSprite(c, 0, 0, cv.width / 16, 'left', battleHeroFrame);
+}
 
 function startBattle(ep) {
   if(STATE.battles >= STATE.maxBattles) return;
@@ -1116,6 +1416,15 @@ function startBattle(ep) {
   battleActionsEnabled = true;
   setActionsEnabled(true);
   updateHUD();
+
+  // Start hero idle animation
+  battleHeroFrame = 0;
+  drawBattleHero();
+  clearInterval(battleHeroTimer);
+  battleHeroTimer = setInterval(() => {
+    battleHeroFrame = battleHeroFrame ? 0 : 1;
+    drawBattleHero();
+  }, 450);
 }
 
 function playerAction(type) {
@@ -1245,6 +1554,8 @@ function battleDefeat() {
 
 function closeBattle() {
   STATE.inBattle=false;
+  clearInterval(battleHeroTimer);
+  battleHeroTimer=null;
   document.getElementById('battleScreen').style.display='none';
   updateHUD();
 }
