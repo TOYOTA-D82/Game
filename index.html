@@ -719,8 +719,8 @@
     <!-- Controls hint -->
     <div id="controlsHint">
       方向鍵 移動<br>
-      ENTER 互動<br>
-      靠近敵人觸發戰鬥
+      踩上金色目標開戰<br>
+      路過 NPC 自動對話
     </div>
 
     <!-- Touch controls (phones) -->
@@ -889,12 +889,12 @@ const ENEMIES = [
 const NPC_DIALOGS = [
   {
     id:'n1', sprite:'🏪', x:2, y:2, name:'旅館老闆',
-    lines:['歡迎光臨！這裡是冒險者的出發點。','聽說這片土地上潛藏著各種考驗...','每克服一個挑戰，你就更接近自己真正的座駕！'],
+    lines:['歡迎光臨！這裡是冒險者的出發點。','這片土地有五道試煉，必須「依序」面對。','跟著金色箭頭走，先打倒最近的①號對手吧！'],
     choices:null
   },
   {
     id:'n2', sprite:'🏢', x:7, y:9, name:'汽車賢者',
-    lines:['勇者啊，你的戰鬥風格能說明一切。','積極進攻的人，需要靈活的都會座駕。','喜歡謀略的人，則適合安全感滿點的家庭車。'],
+    lines:['勇者啊，你的戰鬥風格能說明一切。','記住：下一道試煉要打贏前一道才會解鎖。','積極進攻的人適合靈活都會座駕；','喜歡謀略防守的人，則適合安全感滿點的家庭車。'],
     choices:null
   }
 ];
@@ -1055,21 +1055,18 @@ function renderMap() {
     }
   }
 
-  // Find nearest remaining enemy = recommended next target
-  nearestEnemy=null; let nearestD=Infinity;
-  enemyPositions.forEach(ep=>{
-    if(ep.defeated) return;
-    const d=Math.abs(ep.x-player.x)+Math.abs(ep.y-player.y);
-    if(d<nearestD){ nearestD=d; nearestEnemy=ep; }
-  });
+  // Active target = first undefeated enemy in sequence (sequential levels)
+  nearestEnemy = getActiveEnemy();
+  const LV_NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧'];
 
-  // Draw enemies (with name labels + target highlight)
-  enemyPositions.forEach(ep => {
+  // Draw enemies (numbered, sequential: only the active one is challengeable)
+  enemyPositions.forEach((ep, idx) => {
     if(ep.defeated) return;
     const sx = ep.x*TILE+mapOffX, sy = ep.y*TILE+mapOffY;
     const isTarget = (ep===nearestEnemy);
+    const locked = !isTarget; // remaining non-active enemies are locked
 
-    // Pulsing ring around the recommended target
+    // Pulsing ring around the active target
     if(isTarget){
       const pulse = 13 + Math.sin(tick*0.12)*3;
       ctx.strokeStyle='rgba(255,215,0,'+(0.55+Math.sin(tick*0.12)*0.3)+')';
@@ -1079,28 +1076,38 @@ function renderMap() {
       ctx.stroke();
     }
 
-    // Floating sprite
+    // Floating sprite (locked enemies dimmed)
     const float = Math.sin(tick*0.05+ep.x)*3;
+    ctx.save();
+    if(locked) ctx.globalAlpha = 0.4;
     ctx.font = '22px serif';
     ctx.textAlign = 'center';
     ctx.fillText(ep.enemy.sprite, sx+TILE/2, sy+TILE/2+float);
-    // Red glow
-    ctx.fillStyle='rgba(255,0,0,0.15)';
-    ctx.beginPath();
-    ctx.ellipse(sx+TILE/2,sy+TILE-4,12,4,0,0,Math.PI*2);
-    ctx.fill();
+    ctx.restore();
+    // Glow only for active
+    if(isTarget){
+      ctx.fillStyle='rgba(255,0,0,0.15)';
+      ctx.beginPath();
+      ctx.ellipse(sx+TILE/2,sy+TILE-4,12,4,0,0,Math.PI*2);
+      ctx.fill();
+    }
+    // Lock badge on locked enemies
+    if(locked){
+      ctx.font = '13px serif';
+      ctx.fillText('🔒', sx+TILE/2+9, sy+TILE/2-8);
+    }
 
-    // Name label above the enemy (so you know what it represents)
-    const label = ep.enemy.name;
+    // Numbered name label above the enemy
+    const label = LV_NUMS[idx] + ep.enemy.name;
     ctx.font = 'bold 9px "Noto Sans TC", sans-serif';
     const lw = ctx.measureText(label).width + 8;
     const lx = sx+TILE/2, ly = sy - 6;
-    ctx.fillStyle = isTarget ? 'rgba(90,68,0,0.92)' : 'rgba(0,0,0,0.7)';
+    ctx.fillStyle = isTarget ? 'rgba(90,68,0,0.92)' : 'rgba(0,0,0,0.6)';
     ctx.fillRect(lx-lw/2, ly-10, lw, 13);
-    ctx.strokeStyle = isTarget ? '#ffd700' : 'rgba(255,90,90,0.55)';
+    ctx.strokeStyle = isTarget ? '#ffd700' : 'rgba(120,120,140,0.5)';
     ctx.lineWidth=1;
     ctx.strokeRect(lx-lw/2, ly-10, lw, 13);
-    ctx.fillStyle = isTarget ? '#ffe680' : '#ff9d9d';
+    ctx.fillStyle = isTarget ? '#ffe680' : '#8890a0';
     ctx.fillText(label, lx, ly);
   });
 
@@ -1153,16 +1160,17 @@ function renderMap() {
   renderMinimap();
 
   // Update progress + next-target guidance
-  document.getElementById('progText').textContent = `遭遇戰: ${STATE.battles}/${STATE.maxBattles}`;
+  document.getElementById('progText').textContent = `關卡進度: ${STATE.battles}/${STATE.maxBattles}`;
   const pt=document.getElementById('progTarget');
   const ptd=document.getElementById('progTargetDesc');
   if(pt && ptd){
     if(nearestEnemy){
-      pt.textContent = `下一目標：${nearestEnemy.enemy.name}`;
-      ptd.textContent = nearestEnemy.enemy.desc;
+      const lvNo = enemyPositions.indexOf(nearestEnemy)+1;
+      pt.textContent = `關卡 ${lvNo}：${nearestEnemy.enemy.name}`;
+      ptd.textContent = nearestEnemy.enemy.desc + '（其餘關卡上鎖中）';
     } else {
-      pt.textContent = '全部挑戰完成！';
-      ptd.textContent = '前往任意處即可結算';
+      pt.textContent = '全部關卡完成！';
+      ptd.textContent = '即將結算你的命運座駕';
     }
   }
 }
@@ -1361,20 +1369,34 @@ function doInteract() {
   checkInteraction();
 }
 
+// First undefeated enemy in sequence = the only one currently challengeable
+function getActiveEnemy() {
+  for(let i=0;i<enemyPositions.length;i++){
+    if(!enemyPositions[i].defeated) return enemyPositions[i];
+  }
+  return null;
+}
+
 function checkEnemyEncounter() {
+  const active = getActiveEnemy();
   enemyPositions.forEach(ep => {
     if(ep.defeated) return;
-    if(Math.abs(ep.x-player.x)<=1 && Math.abs(ep.y-player.y)<=1) {
-      if(ep.x===player.x && ep.y===player.y) {
+    if(ep.x===player.x && ep.y===player.y) {
+      if(ep===active) {
         startBattle(ep);
+      } else {
+        // Locked: must clear earlier levels first
+        showNotification('🔒 尚未解鎖！請先擊敗 ' + (active ? active.enemy.name : '前面的對手'));
       }
     }
   });
 }
 
+// NPC dialogue now triggers just by walking past (adjacent), not only on the tile
 function checkNPCProximity() {
   NPC_DIALOGS.forEach(npc => {
-    if(npc.x===player.x && npc.y===player.y) {
+    const dx=Math.abs(npc.x-player.x), dy=Math.abs(npc.y-player.y);
+    if(dx<=1 && dy<=1) {
       if(!npcSpoken.has(npc.id)){
         npcSpoken.add(npc.id);
         showDialog(npc.name, npc.lines, null);
