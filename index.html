@@ -107,9 +107,10 @@
     flex-direction: column;
     width: 100vw;
     height: 100vh;
-    max-width: 900px;
+    max-width: 480px;            /* 桌機也維持手機般的緊湊直式框 */
     margin: 0 auto;
     position: relative;
+    box-shadow: 0 0 0 2px #2a2a5a, 0 0 40px rgba(0,0,0,0.6);
   }
 
   /* ===== TOP HUD ===== */
@@ -230,17 +231,21 @@
     position: fixed;
     inset: 0;
     z-index: 200;
-    background: #000;
+    background: #05050c;
     flex-direction: column;
+    align-items: center;     /* 桌機置中成 480 直式框 */
   }
 
   #battleBg {
     flex: 1;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 40px;
+    padding: 14px 16px;
     background: linear-gradient(180deg, #1a0a2a 0%, #0a0a1a 60%, #1a1a00 100%);
     overflow: hidden;
   }
@@ -284,7 +289,7 @@
   }
 
   .enemy-sprite {
-    font-size: 90px;
+    font-size: 62px;
     filter: drop-shadow(0 0 15px rgba(255,68,68,0.5));
     animation: enemyFloat 2s ease-in-out infinite;
     margin: 10px 0;
@@ -349,29 +354,31 @@
     text-align: right;
   }
 
-  /* Battle Panel — fixed-height slab pinned at the bottom.
-     戰鬥訊息再多都只在內部捲動，永遠不會撐大面板、不會把畫面往上頂。 */
+  /* Battle Panel — 直式緊湊版(桌機/手機一致)：選項在上、戰鬥訊息在下並固定高度內部捲動 */
   #battlePanel {
     background: var(--panel2);
     border-top: 3px solid var(--border);
-    padding: 12px 16px;
+    padding: 10px 12px;
     display: flex;
-    gap: 12px;
-    align-items: stretch;
+    flex-direction: column-reverse;
+    gap: 8px;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
     flex-shrink: 0;
-    height: 232px;
     overflow: hidden;
   }
 
   #battleLog {
-    flex: 1;
-    height: 100%;
+    width: 100%;
+    flex: 0 0 auto;
+    height: 70px;
     min-height: 0;
-    font-size: 13px;
-    line-height: 1.8;
+    font-size: 12px;
+    line-height: 1.7;
     color: var(--white);
     border: 2px solid var(--border2);
-    padding: 8px 12px;
+    padding: 6px 10px;
     background: #0a0a1a;
     overflow-y: auto;
     scroll-behavior: smooth;
@@ -385,12 +392,11 @@
   .log-system { color: var(--gold); }
 
   #battleActions {
-    width: 320px;
+    width: 100%;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    height: 100%;
     overflow-y: auto;
   }
 
@@ -423,6 +429,12 @@
     transform: translateX(2px);
   }
   .opt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .opt-btn.selected {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px rgba(255,215,0,0.45) inset;
+    background: #24243f;
+    transform: translateX(2px);
+  }
   .opt-btn .opt-key { color: var(--gold); font-family: 'Press Start 2P', monospace; font-size: 9px; margin-right: 6px; }
 
   .opt-btn.ult-opt {
@@ -549,19 +561,68 @@
   .rank-row.top .rank-name { color:#fff; }
   .rank-row.top .rank-bar { background: linear-gradient(90deg, var(--gold), #ffcc44); }
 
+  /* ===== SHARE CARD ===== */
+  #shareCanvas {
+    width: 340px;
+    max-width: 92vw;
+    height: auto;
+    border-radius: 14px;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.6);
+    margin-bottom: 12px;
+  }
+  .share-copy {
+    max-width: 340px;
+    width: 92vw;
+    background: #12122a;
+    border: 1px dashed #3a6b3a;
+    color: #cfe0c8;
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    text-align: center;
+    border-radius: 6px;
+  }
+  .result-btns { display: flex; gap: 10px; margin-bottom: 10px; }
+  .rbtn {
+    font-family: 'Noto Sans TC', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 11px 18px;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 2px solid var(--border2);
+    background: var(--panel);
+    color: var(--white);
+    transition: all 0.1s;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+  }
+  .rbtn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .rbtn.cta {
+    background: var(--toyota-red);
+    border-color: #ff8888;
+    color: #fff;
+    width: 340px; max-width: 92vw;
+    margin-bottom: 10px;
+    font-size: 14px;
+    padding: 13px 18px;
+  }
+
   .result-replay {
     font-family: 'Press Start 2P', monospace;
-    font-size: 10px;
-    background: var(--toyota-red);
-    border: 3px solid #ff8888;
-    color: #fff;
-    padding: 12px 24px;
+    font-size: 9px;
+    background: transparent;
+    border: 2px solid var(--border2);
+    color: var(--gray);
+    padding: 10px 22px;
     cursor: pointer;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     transition: all 0.1s;
-    margin-top: 8px;
+    border-radius: 8px;
   }
-  .result-replay:hover { background: #ff2233; transform: scale(1.05); }
+  .result-replay:hover { color:#fff; border-color: var(--border); }
 
   /* ===== MAP CONTROLS HINT ===== */
   #controlsHint {
@@ -688,14 +749,8 @@
   body.touch #controlsHint { display: none; }
 
   /* ===== RESPONSIVE: small screens / phones ===== */
-  @media (max-width: 600px) {
-    #battlePanel { flex-direction: column-reverse; padding: 10px 12px; height: auto; }
-    #battleActions { width: 100%; height: auto; overflow: visible; }
-    #battleLog { width: 100%; height: 72px; flex: 0 0 auto; font-size: 12px; }
-    #battleQuestion { font-size: 12px; }
-    .opt-btn { font-size: 12px; padding: 9px 10px; }
-    #battleBg { padding: 12px 14px; }
-    .enemy-sprite { font-size: 60px; }
+  @media (max-width: 480px) {
+    .enemy-sprite { font-size: 56px; }
     #battleHeroCanvas { width: 56px; height: 56px; }
     .player-stats { width: 130px; }
     .enemy-hp-wrap { width: 110px; }
@@ -839,33 +894,16 @@
   </div>
 </div>
 
-<!-- RESULT SCREEN (成績單) -->
+<!-- RESULT SCREEN — 命定車款分享卡 -->
 <div id="resultScreen">
-  <div class="result-title">📋 冒險成績單</div>
-
-  <!-- Top recommendation card -->
-  <div class="report-card">
-    <div class="profile-title" style="color:var(--gold)">🏆 你的命運座駕</div>
-    <div id="topCarBig" style="display:flex;align-items:center;gap:12px;margin-bottom:10px"></div>
-    <div id="carRanking"></div>
+  <canvas id="shareCanvas" width="600" height="900"></canvas>
+  <div id="shareCopy" class="share-copy"></div>
+  <div class="result-btns">
+    <button class="rbtn dl" onclick="downloadShareCard()">📷 下載分享圖</button>
+    <button class="rbtn sh" onclick="shareCard()">🔗 分享</button>
   </div>
-
-  <!-- Stats report card -->
-  <div class="report-card">
-    <div class="report-head">
-      <span class="rh-title">🧾 冒險數據統計</span>
-      <span class="report-grade" id="reportGrade">A</span>
-    </div>
-    <table class="report-table"><tbody id="statsBody"></tbody></table>
-  </div>
-
-  <!-- Personality analysis -->
-  <div class="report-card">
-    <div class="profile-title">🧑 個性分析</div>
-    <div class="profile-text" id="profileText"></div>
-  </div>
-
-  <button class="result-replay" onclick="location.reload()">↺ 重新冒險</button>
+  <a class="rbtn cta" id="ctaBtn" href="#" target="_blank" rel="noopener">🚗 我想預約賞車</a>
+  <button class="result-replay" onclick="location.reload()">↺ 再玩一次</button>
 </div>
 
 <script>
@@ -886,89 +924,78 @@ const STATE = {
   battlesWon: 0,
   battlesLost: 0,
   // 統計數據（給成績單）
-  stats: { turns:0, crits:0, ults:0, itemsUsed:0, answers:0, mobs:0, chests:0, dmgDealt:0, dmgTaken:0, fastWins:0, lowHpWins:0 }
+  stats: { turns:0, crits:0, ults:0, itemsUsed:0, answers:0, mobs:0, chests:0, coneHits:0, dmgDealt:0, dmgTaken:0, fastWins:0, lowHpWins:0 }
 };
 
 // ============================================================
-// QUESTION POOL — 問答式攻擊：3 個等攻擊力的選項(帶個性傾向) + 1 個「我不知道」大招
+// QUESTION POOL — 問答式攻擊：同一個具體情境下做取捨，3 選項各對應車款
+// 每個車款在題庫中的出現次數刻意均衡(各 9~10 次)，避免某些車太少被選到
 // ============================================================
 const QUESTIONS = [
-  { q:'前方突然大塞車，你會？', a:[
-      {t:'鑽小路、找最快捷徑', sc:{yaris:3,rav4:1}},
-      {t:'耐心等待，放點音樂', sc:{alphard:2,prius:2}},
-      {t:'打開導航重新規劃', sc:{corolla:3}} ]},
-  { q:'週末最想開車去哪？', a:[
-      {t:'山裡越野探險', sc:{rav4:3}},
-      {t:'載全家去野餐', sc:{alphard:3}},
-      {t:'市區咖啡廳小晃', sc:{yaris:2,corolla:1}} ]},
-  { q:'買車你最先看重？', a:[
-      {t:'安全與智慧科技', sc:{corolla:3}},
-      {t:'省油與環保', sc:{prius:3}},
-      {t:'空間夠不夠大', sc:{alphard:3}} ]},
-  { q:'油錶快見底了，你？', a:[
-      {t:'早規劃好加油點', sc:{corolla:2,prius:2}},
-      {t:'先衝再說、順其自然', sc:{rav4:2,yaris:1}},
-      {t:'乾脆改搭大眾運輸', sc:{prius:3}} ]},
-  { q:'理想座駕的個性是？', a:[
-      {t:'靈活俐落', sc:{yaris:3}},
-      {t:'沉穩可靠', sc:{corolla:2,alphard:1}},
-      {t:'強悍全能', sc:{rav4:3}} ]},
-  { q:'只剩一個小車位，你？', a:[
-      {t:'小車一把就停進去', sc:{yaris:3}},
-      {t:'再找個大一點的好停', sc:{alphard:2}},
-      {t:'靠倒車顯影慢慢喬', sc:{corolla:3}} ]},
-  { q:'長途旅行你最在意？', a:[
-      {t:'乘坐舒適與安靜', sc:{alphard:3}},
-      {t:'油耗與續航里程', sc:{prius:3}},
-      {t:'操控與駕駛樂趣', sc:{rav4:2,yaris:1}} ]},
-  { q:'夥伴最常形容你是？', a:[
-      {t:'行動派、反應快', sc:{yaris:3}},
-      {t:'細心、會規劃', sc:{corolla:3}},
-      {t:'愛冒險、不怕難', sc:{rav4:3}} ]},
-  { q:'遇到顛簸爛路你會？', a:[
-      {t:'放慢、小心通過', sc:{alphard:2,prius:1}},
-      {t:'直接輾過去！', sc:{rav4:3}},
-      {t:'繞遠路避開', sc:{corolla:2}} ]},
-  { q:'你心中的環保程度？', a:[
-      {t:'非常重視，能省則省', sc:{prius:4}},
-      {t:'適度就好', sc:{corolla:2}},
-      {t:'性能優先', sc:{rav4:2,yaris:1}} ]},
-  { q:'家人對車的期待是？', a:[
-      {t:'夠大、夠舒服', sc:{alphard:4}},
-      {t:'安全擺第一', sc:{corolla:3}},
-      {t:'省錢又好養', sc:{yaris:2,prius:1}} ]},
-  { q:'用一句話形容你的駕駛風格？', a:[
-      {t:'果斷積極', sc:{yaris:2,rav4:1}},
-      {t:'謹慎穩健', sc:{corolla:2,alphard:1}},
-      {t:'節能順暢', sc:{prius:3}} ]},
-  { q:'平常開車載的多半是？', a:[
-      {t:'自己一個，通勤代步', sc:{yaris:3}},
-      {t:'另一半或好友', sc:{corolla:2,yaris:1}},
-      {t:'一家大小或長輩', sc:{alphard:3}} ]},
-  { q:'你心目中理想的週末是？', a:[
-      {t:'說走就走的小旅行', sc:{rav4:3}},
-      {t:'在家附近輕鬆採買', sc:{yaris:2,prius:1}},
-      {t:'安排周全的家庭出遊', sc:{alphard:2,corolla:1}} ]},
-  { q:'對你來說，車子是？', a:[
-      {t:'移動工具，實用就好', sc:{yaris:2,prius:2}},
-      {t:'生活夥伴，要可靠', sc:{corolla:3}},
-      {t:'探索世界的隊友', sc:{rav4:3}} ]},
-  { q:'看到一段沒走過的路，你會？', a:[
+  { q:'週五晚下班，停車場只剩這幾格，你停哪個？', a:[
+      {t:'騎樓邊的窄車格，一把就喬進去', sc:{yaris:3}},
+      {t:'最角落的大車位，停得寬鬆好上下車', sc:{alphard:3}},
+      {t:'入口的油電友善車格，順便省荷包', sc:{prius:3}} ]},
+  { q:'連假要出門，後車廂你會怎麼裝？', a:[
+      {t:'一咖登機箱，輕便上路', sc:{yaris:3}},
+      {t:'全家行李加嬰兒車，塞好塞滿', sc:{alphard:3}},
+      {t:'帳篷、單車全帶上，野到底', sc:{rav4:3}} ]},
+  { q:'導航把你帶到一條沒走過的小路，你？', a:[
       {t:'好奇地開進去探險', sc:{rav4:3}},
-      {t:'先查好資料再決定', sc:{corolla:3}},
-      {t:'還是走熟悉的路安心', sc:{alphard:2,prius:1}} ]},
-  { q:'你的購車預算觀念是？', a:[
-      {t:'精打細算、CP 值優先', sc:{yaris:2,prius:2}},
-      {t:'一分錢一分貨、重品質', sc:{corolla:2,alphard:1}},
-      {t:'需要就投資、重體驗', sc:{rav4:2}} ]},
-  { q:'長假來臨，你的計畫是？', a:[
-      {t:'挑戰戶外秘境', sc:{rav4:3}},
-      {t:'帶全家舒服出遊', sc:{alphard:3}},
-      {t:'輕巧地市區走跳', sc:{yaris:2}} ]},
-  { q:'你會怎麼形容自己？', a:[
-      {t:'務實、不浪費', sc:{prius:3}},
-      {t:'細心、有條理', sc:{corolla:3}},
-      {t:'熱血、愛嘗鮮', sc:{rav4:2,yaris:1}} ]},
+      {t:'先確認路況通不通再走', sc:{corolla:3}},
+      {t:'算了，繞回省時又省油的大路', sc:{prius:3}} ]},
+  { q:'又到了要加油的日子，你心裡想？', a:[
+      {t:'下次換油電，能省則省', sc:{prius:3}},
+      {t:'規劃順路、加最划算的那家', sc:{corolla:3}},
+      {t:'還好啦，動力夠爽最重要', sc:{rav4:3}} ]},
+  { q:'長途路上長輩喊腰痠，你會？', a:[
+      {t:'立刻找休息站讓大家伸展', sc:{alphard:3}},
+      {t:'切到舒適模式、平穩慢開', sc:{corolla:3}},
+      {t:'抄近路加快，早點到不折騰', sc:{yaris:3}} ]},
+  { q:'預算有限要取捨，你選？', a:[
+      {t:'挑小一點、好停好養的', sc:{yaris:3}},
+      {t:'多花一點換安全與可靠', sc:{corolla:3}},
+      {t:'寧可等，也要能載全家的', sc:{alphard:3}} ]},
+  { q:'難得的週末早晨，你最想？', a:[
+      {t:'開進市區吃個悠閒早午餐', sc:{yaris:3}},
+      {t:'上山下海跑一趟', sc:{rav4:3}},
+      {t:'載全家到郊外野餐', sc:{alphard:3}} ]},
+  { q:'下大雨視線變差，你怎麼開？', a:[
+      {t:'放慢、靠安全輔助穩穩走', sc:{corolla:3}},
+      {t:'載著家人，慢慢開最安心', sc:{alphard:3}},
+      {t:'熟練應對，照樣往前推進', sc:{rav4:3}} ]},
+  { q:'朋友臨時揪夜衝看海，你？', a:[
+      {t:'馬上發動，說走就走', sc:{rav4:3}},
+      {t:'先看油夠不夠、划不划算', sc:{prius:3}},
+      {t:'揪大家一起，車大坐得下', sc:{alphard:3}} ]},
+  { q:'小巷會車對面不讓，你？', a:[
+      {t:'靈活倒車找空檔先過', sc:{yaris:3}},
+      {t:'不爭，怠速等等省油氣', sc:{prius:3}},
+      {t:'看後視鏡冷靜判斷再走', sc:{corolla:3}} ]},
+  { q:'想換車最大的理由是？', a:[
+      {t:'現在的車太大、停車好痛苦', sc:{yaris:3}},
+      {t:'想要更完整的安全科技', sc:{corolla:3}},
+      {t:'家裡人變多、需要更大空間', sc:{alphard:3}} ]},
+  { q:'多出一筆預算，你會加在哪？', a:[
+      {t:'省油省稅的油電系統', sc:{prius:3}},
+      {t:'完整的主動安全配備', sc:{corolla:3}},
+      {t:'更強的動力與越野能力', sc:{rav4:3}} ]},
+  { q:'長途駕駛你最怕哪一點？', a:[
+      {t:'油耗太兇、一直跑加油站', sc:{prius:3}},
+      {t:'坐久腰痠、家人不舒服', sc:{alphard:3}},
+      {t:'太平淡、少了駕馭樂趣', sc:{rav4:3}} ]},
+  { q:'停紅燈的空檔，你在想什麼？', a:[
+      {t:'待會走哪條路最順最快', sc:{yaris:3}},
+      {t:'這趟又省下了多少油', sc:{prius:3}},
+      {t:'週末要帶家人去哪玩', sc:{alphard:3}} ]},
+  { q:'心中理想的第一台車是？', a:[
+      {t:'小巧好上手的都會跨界', sc:{yaris:3}},
+      {t:'安全滿載的國民休旅', sc:{corolla:3}},
+      {t:'能載著你跑遠方的夥伴', sc:{rav4:3}} ]},
+  { q:'朋友問你買車最看重什麼？', a:[
+      {t:'好停好開、省心省事', sc:{yaris:3}},
+      {t:'安全可靠、不出包', sc:{corolla:3}},
+      {t:'省油務實、長期划算', sc:{prius:3}} ]},
 ];
 
 // ============================================================
@@ -1157,7 +1184,7 @@ function startGame() {
 
   // Show intro dialog
   setTimeout(() => {
-    showDialog('旅館老闆', ['歡迎勇者！這片大地等著你去探索。','途中你會遭遇各種困難...', '你的應對方式，將決定最適合你的 Toyota 座駕！','準備好了嗎？GO！'], null);
+    showDialog('旅館老闆', ['歡迎勇者！這片大地等著你去探索。','跟著金色箭頭，依序挑戰五道試煉。','小心！路上有四處遊走的小怪，','一旦靠到牠們身邊就會撲上來與你開戰！','你的每個選擇，將決定最適合你的 Toyota 座駕。','準備好了嗎？GO！'], null);
   }, 500);
 
   updateHUD();
@@ -1251,9 +1278,10 @@ function checkTraps(){
     const now=performance.now();
     if(!trapCooldown[spike.id] || now-trapCooldown[spike.id]>900){
       trapCooldown[spike.id]=now;
+      STATE.stats.coneHits++;
       STATE.player.hp=Math.max(1, STATE.player.hp-spike.dmg);
       updateHUD();
-      showNotification('⚠️ 踩到尖刺機關！-'+spike.dmg+' HP');
+      showNotification('⚠️ 撞到三角錐！-'+spike.dmg+' HP');
       const area=document.getElementById('mapArea');
       area.style.animation='none'; void area.offsetWidth; area.style.animation='shake 0.3s';
     }
@@ -1368,7 +1396,7 @@ function renderMap() {
   TRAPS.forEach(tr => {
     const sx = tr.x*TILE+mapOffX, sy = tr.y*TILE+mapOffY;
     if(tr.type==='spike'){
-      const out = (tick%70)<35;          // spikes pop in/out
+      const out = true;                  // 固定顯示，不再閃爍
       ctx.fillStyle='#3a3320';
       ctx.fillRect(sx+3,sy+3,TILE-6,TILE-6);
       ctx.fillStyle = out ? '#cfd6e0' : '#6a7080';
@@ -1424,13 +1452,12 @@ function renderMap() {
     const isTarget = (ep===nearestEnemy);
     const locked = !isTarget; // remaining non-active enemies are locked
 
-    // Pulsing ring around the active target
+    // Steady ring around the active target (no flashing)
     if(isTarget){
-      const pulse = 13 + Math.sin(tick*0.12)*3;
-      ctx.strokeStyle='rgba(255,215,0,'+(0.55+Math.sin(tick*0.12)*0.3)+')';
+      ctx.strokeStyle='rgba(255,215,0,0.75)';
       ctx.lineWidth=2;
       ctx.beginPath();
-      ctx.arc(sx+TILE/2, sy+TILE/2, pulse, 0, Math.PI*2);
+      ctx.arc(sx+TILE/2, sy+TILE/2, 14, 0, Math.PI*2);
       ctx.stroke();
     }
 
@@ -1476,23 +1503,16 @@ function renderMap() {
     const adjacent = Math.abs(pr.x-player.x)<=1 && Math.abs(pr.y-player.y)<=1;
     ctx.save();
     if(pr.type==='chest' && used) ctx.globalAlpha = 0.4;
-    const bob = (pr.type==='chest'&&!used) ? Math.sin(tick*0.08)*2 : 0;
     ctx.font = '20px serif';
     ctx.textAlign = 'center';
-    ctx.fillText(used && pr.type==='chest' ? '📭' : pr.sprite, sx+TILE/2, sy+TILE/2+bob);
+    ctx.fillText(used && pr.type==='chest' ? '📭' : pr.sprite, sx+TILE/2, sy+TILE/2);
     ctx.restore();
-    // Interact hint when player is next to it (and still useful)
+    // Steady interact hint only when the player is right next to it
     const interactable = !(pr.type==='chest' && used);
     if(adjacent && interactable){
-      const b = Math.sin(tick*0.14)*2;
       ctx.fillStyle='#ffd700';
       ctx.font='bold 13px sans-serif';
-      ctx.fillText('↵', sx+TILE/2, sy-6+b);
-    } else if(pr.type==='chest' && !used){
-      // gentle sparkle so chests stand out from afar
-      ctx.fillStyle='rgba(255,215,0,'+(0.4+Math.sin(tick*0.1)*0.3)+')';
-      ctx.font='10px serif';
-      ctx.fillText('✨', sx+TILE/2+8, sy+TILE/2-8);
+      ctx.fillText('↵', sx+TILE/2, sy-6);
     }
   });
 
@@ -1534,7 +1554,7 @@ function renderMap() {
     ctx.save();
     ctx.translate(ax,ay);
     ctx.rotate(ang);
-    ctx.fillStyle='rgba(255,215,0,'+(0.55+Math.sin(tick*0.15)*0.4)+')';
+    ctx.fillStyle='rgba(255,215,0,0.9)';
     ctx.beginPath();
     ctx.moveTo(9,0); ctx.lineTo(-5,-6); ctx.lineTo(-5,6);
     ctx.closePath(); ctx.fill();
@@ -1573,11 +1593,11 @@ function renderMinimap() {
   // Player dot
   mx.fillStyle='#fff';
   mx.fillRect(player.x*tw-1,player.y*th-1,4,4);
-  // Enemies (next target highlighted gold + pulsing)
+  // Enemies (next target steady gold)
   enemyPositions.forEach(ep=>{
     if(ep.defeated)return;
     if(ep===nearestEnemy){
-      mx.fillStyle = (tick%40<20) ? '#ffd700' : '#fff7b0';
+      mx.fillStyle = '#ffd700';
       mx.fillRect(ep.x*tw-1,ep.y*th-1,5,5);
     } else {
       mx.fillStyle='#f44';
@@ -1710,7 +1730,15 @@ function drawHeroSprite(c, ox, oy, P, dir, frame) {
 // INPUT
 // ============================================================
 function handleKey(e) {
-  if(STATE.inBattle) return;
+  // In battle: ↑/↓ choose an option, Enter confirms, 1~5 quick-select (full keyboard play)
+  if(STATE.inBattle) {
+    if(!playerTurn || !battleActionsEnabled) return;
+    if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ e.preventDefault(); moveBattleSelection(-1); }
+    else if(e.key==='ArrowDown'||e.key==='s'||e.key==='S'){ e.preventDefault(); moveBattleSelection(1); }
+    else if(e.key==='Enter'||e.key===' '){ e.preventDefault(); activateBattleSelection(); }
+    else if(e.key>='1' && e.key<='5'){ e.preventDefault(); activateBattleOption(Number(e.key)-1); }
+    return;
+  }
 
   if(STATE.inDialog) {
     if(e.key==='Enter' || e.key===' ') advanceDialog();
@@ -1971,6 +1999,7 @@ let battleHeroTimer = null;
 let battleTurns = 0;
 let lastQ = -1;
 let curQuestion = null, curAnswerDmg = 0, curUltDmg = 0;
+let selectedOpt = 0;
 const ULT_SP = 12;
 
 function drawBattleHero() {
@@ -2087,6 +2116,41 @@ function presentQuestion(){
   opts.appendChild(u);
 
   updateItemButton();
+  selectedOpt = 0;
+  highlightBattle();
+}
+
+// ---- Keyboard selection of battle options (desktop = full keyboard) ----
+function battleButtons(){
+  const arr = [...document.querySelectorAll('#battleOptions .opt-btn')];
+  const item = document.getElementById('btnItem');
+  if(item) arr.push(item);
+  return arr;
+}
+function enabledBattleButtons(){ return battleButtons().filter(b=>!b.disabled); }
+function highlightBattle(){
+  battleButtons().forEach(b=>b.classList.remove('selected'));
+  const en = enabledBattleButtons();
+  if(!en.length) return;
+  if(selectedOpt<0) selectedOpt=0;
+  if(selectedOpt>=en.length) selectedOpt=en.length-1;
+  en[selectedOpt].classList.add('selected');
+}
+function moveBattleSelection(dir){
+  const en = enabledBattleButtons();
+  if(!en.length) return;
+  selectedOpt = (selectedOpt + dir + en.length) % en.length;
+  highlightBattle();
+  en[selectedOpt].scrollIntoView({block:'nearest'});
+}
+function activateBattleSelection(){
+  const en = enabledBattleButtons();
+  if(en[selectedOpt]) en[selectedOpt].click();
+}
+function activateBattleOption(i){   // number keys: 0..2 answers, 3 ult, 4 item
+  const opts = [...document.querySelectorAll('#battleOptions .opt-btn')];
+  const target = (i < opts.length) ? opts[i] : document.getElementById('btnItem');
+  if(target && !target.disabled) target.click();
 }
 
 function updateItemButton(){
@@ -2303,12 +2367,53 @@ function showNotification(msg){
 // RESULT SCREEN
 // ============================================================
 const CAR_INFO = {
-  yaris: { name:'Yaris Cross', emoji:'🚗', desc:'靈活、省油、城市通勤首選。適合獨立都市族。' },
-  corolla: { name:'Corolla Cross', emoji:'🚙', desc:'科技感十足、安全配備完整。理性型駕駛的最愛。' },
-  rav4: { name:'RAV4', emoji:'🛻', desc:'越野實力強、多功能。喜歡探索的冒險家首選。' },
-  alphard: { name:'Alphard', emoji:'🚐', desc:'頂級豪華、寬敞舒適。重視家人的溫柔守護者。' },
-  prius: { name:'Prius', emoji:'🔋', desc:'節能環保、科技感強。有責任感的理想主義者。' },
+  yaris: {
+    name:'Yaris Cross', emoji:'🚗', color:'#e0322e',
+    title:'都會靈動旅人', tag:'都會靈活跨界',
+    quote:'車位再小，我都能優雅入位。',
+    persona:'你像城市裡的靈活獵人，反應快、決斷俐落，討厭被框住。狹窄巷弄與一格難求的車位，反而是你展身手的舞台。你重視效率與輕巧，把每次移動都變得簡單，是把日子過得從容又精準的都會玩家。',
+    traits:['機敏','俐落','獨立','效率'],
+    missions:['找個窄車位實際停一次，感受好停度','試市區走停的油耗與安靜度','確認後廂日常採買裝得下'],
+    share:'測出來我是【都會靈動旅人】，命定座駕 Yaris Cross！你的呢？',
+  },
+  corolla: {
+    name:'Corolla Cross', emoji:'🚙', color:'#5fb83a',
+    title:'沉穩全能旅者', tag:'國民神車休旅',
+    quote:'安全與從容，才是真正的帥。',
+    persona:'你是團隊裡最讓人安心的存在，凡事先想周全、重視安全與可靠。你不追求花俏，而是用穩定的判斷把每件事做到位。一台兼顧科技、空間與省油的全能夥伴，正好呼應你務實又體貼的個性，陪你穩穩前行。',
+    traits:['穩健','理性','可靠','周全'],
+    missions:['體驗 TSS 主動安全的跟車與煞停輔助','試坐後座、丈量行李廂空間','感受油電平順度與市區油耗'],
+    share:'測出來我是【沉穩全能旅者】，命定座駕 Corolla Cross！',
+  },
+  rav4: {
+    name:'RAV4', emoji:'🛻', color:'#d2792a',
+    title:'越野冒險家', tag:'全能冒險休旅',
+    quote:'沒走過的路，才值得出發。',
+    persona:'你骨子裡住著一個冒險家，越是沒走過的路越想踩油門。你不怕挑戰、行動力十足，喜歡把生活過成一場場小探險。動力充沛、進退自如的全能夥伴最懂你——載著裝備與好奇心，城市與荒野都能瀟灑來去。',
+    traits:['勇敢','行動','自由','全能'],
+    missions:['找段起伏路面試底盤與動力','確認行李廂裝載運動/露營裝備的彈性','體驗四驅或越野模式（如配備）'],
+    share:'測出來我是【越野冒險家】，命定座駕 RAV4！一起出發？',
+  },
+  alphard: {
+    name:'Alphard', emoji:'🚐', color:'#be9a34',
+    title:'溫柔守護者', tag:'頂級移動行館',
+    quote:'載著最重要的人，慢慢走。',
+    persona:'你把身邊的人放在心上，總想給家人最舒服的照顧。你不急不搶，重視每段旅程的舒適與安心，寧可自己多費心也要讓大家放鬆。寬敞靜謐、面面俱到的大空間最貼近你——那是一座移動的客廳，承載你對家的溫柔。',
+    traits:['顧家','體貼','從容','可靠'],
+    missions:['試坐第二、三排，感受腿部空間','體驗上下車高度與電動側滑門','帶長輩或小孩同行測乘坐舒適度'],
+    share:'測出來我是【溫柔守護者】，命定座駕 Alphard！',
+  },
+  prius: {
+    name:'Prius', emoji:'🔋', color:'#2bb6a0',
+    title:'節能理想家', tag:'節能科技先鋒',
+    quote:'省下的每一滴，都是溫柔。',
+    persona:'你看得比別人遠，務實又有原則，討厭浪費。你會精打細算、為長遠打算，也在意自己對環境的影響。低油耗、低排放又充滿科技感的座駕，正呼應你聰明又有責任感的選擇——用更聰明的方式前進，把資源留給更重要的事。',
+    traits:['務實','長遠','聰明','永續'],
+    missions:['實測市區與高速的油電油耗','體驗起步的安靜與平順','了解保養成本與保固方案'],
+    share:'測出來我是【節能理想家】，命定座駕 Prius！',
+  },
 };
+const PROMO_URL = 'https://www.toyota.com.tw/crmarketing/2025_DLR_socialmedia/?dealer=D';
 
 function computeFinalScores(){
   const s = {yaris:0,corolla:0,rav4:0,alphard:0,prius:0};
@@ -2333,78 +2438,147 @@ function computeGrade(){
   return 'C';
 }
 
+// ---- canvas helpers ----
+function rrPath(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function shade(hex,amt){ const n=parseInt(hex.slice(1),16); let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt; r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b)); return '#'+((r<<16)|(g<<8)|b).toString(16).padStart(6,'0'); }
+function wrapText(ctx,text,x,y,maxW,lh){ const chars=[...text]; let line='',yy=y; for(const ch of chars){ const test=line+ch; if(ctx.measureText(test).width>maxW && line){ ctx.fillText(line,x,yy); line=ch; yy+=lh; } else line=test; } if(line) ctx.fillText(line,x,yy); return yy; }
+
+function drawPixelCar(ctx,cx,cy,color){
+  const O='#10180f', dark=shade(color,-45), win='#bfe6f2';
+  const r=(x,y,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(Math.round(cx+x),Math.round(cy+y),w,h); };
+  ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx,cy+44,94,12,0,0,Math.PI*2); ctx.fill();
+  r(-60,-46,120,30,O);                 // cabin outline
+  r(-54,-42,108,24,color);             // cabin
+  r(-48,-38,44,16,win); r(4,-38,44,16,win); r(-4,-38,4,16,O);  // windows
+  r(-96,-18,192,52,O);                 // body outline
+  r(-92,-14,184,44,color);             // body
+  r(-92,18,184,12,dark);               // body shade
+  r(86,-6,10,12,'#ffe24a');            // headlight
+  r(-96,-6,8,12,'#ff6a6a');            // taillight
+  r(-98,28,14,8,'#cfd6da'); r(84,28,14,8,'#cfd6da'); // bumpers
+  const wheel=(wx)=>{ r(wx-20,28,40,20,O); r(wx-15,32,30,16,'#26262b'); r(wx-6,37,12,8,'#838893'); };
+  wheel(-50); wheel(58);
+}
+
+async function renderShareCard(topKey, matchPct, sorted){
+  try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
+  const cv=document.getElementById('shareCanvas');
+  const W=600,H=900,S=2;
+  cv.width=W*S; cv.height=H*S;
+  const ctx=cv.getContext('2d'); ctx.scale(S,S);
+  const info=CAR_INFO[topKey]; const accent=info.color; const st=STATE.stats;
+  ctx.textBaseline='alphabetic';
+
+  // background panel
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#10311b'); g.addColorStop(1,'#0a1f12');
+  rrPath(ctx,5,5,W-10,H-10,24); ctx.fillStyle=g; ctx.fill(); ctx.lineWidth=5; ctx.strokeStyle='#3a6b3a'; ctx.stroke();
+
+  ctx.textAlign='center';
+  // header
+  ctx.fillStyle='#e8e0b0'; ctx.font='700 20px "Press Start 2P","Noto Sans TC",monospace';
+  try{ ctx.letterSpacing='5px'; }catch(e){}
+  ctx.fillText('★ YOUR CAR ★', W/2, 58);
+  try{ ctx.letterSpacing='0px'; }catch(e){}
+
+  // car
+  drawPixelCar(ctx, W/2, 122, accent);
+
+  // 車魂稱號 chip
+  ctx.font='700 18px "Noto Sans TC",sans-serif';
+  const titleW=ctx.measureText(info.title).width+44;
+  rrPath(ctx, W/2-titleW/2, 168, titleW, 34, 17); ctx.fillStyle=accent; ctx.fill();
+  ctx.fillStyle='#08120a'; ctx.fillText('🚘 '+info.title, W/2, 191);
+
+  // car name (big)
+  ctx.fillStyle=accent; ctx.font='700 30px "Press Start 2P","Noto Sans TC",monospace';
+  ctx.fillText(info.name, W/2, 244);
+  // tag
+  ctx.fillStyle='#bcd0b4'; ctx.font='15px "Noto Sans TC",sans-serif';
+  ctx.fillText('「'+info.tag+'」', W/2, 270);
+
+  // 契合度
+  const lab='玩家契合度 ', pct=matchPct+'%';
+  ctx.font='15px "Noto Sans TC",sans-serif'; const lw=ctx.measureText(lab).width;
+  ctx.font='700 22px "Press Start 2P","Noto Sans TC",monospace'; const pw=ctx.measureText(pct).width;
+  let sx=W/2-(lw+pw)/2; ctx.textAlign='left';
+  ctx.font='15px "Noto Sans TC",sans-serif'; ctx.fillStyle='#d8e8d0'; ctx.fillText(lab,sx,304);
+  ctx.font='700 22px "Press Start 2P","Noto Sans TC",monospace'; ctx.fillStyle='#ffd24a'; ctx.fillText(pct,sx+lw,306);
+  ctx.textAlign='center';
+
+  // 車魂金句
+  ctx.fillStyle='#ffe9a8'; ctx.font='italic 16px "Noto Sans TC",sans-serif';
+  ctx.fillText('『'+info.quote+'』', W/2, 338);
+
+  // trip line
+  ctx.fillStyle='#94a98f'; ctx.font='12px "Noto Sans TC",sans-serif';
+  ctx.fillText(`本趟旅程：開箱 ${st.chests}・擊退小怪 ${st.mobs}・撞到 ${st.coneHits} 次三角錐`, W/2, 362);
+
+  // persona box
+  rrPath(ctx,32,378,W-64,118,12); ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='#3a6b3a'; ctx.stroke();
+  ctx.textAlign='left'; ctx.fillStyle='#e6f0e0'; ctx.font='15px "Noto Sans TC",sans-serif';
+  wrapText(ctx, info.persona, 48, 406, W-96, 25);
+
+  // 關鍵特質 chips
+  ctx.textAlign='left'; ctx.fillStyle='#9fb39a'; ctx.font='13px "Noto Sans TC",sans-serif';
+  ctx.fillText('關鍵特質', 36, 528);
+  let chx=36, chy=540;
+  ctx.font='700 14px "Noto Sans TC",sans-serif';
+  info.traits.forEach(t=>{
+    const cw=ctx.measureText(t).width+24;
+    rrPath(ctx, chx, chy, cw, 30, 15); ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle=accent; ctx.stroke();
+    ctx.fillStyle='#eaf3e6'; ctx.textAlign='center'; ctx.fillText(t, chx+cw/2, chy+20); ctx.textAlign='left';
+    chx += cw+8;
+  });
+
+  // 試乘任務
+  ctx.fillStyle='#9fb39a'; ctx.font='13px "Noto Sans TC",sans-serif';
+  ctx.fillText('🔧 試乘任務（看車重點）', 36, 606);
+  ctx.font='14px "Noto Sans TC",sans-serif'; ctx.fillStyle='#dbe8d4';
+  info.missions.forEach((m,i)=>{ ctx.fillText('▸ '+m, 40, 632+i*26); });
+
+  // footer
+  ctx.textAlign='center'; ctx.fillStyle='#7f8f7a'; ctx.font='12px "Noto Sans TC",sans-serif';
+  ctx.fillText('TOYOTA Quest · 汽車 RPG 人格測驗', W/2, H-52);
+  ctx.fillText('※ 推薦結果僅供參考，實際購車歡迎洽詢 Taiwan TOYOTA 各據點', W/2, H-30);
+}
+
+function downloadShareCard(){
+  const cv=document.getElementById('shareCanvas');
+  cv.toBlob(blob=>{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='我的命定車款.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }, 'image/png');
+}
+function shareCard(){
+  const cv=document.getElementById('shareCanvas');
+  const copy=document.getElementById('shareCopy').textContent;
+  cv.toBlob(async blob=>{
+    const file=new File([blob],'toyota-quest.png',{type:'image/png'});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], text:copy}); }catch(e){}
+    } else {
+      downloadShareCard();
+      showNotification('已下載分享圖，可手動分享');
+    }
+  }, 'image/png');
+}
+
 function showResult(){
   const scores = computeFinalScores();
   const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
-  const maxScore = sorted[0][1] || 1;
   const topCar = sorted[0][0];
-  const topInfo = CAR_INFO[topCar];
-  const st = STATE.stats;
+  const info = CAR_INFO[topCar];
+  // 契合度：用「冠軍 vs 第二名」的差距換算，越果斷越高(約 60~96)
+  const top = sorted[0][1], second = sorted[1] ? sorted[1][1] : 0;
+  const matchPct = Math.max(60, Math.min(96, Math.round((top/((top+second)||1))*100)));
 
-  // --- Headline car ---
-  document.getElementById('topCarBig').innerHTML =
-    `<div style="font-size:46px">${topInfo.emoji}</div>
-     <div>
-       <div style="font-family:'Press Start 2P',monospace;font-size:12px;color:var(--gold)">${topInfo.name}</div>
-       <div style="font-size:11px;color:var(--gray);margin-top:5px;line-height:1.5">${topInfo.desc}</div>
-     </div>`;
-
-  // --- Full ranking bars (all 5) ---
-  const rank = document.getElementById('carRanking');
-  rank.innerHTML='';
-  sorted.forEach(([key,score],i)=>{
-    const info=CAR_INFO[key];
-    const pct=Math.max(6, Math.round(score/maxScore*100));
-    const row=document.createElement('div');
-    row.className='rank-row'+(i===0?' top':'');
-    row.innerHTML=`
-      <div class="rank-emoji">${info.emoji}</div>
-      <div class="rank-name">${info.name}</div>
-      <div class="rank-bar-wrap"><div class="rank-bar" data-pct="${pct}"></div></div>
-      <div class="rank-pct">${pct}%</div>`;
-    rank.appendChild(row);
-  });
-
-  // --- Grade ---
-  document.getElementById('reportGrade').textContent = computeGrade();
-
-  // --- Stats table ---
-  const p=STATE.player;
-  const rows = [
-    ['關卡通過', `${STATE.battlesWon} / ${STATE.maxBattles}`],
-    ['戰鬥失利', `${STATE.battlesLost}`],
-    ['回答問題數', `${st.answers}`],
-    ['速戰速決(≤3回合)', `${st.fastWins}`],
-    ['險勝(殘血獲勝)', `${st.lowHpWins}`],
-    ['暴擊次數', `${st.crits}`],
-    ['大招使用', `${st.ults}`],
-    ['道具使用', `${st.itemsUsed}`],
-    ['小怪擊退', `${st.mobs}`],
-    ['寶箱開啟', `${st.chests}`],
-    ['最終等級 / 殘餘HP', `Lv.${p.lv} · ${p.hp}/${p.maxHp}`],
-  ];
-  document.getElementById('statsBody').innerHTML = rows.map(r=>
-    `<tr><td class="rt-label">${r[0]}</td><td class="rt-val">${r[1]}</td></tr>`).join('');
-
-  // --- Personality analysis (references real data) ---
-  const profiles={
-    yaris:'你是【行動派】城市叢林中的靈活獵手，習慣直覺行事、反應迅速。',
-    corolla:'你是【策略家】做事謹慎、重視細節，科技與安全對你格外重要。',
-    rav4:'你是【冒險者】不怕挑戰、充滿探索精神，喜歡突破極限。',
-    alphard:'你是【守護者】最重視身邊的人，寧可自己辛苦也要照顧家人。',
-    prius:'你是【智者】具長遠眼光、關心環境與未來，理性又有責任感。',
-  };
-  // answer tendency summary
-  const tally = Object.entries(STATE.answerTally).sort((a,b)=>b[1]-a[1]);
-  const leanTxt = tally[0][1]>0 ? `你的答題傾向最常落在「${CAR_INFO[tally[0][0]].name}」一類` : '你大多選擇了「我不知道」，我們依有限線索推測';
-  const ultTxt = st.ults>=4 ? `你很常喊出「我不知道」(${st.ults}次)，是個乾脆、不愛糾結的人；` : (st.ults===0 ? '你每一題都認真作答，非常有想法；' : '');
-  const careTxt = st.itemsUsed>=3 ? '面對危機你懂得未雨綢繆。' : (st.lowHpWins>=1 ? '你敢在殘血時放手一搏。' : '你的節奏穩健。');
-  document.getElementById('profileText').innerHTML =
-    `${profiles[topCar]}<br>${leanTxt}。${ultTxt}${careTxt}<br>` +
-    `<span style="color:var(--gray);font-size:11px">綜合你在 5 道試煉中回答的 ${st.answers} 題與戰鬥表現，為你媒合出最速配的座駕。</span>`;
+  document.getElementById('shareCopy').textContent = info.share;
+  document.getElementById('ctaBtn').href = PROMO_URL;
 
   document.getElementById('resultScreen').style.display='flex';
-  setTimeout(()=>{ document.querySelectorAll('.rank-bar').forEach(el=>{ el.style.width=el.dataset.pct+'%'; }); },200);
+  renderShareCard(topCar, matchPct, sorted);
 }
 </script>
 </body>
