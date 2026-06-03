@@ -930,131 +930,147 @@ const STATE = {
 };
 
 // ============================================================
-// QUESTION POOL — 問答式攻擊：同一個具體情境下做取捨，3 選項各對應車款
-// 每個車款在題庫中的出現次數刻意均衡(各 9~10 次)，避免某些車太少被選到
+// QUESTION BANK — 每個 BOSS 專屬題庫(5~7題)，情境緊扣主題，選項=真實用車情境下的行為取捨
 // ============================================================
-const QUESTIONS = [
-  { q:'上班尖峰，停車場只剩這幾格，你會停哪個？', a:[
-      {t:'騎樓邊的窄車格，一把就停進去', sc:{yarisCross:3}},
-      {t:'慢慢找個好停的位子，不勉強', sc:{vios:3}},
-      {t:'入口的充電車格，順便補個電', sc:{bz4x:3}} ]},
-  { q:'每天市區通勤，你最在意哪一點？', a:[
-      {t:'好鑽好停、進出方便', sc:{yarisCross:3}},
-      {t:'房車的安穩與省心', sc:{altis:3}},
-      {t:'零油耗的純電行駛', sc:{bz4x:3}} ]},
-  { q:'人生第一台車、預算有限，你會選？', a:[
-      {t:'經濟實惠的入門房車', sc:{vios:3}},
-      {t:'好停好開的都會小休旅', sc:{yarisCross:3}},
-      {t:'一台搞定所有需求的全能休旅', sc:{corollaCross:3}} ]},
-  { q:'狹窄巷弄會車，對方不讓，你會？', a:[
-      {t:'靈活地倒車找空檔先過', sc:{yarisCross:3}},
-      {t:'冷靜判斷後再穩穩通過', sc:{altis:3}},
-      {t:'耐心等一下，不跟人爭', sc:{vios:3}} ]},
-  { q:'三代同堂要一起出遊，你最需要什麼？', a:[
-      {t:'坐得下又坐得舒服的超大空間', sc:{sienna:3}},
-      {t:'能載一大家子和大量行李', sc:{townAce:3}},
-      {t:'既能裝又能跑的多功能休旅', sc:{rav4:3}} ]},
-  { q:'你的後車廂，最常拿來裝什麼？', a:[
-      {t:'嬰兒車和全家人的行李', sc:{sienna:3}},
-      {t:'做生意要送的貨物', sc:{townAce:3}},
-      {t:'露營與戶外運動裝備', sc:{rav4:3}} ]},
-  { q:'家中長輩上下車不方便，你會選？', a:[
-      {t:'有電動側滑門、地板低的車', sc:{sienna:3}},
-      {t:'沉穩好坐的舒適房車', sc:{camry:3}},
-      {t:'高度剛剛好的休旅', sc:{corollaCross:3}} ]},
-  { q:'規劃全家長途旅行，你最重視？', a:[
-      {t:'每個座位都舒適不累', sc:{sienna:3}},
-      {t:'高速行駛安靜又有質感', sc:{camry:3}},
-      {t:'整趟可靠、不出狀況', sc:{altis:3}} ]},
-  { q:'週末最想開車去哪裡？', a:[
-      {t:'山林裡來點輕越野', sc:{rav4:3}},
-      {t:'挑戰更荒野的地形', sc:{hilux:3}},
-      {t:'在山道上享受熱血過彎', sc:{gr:3}} ]},
-  { q:'前方出現一條爛泥巴路，你會？', a:[
-      {t:'硬派一點，直接輾過去', sc:{hilux:3}},
-      {t:'沉著應對，全能通過', sc:{rav4:3}},
-      {t:'保險起見，繞個安全的路', sc:{corollaCross:3}} ]},
-  { q:'買車時，你最想要的那份快感是？', a:[
-      {t:'精準的操控與加速', sc:{gr:3}},
-      {t:'載重、越野都難不倒', sc:{hilux:3}},
-      {t:'征服各種路況的全能感', sc:{rav4:3}} ]},
-  { q:'朋友臨時揪你夜衝山路，你會？', a:[
-      {t:'求之不得，馬上出發', sc:{gr:3}},
-      {t:'沒問題，開上去就對了', sc:{rav4:3}},
-      {t:'穩穩開、把全車人顧好', sc:{camry:3}} ]},
-  { q:'對於環保，你的態度是？', a:[
-      {t:'純電零排放，最前衛', sc:{bz4x:3}},
-      {t:'油電兼顧，最實際', sc:{corollaCross:3}},
-      {t:'開台省油小車就很夠', sc:{vios:3}} ]},
-  { q:'你最嚮往的「未來感」是？', a:[
-      {t:'純電與智慧車載科技', sc:{bz4x:3}},
-      {t:'科技與安全兼備', sc:{corollaCross:3}},
-      {t:'極致性能帶來的浪漫', sc:{gr:3}} ]},
-  { q:'油價又飆漲了，你的解法是？', a:[
-      {t:'乾脆換一台純電車', sc:{bz4x:3}},
-      {t:'換油電車，油錢省一半', sc:{corollaCross:3}},
-      {t:'我開省油房車，影響不大', sc:{altis:3}} ]},
-  { q:'你需要一台車來幫你「做事」，你看重？', a:[
-      {t:'能載貨、做生意', sc:{townAce:3}},
-      {t:'上工地、能載重', sc:{hilux:3}},
-      {t:'跑業務、省成本', sc:{vios:3}} ]},
-  { q:'創業初期要買車，你最看重？', a:[
-      {t:'載貨機能高、能裝', sc:{townAce:3}},
-      {t:'便宜又好養', sc:{vios:3}},
-      {t:'商務、家用兩相宜', sc:{corollaCross:3}} ]},
-  { q:'用一句話形容你想要的車？', a:[
-      {t:'「能載能裝的好夥伴」', sc:{townAce:3}},
-      {t:'「體面又舒適的座駕」', sc:{camry:3}},
-      {t:'「讓人熱血的機器」', sc:{gr:3}} ]},
-  { q:'朋友覺得你比較像哪種人？', a:[
-      {t:'追求刺激的熱血玩家', sc:{gr:3}},
-      {t:'踏實穩定的上班族', sc:{altis:3}},
-      {t:'走在前面的嘗鮮者', sc:{bz4x:3}} ]},
-  { q:'你做決定時，通常會？', a:[
-      {t:'行動派，先衝再說', sc:{rav4:3}},
-      {t:'理性派，多想一步', sc:{altis:3}},
-      {t:'先顧到身邊所有人', sc:{sienna:3}} ]},
-  { q:'你最得意的個人特質是？', a:[
-      {t:'機靈、反應快', sc:{yarisCross:3}},
-      {t:'沉穩、有份量', sc:{camry:3}},
-      {t:'耐操、超可靠', sc:{hilux:3}} ]},
-  { q:'你的生活風格比較偏向？', a:[
-      {t:'輕便俐落的都會派', sc:{yarisCross:3}},
-      {t:'熱愛戶外的冒險派', sc:{rav4:3}},
-      {t:'講究品味的質感派', sc:{camry:3}} ]},
-  { q:'多出一筆預算，你會把它用在？', a:[
-      {t:'升級性能與操控', sc:{gr:3}},
-      {t:'換更能載貨的車型', sc:{townAce:3}},
-      {t:'投資電動與智慧科技', sc:{bz4x:3}} ]},
-  { q:'你心目中的「划算」是？', a:[
-      {t:'便宜又耐用', sc:{vios:3}},
-      {t:'全能不挑食、一車多用', sc:{corollaCross:3}},
-      {t:'省油又保值', sc:{altis:3}} ]},
-  { q:'選車的最後關頭，你最看？', a:[
-      {t:'價格實在不實在', sc:{vios:3}},
-      {t:'質感與場面夠不夠', sc:{camry:3}},
-      {t:'耐用度與底盤紮不紮實', sc:{hilux:3}} ]},
-  { q:'下大雨、視線變差，你會怎麼開？', a:[
-      {t:'放慢速度、靠安全輔助', sc:{altis:3}},
-      {t:'高速沉穩，開得很安心', sc:{camry:3}},
-      {t:'載著家人，格外小心', sc:{sienna:3}} ]},
-  { q:'假日清晨，你最可能在做什麼？', a:[
-      {t:'找條好路享受駕馭', sc:{gr:3}},
-      {t:'到市區吃個悠閒早午餐', sc:{yarisCross:3}},
-      {t:'安靜地用電力兜風', sc:{bz4x:3}} ]},
-  { q:'露營正夯，你想怎麼玩？', a:[
-      {t:'開皮卡直接野營', sc:{hilux:3}},
-      {t:'用休旅來趟輕越野', sc:{rav4:3}},
-      {t:'舒適的露營車旅行', sc:{sienna:3}} ]},
-  { q:'你開車時，最常載的是？', a:[
-      {t:'自己一個，通勤代步', sc:{yarisCross:3}},
-      {t:'工作要用的貨物', sc:{townAce:3}},
-      {t:'一家老小', sc:{sienna:3}} ]},
-  { q:'理想座駕的關鍵字，你選？', a:[
-      {t:'全能', sc:{corollaCross:3}},
-      {t:'開拓', sc:{hilux:3}},
-      {t:'打拚', sc:{townAce:3}} ]},
-];
+const QUIZ_BY_BOSS = {
+  // 堵塞魔王：城市通勤 / 塞車 / 停車壓力
+  e1: [
+    { q:'遇上「堵塞魔王」，下班塞在車陣動彈不得，你最希望車子先幫你？', a:[
+        {t:'車身夠小，見縫就能變換車道、早點脫身', sc:{yarisCross:3}},
+        {t:'低速也超省，塞著也不心疼荷包', sc:{vios:3}},
+        {t:'起步輕快俐落，綠燈一亮就溜', sc:{gr:3}} ]},
+    { q:'百貨地下停車場只剩一個超窄車位，你會怎麼處理？', a:[
+        {t:'反正車小，直接一把停進去', sc:{yarisCross:3}},
+        {t:'慢慢喬、不急，停穩不刮傷最重要', sc:{vios:3}},
+        {t:'靠好視野與輔助穩穩倒進去', sc:{corollaCross:3}} ]},
+    { q:'每天通勤來回快兩小時，你最想先降低哪種壓力？', a:[
+        {t:'油錢，最好低到幾乎無感', sc:{bz4x:3}},
+        {t:'養車開銷，越省越輕鬆', sc:{vios:3}},
+        {t:'久坐的疲勞，穩又好開最重要', sc:{altis:3}} ]},
+    { q:'「堵塞魔王」用無止盡的紅燈纏住你，你的破關策略是？', a:[
+        {t:'靠靈活身手鑽出最快的路線', sc:{yarisCross:3}},
+        {t:'沉住氣，穩穩安全地前進', sc:{altis:3}},
+        {t:'切到電門安靜溜走、毫不費力', sc:{bz4x:3}} ]},
+    { q:'市區走走停停一整天，下車時你最不想要的感覺？', a:[
+        {t:'又燒掉了一堆油錢', sc:{vios:3}},
+        {t:'找車位找到心很累', sc:{yarisCross:3}},
+        {t:'塞到腰痠背痛、坐得不舒服', sc:{sienna:3}} ]},
+    { q:'尖峰時段趕著接送，你最依賴車子的哪一點？', a:[
+        {t:'嬌小靈活，哪裡都鑽得進去', sc:{yarisCross:3}},
+        {t:'俐落的動力，超車補位很順', sc:{gr:3}},
+        {t:'沉穩好開，接送長輩很安心', sc:{altis:3}} ]},
+  ],
+  // 油耗惡魔：油費 / 長途 / 充電 / 長期成本
+  e2: [
+    { q:'油價破高、長途又要跑，「油耗惡魔」夾擊而來，你會優先怎麼降低壓力？', a:[
+        {t:'乾脆開純電，從此跟油價說掰', sc:{bz4x:3}},
+        {t:'換油電車，油耗直接砍半', sc:{corollaCross:3}},
+        {t:'規劃路線、開省油小車慢慢省', sc:{vios:3}} ]},
+    { q:'「油耗惡魔」讓你的油表狂掉，你的應對是？', a:[
+        {t:'純電續航穩，充電規劃好就不慌', sc:{bz4x:3}},
+        {t:'油電並用，市區高速都省', sc:{camry:3}},
+        {t:'本來就開省油房車，影響不大', sc:{altis:3}} ]},
+    { q:'一趟長途家庭旅行，你最在意旅程中的哪件事？', a:[
+        {t:'油電帶來的安靜與從容', sc:{camry:3}},
+        {t:'充電站好找、續航夠安心', sc:{bz4x:3}},
+        {t:'省油之外、還要裝得下大家', sc:{rav4:3}} ]},
+    { q:'每個月的加油帳單讓你皺眉，你會怎麼處理？', a:[
+        {t:'換一台幾乎不用加油的電車', sc:{bz4x:3}},
+        {t:'改開油電，長期成本算下來最划算', sc:{corollaCross:3}},
+        {t:'挑最省油、保養又便宜的車', sc:{vios:3}} ]},
+    { q:'高速長途奔波，你最希望車子幫你做到？', a:[
+        {t:'巡航安靜省力、坐起來舒適', sc:{camry:3}},
+        {t:'動力夠、滿載爬坡也不喘', sc:{rav4:3}},
+        {t:'油耗穩定、不用一直找加油站', sc:{altis:3}} ]},
+    { q:'考量未來幾年的用車成本，你會把錢花在？', a:[
+        {t:'一次到位的純電科技', sc:{bz4x:3}},
+        {t:'省油又保值的可靠選擇', sc:{altis:3}},
+        {t:'全能又省的油電休旅', sc:{corollaCross:3}} ]},
+  ],
+  // 家庭龍王：家庭 / 空間 / 乘坐 / 長輩小孩
+  e3: [
+    { q:'「家庭龍王」要你帶全家老小出遊，你最先確認車子能不能？', a:[
+        {t:'三排座椅都坐得寬鬆舒適', sc:{sienna:3}},
+        {t:'把全家行李大小通通裝下', sc:{townAce:3}},
+        {t:'後座好坐、長輩上下車方便', sc:{camry:3}} ]},
+    { q:'雨天晚上載全家回家，你最希望車子先幫你做到？', a:[
+        {t:'寬敞安靜，大家都能好好休息', sc:{sienna:3}},
+        {t:'高速穩、視線清楚，開得安心', sc:{camry:3}},
+        {t:'安全輔助到位，雨中也從容', sc:{corollaCross:3}} ]},
+    { q:'長假出門、行李比想像中多，你最不想遇到哪種狀況？', a:[
+        {t:'後廂塞不下、得忍痛取捨', sc:{sienna:3}},
+        {t:'滿載之後爬坡沒力氣', sc:{rav4:3}},
+        {t:'東西沒地方放、車內一團亂', sc:{townAce:3}} ]},
+    { q:'帶長輩去看醫生，你最在意上下車這件事？', a:[
+        {t:'電動側滑門、地板低，最好上下', sc:{sienna:3}},
+        {t:'車門開口大、座椅高度剛剛好', sc:{corollaCross:3}},
+        {t:'坐起來沉穩有支撐、不顛', sc:{camry:3}} ]},
+    { q:'全家準備來趟長途旅行，你希望車子具備？', a:[
+        {t:'像移動客廳般的舒適空間', sc:{sienna:3}},
+        {t:'能裝又能跑、城市郊外都行', sc:{rav4:3}},
+        {t:'可靠不出狀況、全程安心', sc:{altis:3}} ]},
+    { q:'週末要載一大家子加裝備出遊，你會挑能？', a:[
+        {t:'坐好坐滿、人人都舒服的', sc:{sienna:3}},
+        {t:'把人和大量行李一起載的', sc:{townAce:3}},
+        {t:'路況多變也能輕鬆應付的', sc:{rav4:3}} ]},
+  ],
+  // 預算魔王：預算 / 養車成本 / CP / 工作載貨
+  e4: [
+    { q:'「預算魔王」逼你把每分錢算清楚，買車時你會優先？', a:[
+        {t:'挑售價最實在、好入手的', sc:{vios:3}},
+        {t:'算長期油耗加保養最省的', sc:{altis:3}},
+        {t:'選一台能幫我載貨賺錢的', sc:{townAce:3}} ]},
+    { q:'預算有限但需求不少，你會怎麼取捨？', a:[
+        {t:'買小一點、好養又好停的', sc:{yarisCross:3}},
+        {t:'一台車就能滿足所有日常', sc:{corollaCross:3}},
+        {t:'耐操耐用、能撐很多年的', sc:{hilux:3}} ]},
+    { q:'你要靠這台車完成一整天的工作任務，最怕哪件事？', a:[
+        {t:'載貨空間不夠、得多跑好幾趟', sc:{townAce:3}},
+        {t:'半路出狀況、耽誤了生意', sc:{hilux:3}},
+        {t:'油錢過路費吃掉一整天利潤', sc:{vios:3}} ]},
+    { q:'朋友問你買車最重要的一件事，你會怎麼說？', a:[
+        {t:'要便宜又耐用、好維修', sc:{vios:3}},
+        {t:'要能載貨、幫我拚事業', sc:{townAce:3}},
+        {t:'要省油保值、不踩雷', sc:{altis:3}} ]},
+    { q:'同樣一筆預算，你寧可把錢花在？', a:[
+        {t:'好開好停、通勤零壓力', sc:{yarisCross:3}},
+        {t:'紮實底盤、上山下海都不怕', sc:{hilux:3}},
+        {t:'一車多用、能工作也能顧家', sc:{townAce:3}} ]},
+    { q:'養車三五年下來，你最在意的是？', a:[
+        {t:'保養便宜、零件好找', sc:{vios:3}},
+        {t:'妥善率高、很少進廠', sc:{hilux:3}},
+        {t:'殘值保值、換車不吃虧', sc:{altis:3}} ]},
+  ],
+  // 科技守衛：安全 / 科技 / 未來 / 駕馭
+  e5: [
+    { q:'「科技守衛」考驗你對行車的掌握，夜雨高速你最想要？', a:[
+        {t:'主動安全幫你預警、緊急煞停', sc:{corollaCross:3}},
+        {t:'沉穩底盤與隔音，開得安心', sc:{camry:3}},
+        {t:'銳利操控與煞車，全局自己掌握', sc:{gr:3}} ]},
+    { q:'明天一早要靠車跑一整天行程，你最希望？', a:[
+        {t:'智慧駕駛輔助、長途不累', sc:{corollaCross:3}},
+        {t:'純電安靜、充好電一路順', sc:{bz4x:3}},
+        {t:'動力充沛、什麼路況都罩得住', sc:{rav4:3}} ]},
+    { q:'你心中「夠先進」的一台車，會具備什麼？', a:[
+        {t:'滿滿的主動安全與輔助科技', sc:{corollaCross:3}},
+        {t:'純電動力與智慧車載系統', sc:{bz4x:3}},
+        {t:'越野與脫困的真本事', sc:{hilux:3}} ]},
+    { q:'週末臨時被揪去山區，你希望車子具備哪種能力？', a:[
+        {t:'強勁動力、過彎操控帶勁', sc:{gr:3}},
+        {t:'四驅與通過性、路爛也不怕', sc:{rav4:3}},
+        {t:'紮實耐操、載人載裝備都行', sc:{hilux:3}} ]},
+    { q:'你最想體驗哪一種「未來用車」生活？', a:[
+        {t:'零排放、充電就走的純電生活', sc:{bz4x:3}},
+        {t:'人車合一、熱血駕馭的快感', sc:{gr:3}},
+        {t:'全能又安全的智慧休旅', sc:{rav4:3}} ]},
+    { q:'高速巡航時，你最享受車子帶來的？', a:[
+        {t:'安靜平穩、質感十足', sc:{camry:3}},
+        {t:'隨傳隨到的加速與操控', sc:{gr:3}},
+        {t:'安全系統默默守護的安心', sc:{corollaCross:3}} ]},
+  ],
+};
+// 所有題目攤平(供小怪戰鬥隨機抽用)
+const ALL_QUESTIONS = Object.values(QUIZ_BY_BOSS).flat();
 
 // ============================================================
 // MAP CONFIG
@@ -1102,23 +1118,23 @@ const ENEMIES = [
     sig:'🚥 堵塞魔王施放「無限紅燈」，', sigMul:1.6,
   },
   {
-    id:'e2', name:'山路妖精', sprite:'🏔️', hp:56, maxHp:56, atk:10, desc:'代表山路挑戰',
-    dialogue: '山路彎道可不是鬧著玩的！你敢挑戰嗎？',
-    sig:'🌀 山路妖精捲起「髮夾彎亂流」，', sigMul:1.6,
+    id:'e2', name:'油耗惡魔', sprite:'⛽', hp:56, maxHp:56, atk:10, desc:'代表油費與長途壓力',
+    dialogue: '油價漲不停、長途又要跑，你扛得住嗎？',
+    sig:'⛽ 油耗惡魔發動「油價狂飆」，', sigMul:1.6,
   },
   {
-    id:'e3', name:'家族巨龍', sprite:'🐉', hp:82, maxHp:82, atk:13, desc:'代表全家出遊需求',
-    dialogue: '想要帶全家出遊？先打敗我再說！',
-    sig:'🐲 家族巨龍噴出「行李超載吐息」，', sigMul:1.7,
+    id:'e3', name:'家庭龍王', sprite:'🐉', hp:82, maxHp:82, atk:13, desc:'代表全家出遊需求',
+    dialogue: '想帶全家老小出門？先過我這一關！',
+    sig:'🐲 家庭龍王噴出「行李超載吐息」，', sigMul:1.7,
   },
   {
-    id:'e4', name:'油費惡魔', sprite:'💸', hp:50, maxHp:50, atk:9, desc:'代表油費焦慮',
-    dialogue: '油價一直漲漲漲！你的荷包受得了嗎？',
-    sig:'⛽ 油費惡魔發動「油價狂飆」，', sigMul:1.6,
+    id:'e4', name:'預算魔王', sprite:'💰', hp:54, maxHp:54, atk:10, desc:'代表預算與養車成本',
+    dialogue: '錢要花在刀口上，你的每一分都算清楚了嗎？',
+    sig:'💸 預算魔王發動「荷包大失血」，', sigMul:1.6,
   },
   {
     id:'e5', name:'科技守衛', sprite:'🤖', hp:74, maxHp:74, atk:12, desc:'代表科技安全需求',
-    dialogue: '現代駕駛需要最先進的安全科技！展示你的實力！',
+    dialogue: '現代用車靠的是科技與實力，展現給我看！',
     sig:'🤖 科技守衛啟動「系統過載光束」，', sigMul:1.7,
   },
 ];
@@ -1375,6 +1391,7 @@ function renderMap() {
   if(!canvas || !ctx) return;
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
+  ctx.globalAlpha = 1;   // 每幀重置，避免上一幀的半透明殘留外洩
 
   // Center camera on player
   mapOffX = Math.floor(W/2 - player.x*TILE - TILE/2);
@@ -1493,6 +1510,7 @@ function renderMap() {
       ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
       ctx.fillText('!', sx+TILE/2, sy-4+Math.sin(tick*0.2)*2);
     }
+    ctx.globalAlpha=1;
     ctx.font='18px serif'; ctx.textAlign='center';
     ctx.fillText(m.type.sprite, sx+TILE/2, sy+TILE/2+float);
     ctx.fillStyle='rgba(0,0,0,0.25)';
@@ -1519,14 +1537,13 @@ function renderMap() {
       ctx.stroke();
     }
 
-    // Floating sprite (locked enemies dimmed)
+    // Floating sprite (locked enemies dimmed) — 明確設值，畫完立刻復原
     const float = Math.sin(tick*0.05+ep.x)*3;
-    ctx.save();
-    if(locked) ctx.globalAlpha = 0.4;
+    ctx.globalAlpha = locked ? 0.4 : 1;
     ctx.font = '22px serif';
     ctx.textAlign = 'center';
     ctx.fillText(ep.enemy.sprite, sx+TILE/2, sy+TILE/2+float);
-    ctx.restore();
+    ctx.globalAlpha = 1;
     // Glow only for active
     if(isTarget){
       ctx.fillStyle='rgba(255,0,0,0.15)';
@@ -1559,12 +1576,11 @@ function renderMap() {
     const sx = pr.x*TILE+mapOffX, sy = pr.y*TILE+mapOffY;
     const used = propUsed.has(pr.id);
     const adjacent = Math.abs(pr.x-player.x)<=1 && Math.abs(pr.y-player.y)<=1;
-    ctx.save();
-    if(pr.type==='chest' && used) ctx.globalAlpha = 0.4;
+    ctx.globalAlpha = (pr.type==='chest' && used) ? 0.4 : 1;
     ctx.font = '20px serif';
     ctx.textAlign = 'center';
     ctx.fillText(used && pr.type==='chest' ? '📭' : pr.sprite, sx+TILE/2, sy+TILE/2);
-    ctx.restore();
+    ctx.globalAlpha = 1;
     // Steady interact hint only when the player is right next to it
     const interactable = !(pr.type==='chest' && used);
     if(adjacent && interactable){
@@ -2055,7 +2071,6 @@ let battleActionsEnabled = true;
 let battleHeroFrame = 0;
 let battleHeroTimer = null;
 let battleTurns = 0;
-let lastQ = -1;
 let curQuestion = null, curAnswerDmg = 0, curUltDmg = 0;
 let selectedOpt = 0;
 const ULT_SP = 12;
@@ -2074,6 +2089,8 @@ function beginBattle(enemyData, isMob){
   STATE.inBattle = true;
   currentBattleIsMob = isMob;
   battleEnemy = {...enemyData, maxHp: enemyData.hp, currentHp: enemyData.hp};
+  // 用這隻 BOSS 的專屬題庫(小怪則用全部題目隨機)
+  setBattlePool(isMob ? ALL_QUESTIONS : QUIZ_BY_BOSS[enemyData.id]);
 
   const bs = document.getElementById('battleScreen');
   bs.style.display = 'flex';
@@ -2087,7 +2104,6 @@ function beginBattle(enemyData, isMob){
 <div class="battle-log-line log-system" style="color:#aaa;font-size:11px">"${battleEnemy.dialogue}"</div>`;
 
   battleTurns = 0;
-  lastQ = -1;
   updateHUD();
 
   // Start hero idle animation
@@ -2127,24 +2143,23 @@ function startPlayerTurn(){
 }
 
 // Shuffled "deck" so questions never repeat until the whole pool has been used
-let questionDeck = [];
-function refillQuestionDeck(){
-  questionDeck = QUESTIONS.map((_, i) => i);
-  for(let i=questionDeck.length-1; i>0; i--){
+// 每場戰鬥用「目前 BOSS 的題庫」洗成一副牌，整場不重複
+let battlePool = [];
+let battleDeck = [];
+function setBattlePool(pool){
+  battlePool = pool && pool.length ? pool : ALL_QUESTIONS;
+  battleDeck = [];
+}
+function refillBattleDeck(){
+  battleDeck = battlePool.map((_, i) => i);
+  for(let i=battleDeck.length-1; i>0; i--){
     const j = Math.floor(Math.random()*(i+1));
-    [questionDeck[i], questionDeck[j]] = [questionDeck[j], questionDeck[i]];
-  }
-  // avoid an immediate repeat across the reshuffle seam
-  if(questionDeck.length>1 && questionDeck[questionDeck.length-1]===lastQ){
-    [questionDeck[questionDeck.length-1], questionDeck[0]] =
-      [questionDeck[0], questionDeck[questionDeck.length-1]];
+    [battleDeck[i], battleDeck[j]] = [battleDeck[j], battleDeck[i]];
   }
 }
 function pickQuestion(){
-  if(questionDeck.length===0) refillQuestionDeck();
-  const idx = questionDeck.pop();
-  lastQ = idx;
-  return QUESTIONS[idx];
+  if(battleDeck.length===0) refillBattleDeck();
+  return battlePool[battleDeck.pop()];
 }
 
 function presentQuestion(){
@@ -2426,82 +2441,82 @@ function showNotification(msg){
 // ============================================================
 const CAR_INFO = {
   yarisCross: { name:'YARIS CROSS', emoji:'🚗', color:'#e8602a',
-    title:'都會靈動旅人', tag:'都會跨界小休旅',
+    title:'城市疾行者',
     quote:'車位再小，我都能優雅入位。',
     persona:'你是城市裡的靈活獵人，反應快、決斷俐落，討厭被束縛。狹窄巷弄和難停的車位反而是你的舞台。你重視效率與輕巧，把每天的移動變得簡單俐落，是把日子過得從容又精準的都會玩家。',
-    traits:['機敏','俐落','獨立','省心'],
+    traits:['小巧靈活','好停好開','都會通勤','負擔低'],
     missions:['找個窄車位實際停一次','試市區走停的油耗與安靜','確認後廂日常採買夠不夠用'],
-    share:'測出來我是【都會靈動旅人】，命定座駕 YARIS CROSS！你的呢？' },
+    share:'測出來我的車魂是【城市疾行者】，命定座駕 YARIS CROSS！你的呢？' },
   corollaCross: { name:'COROLLA CROSS', emoji:'🚙', color:'#3f9d4a',
-    title:'全能均衡旅者', tag:'國民全能休旅',
+    title:'均衡守護者',
     quote:'安全與從容，才是真正的帥。',
     persona:'你是身邊最讓人安心的那個人，凡事先想周全、重視安全與可靠。你不追求花俏，而是用穩定的判斷把每件事做到位。一台兼顧科技、空間與省油的全能夥伴，正好呼應你務實又體貼的個性。',
-    traits:['穩健','均衡','可靠','周全'],
+    traits:['穩定可靠','均衡實用','安全感','日常萬用'],
     missions:['體驗 TSS 主動安全輔助','試坐後座與行李廂空間','感受油電的平順與省油'],
-    share:'測出來我是【全能均衡旅者】，命定座駕 COROLLA CROSS！' },
+    share:'測出來我的車魂是【均衡守護者】，命定座駕 COROLLA CROSS！' },
   altis: { name:'COROLLA ALTIS', emoji:'🚘', color:'#3a78c8',
-    title:'理性通勤達人', tag:'國民安心房車',
+    title:'安穩通勤者',
     quote:'把每天的路，走得穩穩當當。',
     persona:'你務實、有條理，喜歡可預期的穩定。你不愛冒險，卻把該做的事都打理得井井有條，是大家眼中可靠的存在。一台好開、省心又保值的房車，最貼近你重視CP值與安穩的個性。',
-    traits:['沉穩','理性','務實','可靠'],
+    traits:['沉穩好開','省心保值','安全可靠','通勤首選'],
     missions:['試開市區與高速的安定感','確認油耗與保養成本','體驗座艙的安靜度'],
-    share:'測出來我是【理性通勤達人】，命定座駕 COROLLA ALTIS！' },
+    share:'測出來我的車魂是【安穩通勤者】，命定座駕 COROLLA ALTIS！' },
   rav4: { name:'RAV4', emoji:'🛻', color:'#d2792a',
-    title:'全能冒險家', tag:'全能冒險休旅',
+    title:'荒野探索者',
     quote:'沒走過的路，才值得出發。',
     persona:'你骨子裡是個冒險家，越沒走過的路越想踩油門。你行動力十足、不怕挑戰，喜歡把生活過成一場場小探險。動力充沛、進退自如的全能夥伴最懂你，城市與荒野都能瀟灑來去。',
-    traits:['勇敢','行動','自由','全能'],
+    traits:['戶外探索','空間彈性','假日旅行','生活半徑大'],
     missions:['找段起伏路試底盤與動力','確認載運動/露營裝備的彈性','體驗四驅或越野模式'],
-    share:'測出來我是【全能冒險家】，命定座駕 RAV4！一起出發？' },
+    share:'測出來我的車魂是【荒野探索者】，命定座駕 RAV4！一起出發？' },
   camry: { name:'CAMRY', emoji:'🚖', color:'#7a4fd0',
-    title:'沉穩質感家', tag:'旗艦質感房車',
+    title:'豪華守護者',
     quote:'真正的氣度，藏在從容裡。',
     persona:'你成熟穩重、重視質感與細節，待人接物得體大方。你追求的不是張揚，而是讓人信賴的沉穩氣場。寬適安靜、開起來游刃有餘的旗艦房車，最能襯托你內斂而有份量的風格。',
-    traits:['成熟','沉穩','質感','大器'],
+    traits:['乘坐舒適','沉穩質感','商務體面','品質投資'],
     missions:['試高速巡航的安靜與舒適','體驗後座乘坐質感','感受油電動力的從容'],
-    share:'測出來我是【沉穩質感家】，命定座駕 CAMRY！' },
+    share:'測出來我的車魂是【豪華守護者】，命定座駕 CAMRY！' },
   sienna: { name:'SIENNA', emoji:'🚐', color:'#c9a23a',
-    title:'家庭守護者', tag:'頂級家庭 MPV',
+    title:'家庭領航者',
     quote:'把最重要的人，安穩地載在身邊。',
     persona:'你把家人放在第一位，總想給大家最舒服的照顧。你不急不搶，重視每段旅程的舒適與安心。超大空間、面面俱到的 MPV 最貼近你，那是一座移動的客廳，承載你對家的溫柔。',
-    traits:['顧家','體貼','從容','包容'],
+    traits:['超大空間','家人優先','長途舒適','面面俱到'],
     missions:['試坐二、三排與腿部空間','體驗電動側滑門上下車','長輩小孩同行測舒適度'],
-    share:'測出來我是【家庭守護者】，命定座駕 SIENNA！' },
+    share:'測出來我的車魂是【家庭領航者】，命定座駕 SIENNA！' },
   vios: { name:'VIOS', emoji:'🚕', color:'#2fa9c2',
-    title:'務實精算家', tag:'經濟實惠房車',
+    title:'精算節用者',
     quote:'把每一塊錢，都花在對的地方。',
     persona:'你務實、不浪費，凡事精打細算，討厭華而不實。你清楚自己要什麼，把預算用在刀口上。經濟好養、空間實用的入門房車，正呼應你聰明又腳踏實地的生活哲學。',
-    traits:['務實','精省','踏實','聰明'],
+    traits:['經濟實惠','好養省心','日常代步','預算友善'],
     missions:['確認售價與後續保養成本','試日常通勤的油耗','丈量後座與行李廂'],
-    share:'測出來我是【務實精算家】，命定座駕 VIOS！' },
+    share:'測出來我的車魂是【精算節用者】，命定座駕 VIOS！' },
   townAce: { name:'TOWN ACE', emoji:'🚚', color:'#5a8f3a',
-    title:'打拚實戰家', tag:'創業載貨好夥伴',
+    title:'打拚承載者',
     quote:'能載、能裝、能打拚，就是好車。',
     persona:'你勤奮務實、肯拚肯做，把車當成事業的好幫手。你不在意花俏，只在意它夠不夠耐操、能不能幫你把貨送到、把事做成。靈活又能裝的商用夥伴，最適合正在打拚的你。',
-    traits:['勤奮','實戰','耐操','機能'],
+    traits:['載貨機能','靈活實用','創業夥伴','耐操可靠'],
     missions:['實際裝載你常運的貨物','試市區穿梭的靈活度','確認維修與妥善成本'],
-    share:'測出來我是【打拚實戰家】，命定座駕 TOWN ACE！' },
+    share:'測出來我的車魂是【打拚承載者】，命定座駕 TOWN ACE！' },
   gr: { name:'GR 性能系列', emoji:'🏎️', color:'#d11f2a',
-    title:'熱血駕馭者', tag:'GR 性能跑魂',
+    title:'熱血馭風者',
     quote:'方向盤後面，才是我最自由的地方。',
     persona:'你熱血、直率，享受腎上腺素飆升的瞬間。你追求的是人車合一的駕馭樂趣，討厭平庸與將就。反應銳利、性能強悍的座駕，最能釋放你骨子裡那份不安於室的熱情。',
-    traits:['熱血','激情','純粹','果敢'],
+    traits:['操控樂趣','性能熱血','駕馭純粹','激情澎湃'],
     missions:['試一段彎道感受操控','體驗加速與底盤反應','確認日常代步的妥協度'],
-    share:'測出來我是【熱血駕馭者】，命定座駕 TOYOTA GR 性能系列！' },
+    share:'測出來我的車魂是【熱血馭風者】，命定座駕 TOYOTA GR 性能系列！' },
   bz4x: { name:'bZ4X', emoji:'🔋', color:'#16b8a6',
-    title:'永續先行者', tag:'純電科技先鋒',
+    title:'節能鍊金師',
     quote:'走在未來前面，安靜而堅定。',
     persona:'你走在時代前緣，樂於嘗鮮也在意永續。你思考長遠、不盲從，願意為更好的選擇率先嘗試。零排放、充滿智慧科技的純電座駕，正呼應你前衛又有責任感的價值觀。',
-    traits:['前衛','永續','智慧','獨到'],
+    traits:['油耗效率','長期成本','理性精算','續航安心'],
     missions:['試純電起步的安靜與加速','了解充電方式與續航','體驗智慧車載系統'],
-    share:'測出來我是【永續先行者】，命定座駕 bZ4X！' },
+    share:'測出來我的車魂是【節能鍊金師】，命定座駕 bZ4X！' },
   hilux: { name:'HILUX', emoji:'🛻', color:'#7a7d54',
-    title:'硬派開拓者', tag:'硬派越野皮卡',
+    title:'開疆拓荒者',
     quote:'越艱難的地形，越能證明我。',
     persona:'你堅毅可靠、吃苦耐勞，越是嚴苛的環境越能展現本事。你重視耐用與真本事，不愛花拳繡腿。粗獷強悍、能載又能越野的硬派皮卡，最能呼應你那股不被打倒的開拓精神。',
-    traits:['堅毅','粗獷','耐操','無畏'],
+    traits:['硬派越野','載重耐操','無懼地形','戶外實戰'],
     missions:['試非鋪裝路面的通過性','確認載重與貨斗機能','體驗高底盤的視野'],
-    share:'測出來我是【硬派開拓者】，命定座駕 HILUX！' },
+    share:'測出來我的車魂是【開疆拓荒者】，命定座駕 HILUX！' },
 };
 const PROMO_URL = 'https://www.toyota.com.tw/crmarketing/2025_DLR_socialmedia/?dealer=D';
 
@@ -2577,98 +2592,125 @@ function fitFont(ctx, text, base, maxW, family){
   return s;
 }
 
+// 旅行稱號：依戰鬥表現 / 互動 / 擊退小怪給予(含一個稀有稱號)
+function getTravelTitle(){
+  const st=STATE.stats, lost=STATE.battlesLost;
+  if(lost===0 && st.mobs>=5 && st.chests>=4) return {title:'傳說冒險王', rare:true};
+  if(lost===0 && st.fastWins>=4)            return {title:'無雙劍聖', rare:true};
+  if(st.mobs>=5)        return {title:'除妖高手', rare:false};
+  if(st.chests>=4)      return {title:'尋寶獵人', rare:false};
+  if(lost===0)          return {title:'無傷通關者', rare:false};
+  if(st.crits>=5)       return {title:'暴擊狂人', rare:false};
+  if(st.itemsUsed>=3)   return {title:'未雨綢繆者', rare:false};
+  if(st.ults>=5)        return {title:'果斷決行者', rare:false};
+  return {title:'悠閒旅人', rare:false};
+}
+
 async function renderShareCard(topKey, matchPct, sorted){
   try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
   const cv=document.getElementById('shareCanvas');
-  const W=600,H=836,S=3;                 // S=3 → 下載與螢幕都更清晰
+  const W=600,H=910,S=3;                 // S=3 → 下載與螢幕都更清晰
   cv.width=W*S; cv.height=H*S;
   const ctx=cv.getContext('2d'); ctx.scale(S,S);
   const info=CAR_INFO[topKey], accent=info.color, st=STATE.stats;
   const PS='"Press Start 2P","Noto Sans TC",monospace', NS='"Noto Sans TC",sans-serif';
   ctx.textBaseline='alphabetic';
 
-  // ---- panel ----
+  // ---- panel：深色質感底 + 車款色頂部光暈(取代原本的綠色) ----
   const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#143a22'); g.addColorStop(0.5,'#0e2a18'); g.addColorStop(1,'#0a1f12');
-  rrPath(ctx,5,5,W-10,H-10,26); ctx.fillStyle=g; ctx.fill();
-  ctx.lineWidth=4; ctx.strokeStyle=accent; ctx.stroke();
-  ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,0.06)'; rrPath(ctx,12,12,W-24,H-24,20); ctx.stroke();
+  g.addColorStop(0,'#222739'); g.addColorStop(0.55,'#151826'); g.addColorStop(1,'#0c0e15');
+  rrPath(ctx,5,5,W-10,H-10,28); ctx.fillStyle=g; ctx.fill();
+  // accent glow at top
+  ctx.save(); rrPath(ctx,5,5,W-10,H-10,28); ctx.clip();
+  const glow=ctx.createRadialGradient(W/2,40,20,W/2,40,360);
+  glow.addColorStop(0, accent+'4d'); glow.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=glow; ctx.fillRect(0,0,W,300);
+  ctx.restore();
+  ctx.lineWidth=4; ctx.strokeStyle=accent; rrPath(ctx,5,5,W-10,H-10,28); ctx.stroke();
+  ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,0.07)'; rrPath(ctx,12,12,W-24,H-24,22); ctx.stroke();
 
-  const line=(y)=>{ ctx.strokeStyle='rgba(255,255,255,0.10)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(48,y); ctx.lineTo(W-48,y); ctx.stroke(); };
+  const line=(y)=>{ ctx.strokeStyle='rgba(255,255,255,0.10)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(54,y); ctx.lineTo(W-54,y); ctx.stroke(); };
 
   ctx.textAlign='center';
   // header
   ctx.fillStyle='#ece4b6'; ctx.font=`700 18px ${PS}`;
   try{ ctx.letterSpacing='6px'; }catch(e){}
-  ctx.fillText('★ YOUR CAR ★', W/2+3, 52);
+  ctx.fillText('★ YOUR CAR ★', W/2+3, 54);
   try{ ctx.letterSpacing='0px'; }catch(e){}
-  line(66);
+  line(72);
 
   // car
-  drawPixelCar(ctx, W/2, 138, accent);
+  drawPixelCar(ctx, W/2, 150, accent);
 
-  // 車魂稱號 ribbon
+  // 車魂 chip（取代原本的稱號，並移除型錄式副標）
   ctx.font=`700 18px ${NS}`;
-  const tTxt='🚘 '+info.title, tW=ctx.measureText(tTxt).width+40;
-  rrPath(ctx, W/2-tW/2, 188, tW, 36, 18); ctx.fillStyle=accent; ctx.fill();
-  ctx.fillStyle='#0a160c'; ctx.fillText(tTxt, W/2, 212);
+  const tTxt='🚘 車魂 · '+info.title, tW=ctx.measureText(tTxt).width+42;
+  rrPath(ctx, W/2-tW/2, 212, tW, 40, 20); ctx.fillStyle=accent; ctx.fill();
+  ctx.fillStyle='#0b0d14'; ctx.fillText(tTxt, W/2, 238);
 
-  // car name (auto-fit) + tag
+  // 車名（自動縮放）
   const nf=fitFont(ctx, info.name, 30, W-90, PS);
-  ctx.font=`700 ${nf}px ${PS}`; ctx.fillStyle=accent; ctx.fillText(info.name, W/2, 256);
-  ctx.font=`15px ${NS}`; ctx.fillStyle='#c2d6ba'; ctx.fillText('「'+info.tag+'」', W/2, 282);
+  ctx.font=`700 ${nf}px ${PS}`; ctx.fillStyle=accent; ctx.fillText(info.name, W/2, 296);
 
-  // 契合度 (label + big gold pct)
+  // 契合度
   const lab='玩家契合度 ', pct=matchPct+'%';
   ctx.font=`15px ${NS}`; const lw=ctx.measureText(lab).width;
   ctx.font=`700 22px ${PS}`; const pw=ctx.measureText(pct).width;
   const bx=W/2-(lw+pw)/2; ctx.textAlign='left';
-  ctx.font=`15px ${NS}`; ctx.fillStyle='#d8e8d0'; ctx.fillText(lab,bx,312);
-  ctx.font=`700 22px ${PS}`; ctx.fillStyle='#ffd24a'; ctx.fillText(pct,bx+lw,314);
+  ctx.font=`15px ${NS}`; ctx.fillStyle='#d8e0ea'; ctx.fillText(lab,bx,336);
+  ctx.font=`700 22px ${PS}`; ctx.fillStyle='#ffd24a'; ctx.fillText(pct,bx+lw,338);
   ctx.textAlign='center';
 
-  // 副車款（第二、三名）
-  ctx.fillStyle='#a8bca0'; ctx.font=`12px ${NS}`;
-  ctx.fillText('副車款：'+CAR_INFO[sorted[1][0]].name+' · '+CAR_INFO[sorted[2][0]].name, W/2, 334);
+  // 副車款
+  ctx.fillStyle='#9aa6bc'; ctx.font=`12px ${NS}`;
+  ctx.fillText('副車款：'+CAR_INFO[sorted[1][0]].name+' · '+CAR_INFO[sorted[2][0]].name, W/2, 366);
 
   // 車魂金句
   ctx.fillStyle='#ffe9a8'; ctx.font=`italic 16px ${NS}`;
-  ctx.fillText('『'+info.quote+'』', W/2, 354);
+  ctx.fillText('『'+info.quote+'』', W/2, 400);
+  line(420);
 
-  // trip line (旅程數據)
-  ctx.fillStyle='#92a78d'; ctx.font=`12px ${NS}`;
-  ctx.fillText(`本趟旅程：通關 ${STATE.battlesWon} 關・開箱 ${st.chests}・擊退小怪 ${st.mobs}`, W/2, 372);
-  line(386);
-
-  // persona box
-  rrPath(ctx,30,398,W-60,114,12); ctx.fillStyle='rgba(0,0,0,0.30)'; ctx.fill();
+  // 人格描述
+  rrPath(ctx,30,434,W-60,116,12); ctx.fillStyle='rgba(255,255,255,0.04)'; ctx.fill();
   ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,0.10)'; ctx.stroke();
-  ctx.textAlign='left'; ctx.fillStyle='#e8f1e2'; ctx.font=`15px ${NS}`;
-  wrapText(ctx, info.persona, 46, 424, W-92, 24);
+  ctx.textAlign='left'; ctx.fillStyle='#e8edf4'; ctx.font=`15px ${NS}`;
+  wrapText(ctx, info.persona, 46, 460, W-92, 24);
 
   // 關鍵特質
-  ctx.fillStyle=accent; ctx.font=`700 13px ${NS}`; ctx.fillText('◆ 關鍵特質', 34, 540);
-  let chx=120, chy=528;
-  ctx.font=`700 14px ${NS}`;
+  ctx.fillStyle=accent; ctx.font=`700 13px ${NS}`; ctx.fillText('◆ 關鍵特質', 34, 582);
+  let chx=120, chy=570; ctx.font=`700 14px ${NS}`;
   info.traits.forEach(t=>{
     const cw=ctx.measureText(t).width+22;
     rrPath(ctx, chx, chy, cw, 26, 13); ctx.fillStyle='rgba(255,255,255,0.07)'; ctx.fill();
     ctx.lineWidth=1.5; ctx.strokeStyle=accent; ctx.stroke();
-    ctx.fillStyle='#eef6ea'; ctx.textAlign='center'; ctx.fillText(t, chx+cw/2, chy+18); ctx.textAlign='left';
+    ctx.fillStyle='#eef2f8'; ctx.textAlign='center'; ctx.fillText(t, chx+cw/2, chy+18); ctx.textAlign='left';
     chx += cw+8;
   });
 
   // 試乘任務
-  ctx.fillStyle=accent; ctx.font=`700 13px ${NS}`; ctx.fillText('🔧 試乘任務（看車重點）', 34, 588);
-  ctx.font=`14px ${NS}`; ctx.fillStyle='#dbe8d4';
-  info.missions.forEach((m,i)=>{ ctx.fillText('▸ '+m, 40, 614+i*25); });
+  ctx.fillStyle=accent; ctx.font=`700 13px ${NS}`; ctx.fillText('🔧 試乘任務（看車重點）', 34, 632);
+  ctx.font=`14px ${NS}`; ctx.fillStyle='#dbe2ec';
+  info.missions.forEach((m,i)=>{ ctx.fillText('▸ '+m, 40, 658+i*25); });
+  line(746);
 
-  line(704);
+  // 旅行稱號 badge
+  const tt=getTravelTitle();
+  ctx.textAlign='center'; ctx.font=`700 16px ${NS}`;
+  const tlTxt=(tt.rare?'✦ 稀有稱號 ✦  ':'🏅 旅行稱號：')+tt.title;
+  const tlW=ctx.measureText(tlTxt).width+44;
+  rrPath(ctx, W/2-tlW/2, 766, tlW, 40, 20);
+  ctx.fillStyle= tt.rare ? '#ffd24a' : 'rgba(255,255,255,0.06)'; ctx.fill();
+  ctx.lineWidth=2; ctx.strokeStyle= tt.rare ? '#fff0b0' : accent; ctx.stroke();
+  ctx.fillStyle= tt.rare ? '#3a2a00' : '#ffe9a8'; ctx.fillText(tlTxt, W/2, 792);
+  // 旅程數據
+  ctx.fillStyle='#8a93a6'; ctx.font=`12px ${NS}`;
+  ctx.fillText(`本趟旅程：通關 ${STATE.battlesWon} 關・開箱 ${st.chests}・擊退小怪 ${st.mobs}`, W/2, 824);
+
   // footer
-  ctx.textAlign='center'; ctx.fillStyle='#8a9a85'; ctx.font=`700 12px ${NS}`;
-  ctx.fillText('TOYOTA Quest · 汽車 RPG 人格測驗', W/2, 730);
-  ctx.fillStyle='#76856f'; ctx.font=`11px ${NS}`;
-  ctx.fillText('※ 推薦結果僅供參考，實際購車歡迎洽詢 Taiwan TOYOTA 各據點', W/2, 752);
+  ctx.fillStyle='#8089a0'; ctx.font=`700 12px ${NS}`;
+  ctx.fillText('TOYOTA Quest · 汽車 RPG 人格測驗', W/2, 862);
+  ctx.fillStyle='#6b7388'; ctx.font=`11px ${NS}`;
+  ctx.fillText('※ 推薦結果僅供參考，實際購車歡迎洽詢 Taiwan TOYOTA 各據點', W/2, 884);
 }
 
 function downloadShareCard(){
