@@ -359,7 +359,7 @@
     gap: 12px;
     align-items: stretch;
     flex-shrink: 0;
-    height: 152px;
+    height: 232px;
     overflow: hidden;
   }
 
@@ -385,38 +385,55 @@
   .log-system { color: var(--gold); }
 
   #battleActions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    width: 320px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
     gap: 6px;
-    width: 200px;
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  #battleQuestion {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--gold);
+    background: #15152e;
+    border: 2px solid var(--border2);
+    padding: 6px 9px;
     flex-shrink: 0;
   }
 
-  .action-btn {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 7px;
+  #battleOptions { display: flex; flex-direction: column; gap: 4px; }
+
+  .opt-btn {
+    font-size: 12px;
     background: var(--panel);
     border: 2px solid var(--border2);
     color: var(--white);
-    padding: 9px 6px;
+    padding: 6px 10px;
     cursor: pointer;
     transition: all 0.1s;
-    letter-spacing: 1px;
+    text-align: left;
+    line-height: 1.25;
   }
-
-  .action-btn:hover:not(:disabled) {
+  .opt-btn:hover:not(:disabled) {
     background: var(--border);
     border-color: #8888ff;
-    transform: translateY(-1px);
+    transform: translateX(2px);
   }
+  .opt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .opt-btn .opt-key { color: var(--gold); font-family: 'Press Start 2P', monospace; font-size: 9px; margin-right: 6px; }
 
-  .action-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+  .opt-btn.ult-opt {
+    border-color: #7a4fd0; color: #d9b6ff;
+    background: #221636;
   }
-
-  .action-btn.sp-btn { border-color: #224488; color: #88ccff; }
-  .action-btn.sp-btn:hover:not(:disabled) { background: #224488; border-color: var(--blue); }
+  .opt-btn.ult-opt:hover:not(:disabled) { background: #3a2466; border-color: #a86bff; }
+  .opt-btn.item-opt {
+    border-color: #6a5320; color: #ffd06a; margin-top: auto; flex-shrink: 0;
+  }
+  .opt-btn.item-opt:hover:not(:disabled) { background: #3a2e10; }
 
   /* ===== RESULT SCREEN ===== */
   #resultScreen {
@@ -496,7 +513,41 @@
   }
 
   .profile-title { font-family: 'Press Start 2P', monospace; font-size: 9px; color: var(--blue); margin-bottom: 10px; }
-  .profile-text { font-size: 13px; line-height: 1.8; color: var(--white); }
+  .profile-text { font-size: 13px; line-height: 1.9; color: var(--white); }
+
+  /* ===== REPORT CARD ===== */
+  .report-card {
+    background: var(--panel);
+    border: 2px solid var(--border2);
+    padding: 14px 18px;
+    max-width: 520px;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  .report-head {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 2px dashed var(--border2); padding-bottom: 10px; margin-bottom: 10px;
+  }
+  .report-head .rh-title { font-family:'Press Start 2P',monospace; font-size: 10px; color: var(--gold); }
+  .report-grade {
+    font-family:'Press Start 2P',monospace; font-size: 22px; color:#000;
+    background: var(--gold); border-radius: 8px; padding: 6px 12px;
+    box-shadow: 0 0 16px rgba(255,215,0,0.5);
+  }
+  .report-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .report-table td { padding: 5px 4px; border-bottom: 1px solid #2a2a4a; }
+  .report-table td.rt-label { color: var(--gray); }
+  .report-table td.rt-val { color: var(--white); text-align: right; font-family:'Press Start 2P',monospace; font-size: 10px; }
+
+  /* full ranking bars */
+  .rank-row { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+  .rank-emoji { font-size: 20px; width: 26px; text-align:center; }
+  .rank-name { font-family:'Press Start 2P',monospace; font-size: 7px; color: var(--gold); width: 84px; }
+  .rank-bar-wrap { flex:1; height: 13px; background:#222; border:1px solid #444; position:relative; }
+  .rank-bar { height:100%; background: linear-gradient(90deg, var(--toyota-red), #ff8844); width:0; transition: width 1s ease; }
+  .rank-pct { font-family:'Press Start 2P',monospace; font-size:8px; color:var(--white); width:34px; text-align:right; }
+  .rank-row.top .rank-name { color:#fff; }
+  .rank-row.top .rank-bar { background: linear-gradient(90deg, var(--gold), #ffcc44); }
 
   .result-replay {
     font-family: 'Press Start 2P', monospace;
@@ -639,9 +690,10 @@
   /* ===== RESPONSIVE: small screens / phones ===== */
   @media (max-width: 600px) {
     #battlePanel { flex-direction: column-reverse; padding: 10px 12px; height: auto; }
-    #battleActions { width: 100%; grid-template-columns: 1fr 1fr; }
-    .action-btn { font-size: 8px; padding: 12px 6px; }
-    #battleLog { width: 100%; height: 88px; flex: 0 0 auto; font-size: 12px; }
+    #battleActions { width: 100%; height: auto; overflow: visible; }
+    #battleLog { width: 100%; height: 72px; flex: 0 0 auto; font-size: 12px; }
+    #battleQuestion { font-size: 12px; }
+    .opt-btn { font-size: 12px; padding: 9px 10px; }
     #battleBg { padding: 12px 14px; }
     .enemy-sprite { font-size: 60px; }
     #battleHeroCanvas { width: 56px; height: 56px; }
@@ -780,22 +832,39 @@
       <div class="battle-log-line log-system">⚔️ 戰鬥開始！</div>
     </div>
     <div id="battleActions">
-      <button class="action-btn" onclick="playerAction('attack')">⚔️ 攻擊</button>
-      <button class="action-btn sp-btn" onclick="playerAction('skill1')" id="btnSkill1">✨ 必殺技<br><span style="color:#556;font-size:6px">SP 15</span></button>
-      <button class="action-btn sp-btn" onclick="playerAction('skill2')" id="btnSkill2">🛡️ 防禦技<br><span style="color:#556;font-size:6px">SP 10</span></button>
-      <button class="action-btn" onclick="playerAction('item')" style="color:#ffcc44;border-color:#443300">🧪 道具</button>
+      <div id="battleQuestion">⚔️ 準備應戰…</div>
+      <div id="battleOptions"></div>
+      <button id="btnItem" class="opt-btn item-opt" onclick="useItem()">🧪 使用道具 (x3)</button>
     </div>
   </div>
 </div>
 
-<!-- RESULT SCREEN -->
+<!-- RESULT SCREEN (成績單) -->
 <div id="resultScreen">
-  <div class="result-title">⭐ 冒險結束 — 你的命運座駕 ⭐</div>
-  <div id="resultProfile" class="result-profile">
-    <div class="profile-title">🧑 你的冒險者類型</div>
+  <div class="result-title">📋 冒險成績單</div>
+
+  <!-- Top recommendation card -->
+  <div class="report-card">
+    <div class="profile-title" style="color:var(--gold)">🏆 你的命運座駕</div>
+    <div id="topCarBig" style="display:flex;align-items:center;gap:12px;margin-bottom:10px"></div>
+    <div id="carRanking"></div>
+  </div>
+
+  <!-- Stats report card -->
+  <div class="report-card">
+    <div class="report-head">
+      <span class="rh-title">🧾 冒險數據統計</span>
+      <span class="report-grade" id="reportGrade">A</span>
+    </div>
+    <table class="report-table"><tbody id="statsBody"></tbody></table>
+  </div>
+
+  <!-- Personality analysis -->
+  <div class="report-card">
+    <div class="profile-title">🧑 個性分析</div>
     <div class="profile-text" id="profileText"></div>
   </div>
-  <div class="result-cars" id="resultCars"></div>
+
   <button class="result-replay" onclick="location.reload()">↺ 重新冒險</button>
 </div>
 
@@ -806,6 +875,8 @@
 const STATE = {
   player: { hp: 100, maxHp: 100, sp: 50, maxSp: 50, lv: 1, exp: 0 },
   scores: { yaris: 0, corolla: 0, rav4: 0, alphard: 0, prius: 0 },
+  answerTally: { yaris: 0, corolla: 0, rav4: 0, alphard: 0, prius: 0 }, // 答題傾向次數
+  items: 3,
   battles: 0,
   maxBattles: 5,
   dialogQueue: [],
@@ -814,10 +885,63 @@ const STATE = {
   inBattle: false,
   battlesWon: 0,
   battlesLost: 0,
-  totalDamageDealt: 0,
-  totalSkillsUsed: 0,
-  preferredStyle: {attack:0, skill:0, defend:0, item:0}
+  // 統計數據（給成績單）
+  stats: { turns:0, crits:0, ults:0, itemsUsed:0, answers:0, mobs:0, chests:0, dmgDealt:0, dmgTaken:0, fastWins:0, lowHpWins:0 }
 };
+
+// ============================================================
+// QUESTION POOL — 問答式攻擊：3 個等攻擊力的選項(帶個性傾向) + 1 個「我不知道」大招
+// ============================================================
+const QUESTIONS = [
+  { q:'前方突然大塞車，你會？', a:[
+      {t:'鑽小路、找最快捷徑', sc:{yaris:3,rav4:1}},
+      {t:'耐心等待，放點音樂', sc:{alphard:2,prius:2}},
+      {t:'打開導航重新規劃', sc:{corolla:3}} ]},
+  { q:'週末最想開車去哪？', a:[
+      {t:'山裡越野探險', sc:{rav4:3}},
+      {t:'載全家去野餐', sc:{alphard:3}},
+      {t:'市區咖啡廳小晃', sc:{yaris:2,corolla:1}} ]},
+  { q:'買車你最先看重？', a:[
+      {t:'安全與智慧科技', sc:{corolla:3}},
+      {t:'省油與環保', sc:{prius:3}},
+      {t:'空間夠不夠大', sc:{alphard:3}} ]},
+  { q:'油錶快見底了，你？', a:[
+      {t:'早規劃好加油點', sc:{corolla:2,prius:2}},
+      {t:'先衝再說、順其自然', sc:{rav4:2,yaris:1}},
+      {t:'乾脆改搭大眾運輸', sc:{prius:3}} ]},
+  { q:'理想座駕的個性是？', a:[
+      {t:'靈活俐落', sc:{yaris:3}},
+      {t:'沉穩可靠', sc:{corolla:2,alphard:1}},
+      {t:'強悍全能', sc:{rav4:3}} ]},
+  { q:'只剩一個小車位，你？', a:[
+      {t:'小車一把就停進去', sc:{yaris:3}},
+      {t:'再找個大一點的', sc:{alphard:2}},
+      {t:'交給自動停車輔助', sc:{corolla:3}} ]},
+  { q:'長途旅行你最在意？', a:[
+      {t:'乘坐舒適與安靜', sc:{alphard:3}},
+      {t:'油耗與續航里程', sc:{prius:3}},
+      {t:'操控與駕駛樂趣', sc:{rav4:2,yaris:1}} ]},
+  { q:'夥伴最常形容你是？', a:[
+      {t:'行動派、反應快', sc:{yaris:3}},
+      {t:'細心、會規劃', sc:{corolla:3}},
+      {t:'愛冒險、不怕難', sc:{rav4:3}} ]},
+  { q:'遇到顛簸爛路你會？', a:[
+      {t:'放慢、小心通過', sc:{alphard:2,prius:1}},
+      {t:'直接輾過去！', sc:{rav4:3}},
+      {t:'繞遠路避開', sc:{corolla:2}} ]},
+  { q:'你心中的環保程度？', a:[
+      {t:'非常重視，能省則省', sc:{prius:4}},
+      {t:'適度就好', sc:{corolla:2}},
+      {t:'性能優先', sc:{rav4:2,yaris:1}} ]},
+  { q:'家人對車的期待是？', a:[
+      {t:'夠大、夠舒服', sc:{alphard:4}},
+      {t:'安全擺第一', sc:{corolla:3}},
+      {t:'省錢又好養', sc:{yaris:2,prius:1}} ]},
+  { q:'用一句話形容你的駕駛風格？', a:[
+      {t:'果斷積極', sc:{yaris:2,rav4:1}},
+      {t:'謹慎穩健', sc:{corolla:2,alphard:1}},
+      {t:'節能順暢', sc:{prius:3}} ]},
+];
 
 // ============================================================
 // MAP CONFIG
@@ -860,29 +984,29 @@ const TILE_PASSABLE = { 0:true,1:true,2:false,3:false,4:false,5:false };
 // ============================================================
 const ENEMIES = [
   {
-    id:'e1', name:'堵塞魔王', sprite:'🚧', hp:60, maxHp:60, atk:12, desc:'代表城市通勤壓力',
-    scores:{yaris:5,corolla:3,prius:4},
+    id:'e1', name:'堵塞魔王', sprite:'🚧', hp:62, maxHp:62, atk:11, desc:'代表城市通勤壓力',
     dialogue: '嘿！你以為在城市裡開車很輕鬆？來嘗嘗我的塞車地獄！',
+    sig:'🚥 堵塞魔王施放「無限紅燈」，', sigMul:1.6,
   },
   {
-    id:'e2', name:'山路妖精', sprite:'🏔️', hp:50, maxHp:50, atk:10, desc:'代表山路挑戰',
-    scores:{rav4:6,corolla:3},
+    id:'e2', name:'山路妖精', sprite:'🏔️', hp:56, maxHp:56, atk:10, desc:'代表山路挑戰',
     dialogue: '山路彎道可不是鬧著玩的！你敢挑戰嗎？',
+    sig:'🌀 山路妖精捲起「髮夾彎亂流」，', sigMul:1.6,
   },
   {
-    id:'e3', name:'家族巨龍', sprite:'🐉', hp:80, maxHp:80, atk:15, desc:'代表全家出遊需求',
-    scores:{alphard:7,rav4:4},
+    id:'e3', name:'家族巨龍', sprite:'🐉', hp:82, maxHp:82, atk:13, desc:'代表全家出遊需求',
     dialogue: '想要帶全家出遊？先打敗我再說！',
+    sig:'🐲 家族巨龍噴出「行李超載吐息」，', sigMul:1.7,
   },
   {
-    id:'e4', name:'油費幽靈', sprite:'👻', hp:45, maxHp:45, atk:8, desc:'代表油費焦慮',
-    scores:{prius:7,yaris:4},
+    id:'e4', name:'油費幽靈', sprite:'👻', hp:50, maxHp:50, atk:9, desc:'代表油費焦慮',
     dialogue: '油價一直漲漲漲！你的荷包受得了嗎？',
+    sig:'⛽ 油費幽靈發動「油價狂飆」，', sigMul:1.6,
   },
   {
-    id:'e5', name:'科技守衛', sprite:'🤖', hp:70, maxHp:70, atk:13, desc:'代表科技安全需求',
-    scores:{corolla:5,rav4:4,prius:3},
+    id:'e5', name:'科技守衛', sprite:'🤖', hp:74, maxHp:74, atk:12, desc:'代表科技安全需求',
     dialogue: '現代駕駛需要最先進的安全科技！展示你的實力！',
+    sig:'🤖 科技守衛啟動「系統過載光束」，', sigMul:1.7,
   },
 ];
 
@@ -1066,32 +1190,15 @@ function updateMobs(){
   if(STATE.inBattle || STATE.inDialog) return;
   if(document.getElementById('gameContainer').style.display==='none') return;
   for(const m of mobs){
-    const dx = player.x-m.x, dy = player.y-m.y;
-    const cheby = Math.max(Math.abs(dx), Math.abs(dy));
-    // Touching the player → fight
+    const cheby = Math.max(Math.abs(player.x-m.x), Math.abs(player.y-m.y));
+    // Aggro range is 1 tile only: just wander, fight only on direct contact
     if(cheby<=1){ startMobBattle(m); return; }
-    if(cheby<=2){
-      // Chase: step toward the player along the dominant axis
-      m.chasing = true;
-      let nx=m.x, ny=m.y;
-      if(Math.abs(dx) >= Math.abs(dy)) nx += Math.sign(dx);
-      else ny += Math.sign(dy);
-      if(tilePassable(nx,ny) && !tileBlockedForMob(nx,ny)){ m.x=nx; m.y=ny; }
-      else { // try the other axis if blocked
-        nx=m.x; ny=m.y;
-        if(Math.abs(dx) >= Math.abs(dy)) ny += Math.sign(dy||1);
-        else nx += Math.sign(dx||1);
-        if(tilePassable(nx,ny) && !tileBlockedForMob(nx,ny)){ m.x=nx; m.y=ny; }
-      }
-      // After chasing, re-check contact
-      if(Math.max(Math.abs(player.x-m.x),Math.abs(player.y-m.y))<=1){ startMobBattle(m); return; }
-    } else if(Math.random()<0.5){
-      // Idle wander
+    m.chasing = false;
+    if(Math.random()<0.5){
       const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
       const d=dirs[Math.floor(Math.random()*4)];
       const nx=m.x+d[0], ny=m.y+d[1];
       if(tilePassable(nx,ny) && !tileBlockedForMob(nx,ny)){ m.x=nx; m.y=ny; }
-      m.chasing=false;
     }
   }
 }
@@ -1705,11 +1812,12 @@ function interactProp(pr){
       return;
     }
     propUsed.add(pr.id);
+    STATE.stats.chests++;
     const rw = pr.reward || {};
     if(rw.exp) STATE.player.exp += rw.exp;
     if(rw.hp){ STATE.player.hp = Math.min(STATE.player.maxHp, STATE.player.hp+rw.hp); }
     if(rw.sp){ STATE.player.sp = Math.min(STATE.player.maxSp, STATE.player.sp+rw.sp); }
-    if(rw.score){ for(const k in rw.score){ STATE.scores[k]=(STATE.scores[k]||0)+rw.score[k]; } }
+    // 寶箱為中性獎勵：不加任何車款分數，不影響最終判斷
     updateHUD();
     showNotification('🎁 開啟寶箱！');
     showDialog(pr.name, [pr.msg], null);
@@ -1832,6 +1940,10 @@ let playerTurn = true;
 let battleActionsEnabled = true;
 let battleHeroFrame = 0;
 let battleHeroTimer = null;
+let battleTurns = 0;
+let lastQ = -1;
+let curQuestion = null, curAnswerDmg = 0, curUltDmg = 0;
+const ULT_SP = 12;
 
 function drawBattleHero() {
   const cv = document.getElementById('battleHeroCanvas');
@@ -1859,9 +1971,8 @@ function beginBattle(enemyData, isMob){
   log.innerHTML = `<div class="battle-log-line log-system">${tag} ${battleEnemy.name} 出現了！</div>
 <div class="battle-log-line log-system" style="color:#aaa;font-size:11px">"${battleEnemy.dialogue}"</div>`;
 
-  playerTurn = true;
-  battleActionsEnabled = true;
-  setActionsEnabled(true);
+  battleTurns = 0;
+  lastQ = -1;
   updateHUD();
 
   // Start hero idle animation
@@ -1872,6 +1983,9 @@ function beginBattle(enemyData, isMob){
     battleHeroFrame = battleHeroFrame ? 0 : 1;
     drawBattleHero();
   }, 450);
+
+  // First player turn = a question
+  startPlayerTurn();
 }
 
 // Story enemy (sequential level)
@@ -1890,92 +2004,154 @@ function startMobBattle(mob){
                 atk:mob.type.atk, dialogue:mob.type.dialogue, scores:{} }, true);
 }
 
-function playerAction(type) {
-  if(!battleActionsEnabled || !playerTurn) return;
+// ---- Quiz-based combat: each turn poses a question ----
+function startPlayerTurn(){
+  playerTurn = true;
+  battleActionsEnabled = true;
+  presentQuestion();
+}
+
+function pickQuestion(){
+  let i;
+  do { i = Math.floor(Math.random()*QUESTIONS.length); } while(QUESTIONS.length>1 && i===lastQ);
+  lastQ = i;
+  return QUESTIONS[i];
+}
+
+function presentQuestion(){
+  curQuestion = pickQuestion();
+  // All three answers share the SAME attack power this turn (so you answer honestly);
+  // the「我不知道」ultimate hits harder but reveals nothing about you.
+  curAnswerDmg = 16 + Math.floor(Math.random()*6);
+  curUltDmg = curAnswerDmg + 12 + Math.floor(Math.random()*7);
+
+  document.getElementById('battleQuestion').innerHTML =
+    '❓ ' + curQuestion.q + '<div style="color:#8890a8;font-size:10px;margin-top:3px">三個選項攻擊力相同，憑直覺選；或用大招跳過</div>';
+
+  const opts = document.getElementById('battleOptions');
+  opts.innerHTML = '';
+  curQuestion.a.forEach((ans, idx)=>{
+    const b = document.createElement('button');
+    b.className = 'opt-btn';
+    b.innerHTML = `<span class="opt-key">${idx+1}</span>${ans.t}`;
+    b.onclick = ()=>chooseAnswer(idx);
+    opts.appendChild(b);
+  });
+  const u = document.createElement('button');
+  u.className = 'opt-btn ult-opt';
+  u.innerHTML = `<span class="opt-key">4</span>🤔 「我不知道！」大招 · SP ${ULT_SP}`;
+  u.disabled = STATE.player.sp < ULT_SP;
+  u.onclick = ()=>useUltimate();
+  opts.appendChild(u);
+
+  updateItemButton();
+}
+
+function updateItemButton(){
+  const ib = document.getElementById('btnItem');
+  if(!ib) return;
+  ib.textContent = `🧪 使用道具 (x${STATE.items})`;
+  ib.disabled = STATE.items<=0 || !battleActionsEnabled || !playerTurn;
+}
+
+function lockActions(){
   battleActionsEnabled = false;
-  setActionsEnabled(false);
+  document.querySelectorAll('#battleOptions .opt-btn').forEach(b=>b.disabled=true);
+  const ib=document.getElementById('btnItem'); if(ib) ib.disabled=true;
+}
 
-  // Only story battles shape the personality result; mob fights are just for fun/EXP
-  if(!currentBattleIsMob) STATE.preferredStyle[type]++;
-
-  let dmg=0, spCost=0, msg='';
-
-  if(type==='attack'){
-    dmg = 15 + Math.floor(Math.random()*10);
-    msg = `⚔️ 勇者發動攻擊！造成 <b style="color:#ffd">${dmg}</b> 點傷害！`;
-  } else if(type==='skill1'){
-    spCost=15;
-    if(STATE.player.sp<spCost){
-      addLog('SP 不足！無法使用必殺技', 'log-system');
-      battleActionsEnabled=true; setActionsEnabled(true); return;
-    }
-    STATE.player.sp=Math.max(0,STATE.player.sp-spCost);
-    dmg = 30 + Math.floor(Math.random()*15);
-    STATE.totalSkillsUsed++;
-    msg = `✨ 勇者使出必殺技！爆發性攻擊造成 <b style="color:#ffd">${dmg}</b> 點傷害！`;
-  } else if(type==='skill2'){
-    spCost=10;
-    if(STATE.player.sp<spCost){
-      addLog('SP 不足！', 'log-system');
-      battleActionsEnabled=true; setActionsEnabled(true); return;
-    }
-    STATE.player.sp=Math.max(0,STATE.player.sp-spCost);
-    const heal = 20+Math.floor(Math.random()*10);
-    STATE.player.hp=Math.min(STATE.player.maxHp, STATE.player.hp+heal);
-    dmg=8+Math.floor(Math.random()*5);
-    msg = `🛡️ 防禦反擊！回復 ${heal} HP，反傷 ${dmg} 點！`;
-  } else if(type==='item'){
-    const heal=30;
-    STATE.player.hp=Math.min(STATE.player.maxHp,STATE.player.hp+heal);
-    STATE.player.sp=Math.min(STATE.player.maxSp,STATE.player.sp+15);
-    msg=`🧪 使用道具！回復 ${heal} HP 和 15 SP！`;
-    dmg=0;
+function rollCrit(base, chance){
+  if(Math.random()<chance){
+    if(!currentBattleIsMob) STATE.stats.crits++;
+    return { dmg: Math.round(base*1.6), crit:true };
   }
+  return { dmg: base, crit:false };
+}
 
-  STATE.totalDamageDealt+=dmg;
-  battleEnemy.currentHp=Math.max(0,battleEnemy.currentHp-dmg);
-  updateEnemyHp();
-  addLog(msg,'log-player');
+function chooseAnswer(idx){
+  if(!battleActionsEnabled || !playerTurn) return;
+  lockActions();
+  const ans = curQuestion.a[idx];
+  // Personality signal is recorded ONLY in story battles
+  if(!currentBattleIsMob){
+    STATE.stats.answers++;
+    for(const k in ans.sc){
+      STATE.scores[k]=(STATE.scores[k]||0)+ans.sc[k];
+      STATE.answerTally[k]=(STATE.answerTally[k]||0)+1;
+    }
+  }
+  const r = rollCrit(curAnswerDmg, 0.15);
+  resolvePlayerMove(r.dmg, `🗣️ 你選擇「${ans.t}」` + (r.crit?'　<b style="color:#ffd54a">暴擊！</b>':''));
+}
+
+function useUltimate(){
+  if(!battleActionsEnabled || !playerTurn) return;
+  if(STATE.player.sp < ULT_SP) return;
+  lockActions();
+  STATE.player.sp -= ULT_SP;
+  if(!currentBattleIsMob) STATE.stats.ults++;
+  const r = rollCrit(curUltDmg, 0.2);
+  resolvePlayerMove(r.dmg, `🤔 你大喊「我不知道！」轟出大招` + (r.crit?'　<b style="color:#ffd54a">暴擊！</b>':''));
+}
+
+function useItem(){
+  if(!battleActionsEnabled || !playerTurn || STATE.items<=0) return;
+  lockActions();
+  STATE.items--;
+  if(!currentBattleIsMob) STATE.stats.itemsUsed++;
+  const heal=35, sp=12;
+  STATE.player.hp=Math.min(STATE.player.maxHp, STATE.player.hp+heal);
+  STATE.player.sp=Math.min(STATE.player.maxSp, STATE.player.sp+sp);
   updateHUD();
+  addLog(`🧪 使用道具，回復 ${heal} HP / ${sp} SP！（剩 ${STATE.items} 個）`,'log-player');
+  battleTurns++;
+  setTimeout(()=>{ if(STATE.player.hp<=0) battleDefeat(); else enemyTurn(); }, 650);
+}
 
-  // Animate
+function resolvePlayerMove(dmg, msg){
+  battleTurns++;
+  STATE.stats.turns++;
+  if(!currentBattleIsMob) STATE.stats.dmgDealt += dmg;
+  battleEnemy.currentHp = Math.max(0, battleEnemy.currentHp - dmg);
+  updateEnemyHp();
+  addLog(msg + `，造成 <b style="color:#ffd">${dmg}</b> 點傷害！`, 'log-player');
+  updateHUD();
   const es = document.getElementById('enemySprite');
-  if(dmg>0){
-    es.style.animation='none';
-    setTimeout(()=>{es.style.animation='enemyHit 0.4s ease, enemyFloat 2s ease-in-out 0.4s infinite';},10);
-  }
-
+  es.style.animation='none';
+  setTimeout(()=>{es.style.animation='enemyHit 0.4s ease, enemyFloat 2s ease-in-out 0.4s infinite';},10);
   setTimeout(()=>{
-    if(battleEnemy.currentHp<=0){
-      battleVictory();
-    } else {
-      enemyTurn();
-    }
+    if(battleEnemy.currentHp<=0) battleVictory();
+    else enemyTurn();
   }, 700);
 }
 
 function enemyTurn() {
-  const dmg = battleEnemy.atk + Math.floor(Math.random()*8) - 3;
-  const finalDmg = Math.max(2,dmg);
+  let mult=1, prefix='💥 '+battleEnemy.name+' 攻擊！';
+  // Story bosses occasionally unleash a signature move (telegraphed, harder hit)
+  if(!currentBattleIsMob && battleEnemy.sig && Math.random()<0.28){
+    mult = battleEnemy.sigMul || 1.5;
+    prefix = battleEnemy.sig;
+  }
+  const base = battleEnemy.atk + Math.floor(Math.random()*8) - 3;
+  const finalDmg = Math.max(2, Math.round(base*mult));
   STATE.player.hp=Math.max(0,STATE.player.hp-finalDmg);
-  addLog(`💥 ${battleEnemy.name} 攻擊！勇者受到 <b style="color:#f88">${finalDmg}</b> 點傷害！`,'log-enemy');
+  if(!currentBattleIsMob) STATE.stats.dmgTaken += finalDmg;
+  addLog(`${prefix}勇者受到 <b style="color:#f88">${finalDmg}</b> 點傷害！`, 'log-enemy');
   updateHUD();
-
+  if(mult>1){
+    const ha=document.getElementById('battleHeroCanvas');
+    if(ha){ ha.style.animation='none'; void ha.offsetWidth; ha.style.animation='playerHit 0.4s'; }
+  }
   setTimeout(()=>{
-    if(STATE.player.hp<=0){
-      battleDefeat();
-    } else {
-      playerTurn=true;
-      battleActionsEnabled=true;
-      setActionsEnabled(true);
-      addLog('---你的回合---','log-system');
-    }
-  },600);
+    if(STATE.player.hp<=0) battleDefeat();
+    else startPlayerTurn();
+  },650);
 }
 
 function battleVictory() {
   // Roaming mob: EXP + small heal only. No scores, no level count, no result trigger.
   if(currentBattleIsMob){
+    STATE.stats.mobs++;
     const expGain=8+Math.floor(Math.random()*8);
     STATE.player.exp+=expGain;
     STATE.player.hp=Math.min(STATE.player.maxHp,STATE.player.hp+10);
@@ -1986,10 +2162,9 @@ function battleVictory() {
   }
 
   STATE.battlesWon++;
-  // Add scores
-  Object.keys(battleEnemy.scores).forEach(k=>{
-    STATE.scores[k]=(STATE.scores[k]||0)+battleEnemy.scores[k];
-  });
+  if(battleTurns<=3) STATE.stats.fastWins++;                              // 速戰速決
+  if(STATE.player.hp/STATE.player.maxHp < 0.3) STATE.stats.lowHpWins++;   // 險中求勝
+  STATE.items = Math.min(5, STATE.items+1);                              // 補一個道具
   const expGain=20+STATE.battles*5;
   STATE.player.exp+=expGain;
   // Level up check
@@ -2050,10 +2225,6 @@ function addLog(html,cls=''){
   log.scrollTop=log.scrollHeight;
 }
 
-function setActionsEnabled(on){
-  document.querySelectorAll('.action-btn').forEach(b=>b.disabled=!on);
-}
-
 // ============================================================
 // HUD UPDATE
 // ============================================================
@@ -2097,58 +2268,101 @@ const CAR_INFO = {
   prius: { name:'Prius', emoji:'🔋', desc:'節能環保、科技感強。有責任感的理想主義者。' },
 };
 
+function computeFinalScores(){
+  const s = {yaris:0,corolla:0,rav4:0,alphard:0,prius:0};
+  for(const k in s) s[k] += STATE.scores[k]||0;   // answers are the main signal
+  const st = STATE.stats;
+  // Subtle play-style bonuses (still far smaller than the answer signal)
+  if(st.lowHpWins>=2) s.rav4 += 3;                       // 險中求勝 → 全能冒險
+  if(st.fastWins>=3){ s.yaris += 2; s.corolla += 2; }    // 速戰速決 → 俐落/理性
+  if(st.itemsUsed>=3){ s.alphard += 2; s.prius += 1; }   // 善於準備 → 顧家/務實
+  if(st.ults>=5) s.yaris += 2;                           // 常用大招、果斷
+  if(st.crits>=4) s.rav4 += 1;                           // 火力旺盛
+  if(STATE.battlesLost===0) s.corolla += 1;              // 零失誤、沉穩
+  return s;
+}
+
+function computeGrade(){
+  const st=STATE.stats;
+  let pts = STATE.battlesWon*2 - STATE.battlesLost + st.fastWins + (st.mobs>=3?1:0) + (st.lowHpWins?1:0);
+  if(STATE.battlesLost===0 && st.fastWins>=3) return 'S';
+  if(pts>=11) return 'A';
+  if(pts>=8) return 'B';
+  return 'C';
+}
+
 function showResult(){
-  // Factor in battle style
-  const style=STATE.preferredStyle;
-  if(style.attack>style.skill&&style.attack>style.defend) STATE.scores.yaris+=5;
-  if(style.skill>style.attack) { STATE.scores.corolla+=4; STATE.scores.rav4+=3; }
-  if(style.defend>style.attack) { STATE.scores.alphard+=5; STATE.scores.prius+=3; }
-  if(style.item>2) STATE.scores.prius+=3;
-  if(STATE.battlesWon>=4) { STATE.scores.rav4+=4; }
-  if(STATE.battlesLost>=2) { STATE.scores.prius+=3; }
+  const scores = computeFinalScores();
+  const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  const maxScore = sorted[0][1] || 1;
+  const topCar = sorted[0][0];
+  const topInfo = CAR_INFO[topCar];
+  const st = STATE.stats;
 
-  // Sort cars
-  const sorted=Object.entries(STATE.scores).sort((a,b)=>b[1]-a[1]);
-  const maxScore=sorted[0][1]||1;
+  // --- Headline car ---
+  document.getElementById('topCarBig').innerHTML =
+    `<div style="font-size:46px">${topInfo.emoji}</div>
+     <div>
+       <div style="font-family:'Press Start 2P',monospace;font-size:12px;color:var(--gold)">${topInfo.name}</div>
+       <div style="font-size:11px;color:var(--gray);margin-top:5px;line-height:1.5">${topInfo.desc}</div>
+     </div>`;
 
-  // Profile text
-  const topCar=sorted[0][0];
-  const profiles={
-    yaris:'你是行動派！城市叢林中的靈活獵手。你習慣直覺行事，反應迅速。',
-    corolla:'你是策略家！做事謹慎、重視細節，科技與安全對你很重要。',
-    rav4:'你是冒險者！不怕挑戰，充滿探索精神，喜歡突破極限。',
-    alphard:'你是守護者！最重視身邊的人，寧可犧牲自己也要保護家人。',
-    prius:'你是智者！具有長遠眼光，關心環境與未來，理性又有責任感。',
-  };
-
-  document.getElementById('profileText').textContent=profiles[topCar]||'';
-
-  // Cars ranking
-  const carsEl=document.getElementById('resultCars');
-  carsEl.innerHTML='';
-  sorted.slice(0,4).forEach((entry,i)=>{
-    const [key,score]=entry;
+  // --- Full ranking bars (all 5) ---
+  const rank = document.getElementById('carRanking');
+  rank.innerHTML='';
+  sorted.forEach(([key,score],i)=>{
     const info=CAR_INFO[key];
-    const pct=Math.round(score/maxScore*100);
-    const card=document.createElement('div');
-    card.className='car-card'+(i===0?' top-pick':'');
-    card.innerHTML=`
-      <div class="car-emoji">${info.emoji}</div>
-      <div class="car-name">${info.name}</div>
-      <div class="car-score-bar"><div class="car-score-fill" style="width:0%" data-pct="${pct}"></div></div>
-      <div class="car-desc">${info.desc}</div>
-    `;
-    carsEl.appendChild(card);
+    const pct=Math.max(6, Math.round(score/maxScore*100));
+    const row=document.createElement('div');
+    row.className='rank-row'+(i===0?' top':'');
+    row.innerHTML=`
+      <div class="rank-emoji">${info.emoji}</div>
+      <div class="rank-name">${info.name}</div>
+      <div class="rank-bar-wrap"><div class="rank-bar" data-pct="${pct}"></div></div>
+      <div class="rank-pct">${pct}%</div>`;
+    rank.appendChild(row);
   });
 
-  document.getElementById('resultScreen').style.display='flex';
+  // --- Grade ---
+  document.getElementById('reportGrade').textContent = computeGrade();
 
-  // Animate bars
-  setTimeout(()=>{
-    document.querySelectorAll('.car-score-fill').forEach(el=>{
-      el.style.width=el.dataset.pct+'%';
-    });
-  },200);
+  // --- Stats table ---
+  const p=STATE.player;
+  const rows = [
+    ['關卡通過', `${STATE.battlesWon} / ${STATE.maxBattles}`],
+    ['戰鬥失利', `${STATE.battlesLost}`],
+    ['回答問題數', `${st.answers}`],
+    ['速戰速決(≤3回合)', `${st.fastWins}`],
+    ['險勝(殘血獲勝)', `${st.lowHpWins}`],
+    ['暴擊次數', `${st.crits}`],
+    ['大招使用', `${st.ults}`],
+    ['道具使用', `${st.itemsUsed}`],
+    ['小怪擊退', `${st.mobs}`],
+    ['寶箱開啟', `${st.chests}`],
+    ['最終等級 / 殘餘HP', `Lv.${p.lv} · ${p.hp}/${p.maxHp}`],
+  ];
+  document.getElementById('statsBody').innerHTML = rows.map(r=>
+    `<tr><td class="rt-label">${r[0]}</td><td class="rt-val">${r[1]}</td></tr>`).join('');
+
+  // --- Personality analysis (references real data) ---
+  const profiles={
+    yaris:'你是【行動派】城市叢林中的靈活獵手，習慣直覺行事、反應迅速。',
+    corolla:'你是【策略家】做事謹慎、重視細節，科技與安全對你格外重要。',
+    rav4:'你是【冒險者】不怕挑戰、充滿探索精神，喜歡突破極限。',
+    alphard:'你是【守護者】最重視身邊的人，寧可自己辛苦也要照顧家人。',
+    prius:'你是【智者】具長遠眼光、關心環境與未來，理性又有責任感。',
+  };
+  // answer tendency summary
+  const tally = Object.entries(STATE.answerTally).sort((a,b)=>b[1]-a[1]);
+  const leanTxt = tally[0][1]>0 ? `你的答題傾向最常落在「${CAR_INFO[tally[0][0]].name}」一類` : '你大多選擇了「我不知道」，我們依有限線索推測';
+  const ultTxt = st.ults>=4 ? `你很常喊出「我不知道」(${st.ults}次)，是個乾脆、不愛糾結的人；` : (st.ults===0 ? '你每一題都認真作答，非常有想法；' : '');
+  const careTxt = st.itemsUsed>=3 ? '面對危機你懂得未雨綢繆。' : (st.lowHpWins>=1 ? '你敢在殘血時放手一搏。' : '你的節奏穩健。');
+  document.getElementById('profileText').innerHTML =
+    `${profiles[topCar]}<br>${leanTxt}。${ultTxt}${careTxt}<br>` +
+    `<span style="color:var(--gray);font-size:11px">綜合你在 5 道試煉中回答的 ${st.answers} 題與戰鬥表現，為你媒合出最速配的座駕。</span>`;
+
+  document.getElementById('resultScreen').style.display='flex';
+  setTimeout(()=>{ document.querySelectorAll('.rank-bar').forEach(el=>{ el.style.width=el.dataset.pct+'%'; }); },200);
 }
 </script>
 </body>
