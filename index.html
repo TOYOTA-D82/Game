@@ -915,8 +915,8 @@ const QUESTIONS = [
       {t:'強悍全能', sc:{rav4:3}} ]},
   { q:'只剩一個小車位，你？', a:[
       {t:'小車一把就停進去', sc:{yaris:3}},
-      {t:'再找個大一點的', sc:{alphard:2}},
-      {t:'交給自動停車輔助', sc:{corolla:3}} ]},
+      {t:'再找個大一點的好停', sc:{alphard:2}},
+      {t:'靠倒車顯影慢慢喬', sc:{corolla:3}} ]},
   { q:'長途旅行你最在意？', a:[
       {t:'乘坐舒適與安靜', sc:{alphard:3}},
       {t:'油耗與續航里程', sc:{prius:3}},
@@ -941,6 +941,34 @@ const QUESTIONS = [
       {t:'果斷積極', sc:{yaris:2,rav4:1}},
       {t:'謹慎穩健', sc:{corolla:2,alphard:1}},
       {t:'節能順暢', sc:{prius:3}} ]},
+  { q:'平常開車載的多半是？', a:[
+      {t:'自己一個，通勤代步', sc:{yaris:3}},
+      {t:'另一半或好友', sc:{corolla:2,yaris:1}},
+      {t:'一家大小或長輩', sc:{alphard:3}} ]},
+  { q:'你心目中理想的週末是？', a:[
+      {t:'說走就走的小旅行', sc:{rav4:3}},
+      {t:'在家附近輕鬆採買', sc:{yaris:2,prius:1}},
+      {t:'安排周全的家庭出遊', sc:{alphard:2,corolla:1}} ]},
+  { q:'對你來說，車子是？', a:[
+      {t:'移動工具，實用就好', sc:{yaris:2,prius:2}},
+      {t:'生活夥伴，要可靠', sc:{corolla:3}},
+      {t:'探索世界的隊友', sc:{rav4:3}} ]},
+  { q:'看到一段沒走過的路，你會？', a:[
+      {t:'好奇地開進去探險', sc:{rav4:3}},
+      {t:'先查好資料再決定', sc:{corolla:3}},
+      {t:'還是走熟悉的路安心', sc:{alphard:2,prius:1}} ]},
+  { q:'你的購車預算觀念是？', a:[
+      {t:'精打細算、CP 值優先', sc:{yaris:2,prius:2}},
+      {t:'一分錢一分貨、重品質', sc:{corolla:2,alphard:1}},
+      {t:'需要就投資、重體驗', sc:{rav4:2}} ]},
+  { q:'長假來臨，你的計畫是？', a:[
+      {t:'挑戰戶外秘境', sc:{rav4:3}},
+      {t:'帶全家舒服出遊', sc:{alphard:3}},
+      {t:'輕巧地市區走跳', sc:{yaris:2}} ]},
+  { q:'你會怎麼形容自己？', a:[
+      {t:'務實、不浪費', sc:{prius:3}},
+      {t:'細心、有條理', sc:{corolla:3}},
+      {t:'熱血、愛嘗鮮', sc:{rav4:2,yaris:1}} ]},
 ];
 
 // ============================================================
@@ -2011,11 +2039,25 @@ function startPlayerTurn(){
   presentQuestion();
 }
 
+// Shuffled "deck" so questions never repeat until the whole pool has been used
+let questionDeck = [];
+function refillQuestionDeck(){
+  questionDeck = QUESTIONS.map((_, i) => i);
+  for(let i=questionDeck.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [questionDeck[i], questionDeck[j]] = [questionDeck[j], questionDeck[i]];
+  }
+  // avoid an immediate repeat across the reshuffle seam
+  if(questionDeck.length>1 && questionDeck[questionDeck.length-1]===lastQ){
+    [questionDeck[questionDeck.length-1], questionDeck[0]] =
+      [questionDeck[0], questionDeck[questionDeck.length-1]];
+  }
+}
 function pickQuestion(){
-  let i;
-  do { i = Math.floor(Math.random()*QUESTIONS.length); } while(QUESTIONS.length>1 && i===lastQ);
-  lastQ = i;
-  return QUESTIONS[i];
+  if(questionDeck.length===0) refillQuestionDeck();
+  const idx = questionDeck.pop();
+  lastQ = idx;
+  return QUESTIONS[idx];
 }
 
 function presentQuestion(){
