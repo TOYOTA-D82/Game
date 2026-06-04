@@ -289,7 +289,9 @@
   }
 
   .enemy-sprite {
-    font-size: 62px;
+    width: 86px;
+    height: 86px;
+    image-rendering: pixelated;
     filter: drop-shadow(0 0 15px rgba(255,68,68,0.5));
     animation: enemyFloat 2s ease-in-out infinite;
     margin: 10px 0;
@@ -752,7 +754,7 @@
 
   /* ===== RESPONSIVE: small screens / phones ===== */
   @media (max-width: 480px) {
-    .enemy-sprite { font-size: 56px; }
+    .enemy-sprite { width: 74px; height: 74px; }
     #battleHeroCanvas { width: 56px; height: 56px; }
     .player-stats { width: 130px; }
     .enemy-hp-wrap { width: 110px; }
@@ -864,7 +866,7 @@
       <div class="enemy-name-tag" id="enemyName">???</div>
       <div class="enemy-hp-wrap"><div class="enemy-hp-bar" id="enemyHpBar"></div></div>
       <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#666" id="enemyHpTxt">HP: 100/100</div>
-      <div class="enemy-sprite" id="enemySprite">👹</div>
+      <canvas class="enemy-sprite" id="enemySprite" width="96" height="96"></canvas>
     </div>
     <div class="player-area">
       <div class="player-name-tag">勇者 <span id="battleHeroLv">Lv.1</span></div>
@@ -1113,27 +1115,27 @@ const TILE_PASSABLE = { 0:true,1:true,2:false,3:false,4:false,5:false };
 // ============================================================
 const ENEMIES = [
   {
-    id:'e1', name:'堵塞魔王', sprite:'🚧', hp:62, maxHp:62, atk:11, desc:'代表城市通勤壓力',
+    id:'e1', name:'堵塞魔王', icon:'traffic', sprite:'🚧', hp:62, maxHp:62, atk:11, desc:'代表城市通勤壓力',
     dialogue: '嘿！你以為在城市裡開車很輕鬆？來嘗嘗我的塞車地獄！',
     sig:'🚥 堵塞魔王施放「無限紅燈」，', sigMul:1.6,
   },
   {
-    id:'e2', name:'油耗惡魔', sprite:'⛽', hp:56, maxHp:56, atk:10, desc:'代表油費與長途壓力',
+    id:'e2', name:'油耗惡魔', icon:'fuel', sprite:'⛽', hp:56, maxHp:56, atk:10, desc:'代表油費與長途壓力',
     dialogue: '油價漲不停、長途又要跑，你扛得住嗎？',
     sig:'⛽ 油耗惡魔發動「油價狂飆」，', sigMul:1.6,
   },
   {
-    id:'e3', name:'家庭龍王', sprite:'🐉', hp:82, maxHp:82, atk:13, desc:'代表全家出遊需求',
+    id:'e3', name:'家庭龍王', icon:'dragon', sprite:'🐉', hp:82, maxHp:82, atk:13, desc:'代表全家出遊需求',
     dialogue: '想帶全家老小出門？先過我這一關！',
     sig:'🐲 家庭龍王噴出「行李超載吐息」，', sigMul:1.7,
   },
   {
-    id:'e4', name:'預算魔王', sprite:'💰', hp:54, maxHp:54, atk:10, desc:'代表預算與養車成本',
+    id:'e4', name:'預算魔王', icon:'money', sprite:'💰', hp:54, maxHp:54, atk:10, desc:'代表預算與養車成本',
     dialogue: '錢要花在刀口上，你的每一分都算清楚了嗎？',
     sig:'💸 預算魔王發動「荷包大失血」，', sigMul:1.6,
   },
   {
-    id:'e5', name:'科技守衛', sprite:'🤖', hp:74, maxHp:74, atk:12, desc:'代表科技安全需求',
+    id:'e5', name:'科技守衛', icon:'robot', sprite:'🤖', hp:74, maxHp:74, atk:12, desc:'代表科技安全需求',
     dialogue: '現代用車靠的是科技與實力，展現給我看！',
     sig:'🤖 科技守衛啟動「系統過載光束」，', sigMul:1.7,
   },
@@ -1207,11 +1209,11 @@ let teleportLock = false;   // 避免落地後立刻又被傳送回去
 // 隨機出現、靠近 2 格會追過來開戰；只給 EXP，不影響最終判斷
 // ============================================================
 const MOB_TYPES = [
-  { name:'路怒蝙蝠', sprite:'🦇', hp:24, atk:6, dialogue:'吱吱吱！別擋我的路！' },
-  { name:'坑洞地鼠', sprite:'🐀', hp:30, atk:7, dialogue:'吱——這是我的地盤！' },
-  { name:'亂入小妖', sprite:'👾', hp:22, atk:5, dialogue:'嘿嘿，陪我玩玩嘛！' },
-  { name:'路面石魔', sprite:'🪨', hp:36, atk:8, dialogue:'轟……擋路者……粉碎……' },
-  { name:'噪音飛蟲', sprite:'🐝', hp:20, atk:6, dialogue:'嗡嗡嗡嗡嗡！' },
+  { name:'路怒蝙蝠', icon:'bat',   hp:24, atk:6, dialogue:'吱吱吱！別擋我的路！' },
+  { name:'黏滑史萊姆', icon:'slime', hp:30, atk:7, dialogue:'啵啵……一起黏在路上吧～' },
+  { name:'亂入小妖', icon:'imp',   hp:22, atk:5, dialogue:'嘿嘿，陪我玩玩嘛！' },
+  { name:'路面石魔', icon:'rock',  hp:36, atk:8, dialogue:'轟……擋路者……粉碎……' },
+  { name:'噪音飛蟲', icon:'bee',   hp:20, atk:6, dialogue:'嗡嗡嗡嗡嗡！' },
 ];
 let mobs = [];
 const MAX_MOBS = 4;
@@ -1387,6 +1389,75 @@ function gameLoop(ts) {
 // ============================================================
 // RENDER
 // ============================================================
+// ============================================================
+// PIXEL ICONS — BOSS / 小怪 改用手繪像素圖示，徹底避開 emoji 半透明問題
+// 在 (cx,cy) 為中心繪製，s 為縮放(地圖約 0.8、戰鬥約 3)
+// ============================================================
+function drawGameIcon(c, cx, cy, key, s){
+  s = s || 1;
+  const O='#10131a';
+  const r=(gx,gy,w,h,col)=>{ c.fillStyle=col; c.fillRect(Math.round(cx+gx*s), Math.round(cy+gy*s), Math.max(1,Math.round(w*s)), Math.max(1,Math.round(h*s))); };
+  switch(key){
+    case 'traffic':   // 堵塞魔王：紅綠燈
+      r(-9,-13,18,26,O); r(-7,-11,14,22,'#2b2b33');
+      r(-4,-9,8,6,'#ff4747'); r(-4,-1,8,6,'#6a5a20'); r(-4,7,8,5,'#2a5a32');
+      break;
+    case 'fuel':      // 油耗惡魔：加油槍
+      r(-10,-12,15,25,O); r(-8,-10,11,21,'#d12a2a');
+      r(-5,-7,6,5,'#9fe6ff'); r(-5,1,6,2,'#7a1414');
+      r(3,-7,3,3,O); r(6,-7,2,11,'#8a8f99'); r(6,4,4,3,'#8a8f99');
+      break;
+    case 'dragon':    // 家庭龍王：龍頭
+      r(-9,-7,18,16,O); r(-8,-6,16,14,'#2e9e4f');
+      r(6,-2,6,8,O); r(6,-2,5,7,'#2e9e4f');
+      r(-7,-11,3,5,'#bfe6b0');
+      r(-3,-3,4,4,'#fff'); r(-2,-2,2,2,O);
+      r(9,1,2,2,O); r(-8,6,16,3,'#1f7a3a');
+      break;
+    case 'money':     // 預算魔王：錢袋 $
+      r(-9,-4,18,16,O); r(-8,-3,16,14,'#caa23a');
+      r(-5,-9,10,5,'#a07f24'); r(-6,-11,4,3,'#a07f24'); r(2,-11,4,3,'#a07f24');
+      c.fillStyle='#5a4410'; c.font='bold '+Math.round(13*s)+'px sans-serif';
+      c.textAlign='center'; c.textBaseline='middle'; c.fillText('$', cx, cy+Math.round(3*s));
+      c.textBaseline='alphabetic'; c.textAlign='center';
+      break;
+    case 'robot':     // 科技守衛：機器人頭
+      r(-1,-15,2,5,'#8a8f99'); r(-3,-17,6,3,'#ff5a5a');
+      r(-9,-8,18,17,O); r(-8,-7,16,15,'#9aa0ab');
+      r(-5,-3,4,4,'#22d3ee'); r(1,-3,4,4,'#22d3ee');
+      r(-5,4,10,3,O); r(-3,4,1,3,'#9aa0ab'); r(0,4,1,3,'#9aa0ab'); r(3,4,1,3,'#9aa0ab');
+      break;
+    case 'slime':     // 史萊姆
+      r(-9,-5,18,14,O); r(-8,-4,16,12,'#52c45a'); r(-6,-7,12,4,'#52c45a');
+      r(-4,-1,3,3,'#fff'); r(2,-1,3,3,'#fff'); r(-3,0,1,1,O); r(3,0,1,1,O);
+      break;
+    case 'bat':       // 蝙蝠
+      r(-12,-3,7,3,'#46415e'); r(-12,0,5,3,'#46415e');
+      r(5,-3,7,3,'#46415e'); r(7,0,5,3,'#46415e');
+      r(-5,-5,10,10,O); r(-4,-4,8,8,'#3a3550');
+      r(-4,-7,2,3,'#3a3550'); r(2,-7,2,3,'#3a3550');
+      r(-3,-1,2,2,'#ffcc44'); r(1,-1,2,2,'#ffcc44');
+      break;
+    case 'imp':       // 小妖
+      r(-8,-6,16,15,O); r(-7,-5,14,13,'#8a5cd0');
+      r(-6,-9,3,4,'#8a5cd0'); r(3,-9,3,4,'#8a5cd0');
+      r(-4,-1,3,3,'#fff'); r(2,-1,3,3,'#fff'); r(-3,0,1,1,O); r(3,0,1,1,O);
+      r(-3,4,6,2,O);
+      break;
+    case 'rock':      // 石魔
+      r(-9,-4,18,14,O); r(-8,-3,16,12,'#8a8f99'); r(-6,-6,12,4,'#8a8f99');
+      r(-1,-3,2,11,'#6a6f79');
+      r(-5,0,3,3,'#222'); r(2,0,3,3,'#222');
+      break;
+    case 'bee':       // 飛蟲
+      r(-5,-9,5,4,'#cfe8ff'); r(0,-9,5,4,'#cfe8ff');
+      r(-8,-5,16,11,O); r(-7,-4,14,9,'#f2c200');
+      r(-3,-4,3,9,'#222'); r(3,-4,3,9,'#222');
+      r(-6,-2,2,2,'#222');
+      break;
+  }
+}
+
 function renderMap() {
   if(!canvas || !ctx) return;
   const W = canvas.width, H = canvas.height;
@@ -1511,8 +1582,7 @@ function renderMap() {
       ctx.fillText('!', sx+TILE/2, sy-4+Math.sin(tick*0.2)*2);
     }
     ctx.globalAlpha=1;
-    ctx.font='18px serif'; ctx.textAlign='center';
-    ctx.fillText(m.type.sprite, sx+TILE/2, sy+TILE/2+float);
+    drawGameIcon(ctx, sx+TILE/2, sy+TILE/2+Math.round(float), m.type.icon, 0.66);
     ctx.fillStyle='rgba(0,0,0,0.25)';
     ctx.beginPath(); ctx.ellipse(sx+TILE/2,sy+TILE-5,8,3,0,0,Math.PI*2); ctx.fill();
   });
@@ -1537,12 +1607,10 @@ function renderMap() {
       ctx.stroke();
     }
 
-    // Floating sprite (locked enemies dimmed) — 明確設值，畫完立刻復原
-    const float = Math.sin(tick*0.05+ep.x)*3;
-    ctx.globalAlpha = locked ? 0.4 : 1;
-    ctx.font = '22px serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(ep.enemy.sprite, sx+TILE/2, sy+TILE/2+float);
+    // Pixel-icon sprite (locked enemies dimmed). 整數座標避免模糊
+    const float = Math.round(Math.sin(tick*0.05+ep.x)*3);
+    ctx.globalAlpha = locked ? 0.45 : 1;
+    drawGameIcon(ctx, sx+TILE/2, sy+TILE/2+float, ep.enemy.icon, 0.82);
     ctx.globalAlpha = 1;
     // Glow only for active
     if(isTarget){
@@ -2084,6 +2152,14 @@ function drawBattleHero() {
   drawHeroSprite(c, 0, 0, cv.width / 16, 'left', battleHeroFrame);
 }
 
+function drawBattleEnemyIcon() {
+  const cv = document.getElementById('enemySprite');
+  if (!cv || !cv.getContext) return;
+  const c = cv.getContext('2d');
+  c.clearRect(0, 0, cv.width, cv.height);
+  drawGameIcon(c, cv.width/2, cv.height/2, battleEnemy.icon || 'slime', 2.7);
+}
+
 // Shared battle setup for both story enemies and roaming mobs
 function beginBattle(enemyData, isMob){
   STATE.inBattle = true;
@@ -2095,7 +2171,7 @@ function beginBattle(enemyData, isMob){
   const bs = document.getElementById('battleScreen');
   bs.style.display = 'flex';
   document.getElementById('enemyName').textContent = battleEnemy.name;
-  document.getElementById('enemySprite').textContent = battleEnemy.sprite;
+  drawBattleEnemyIcon();
   updateEnemyHp();
 
   const tag = isMob ? '🐾 野生的' : '⚔️';
@@ -2131,7 +2207,7 @@ function startBattle(ep) {
 function startMobBattle(mob){
   if(STATE.inBattle) return;
   mobs = mobs.filter(m=>m!==mob);   // consume the mob
-  beginBattle({ name:mob.type.name, sprite:mob.type.sprite, hp:mob.type.hp,
+  beginBattle({ name:mob.type.name, icon:mob.type.icon, hp:mob.type.hp,
                 atk:mob.type.atk, dialogue:mob.type.dialogue, scores:{} }, true);
 }
 
