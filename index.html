@@ -408,18 +408,18 @@
     line-height: 1.5;
     color: #fff;
     background: #0e1228;
-    border: 2px solid var(--gold);
-    box-shadow: 0 0 10px rgba(255,215,0,0.25), inset 0 0 8px rgba(255,215,0,0.05);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--gold);
     padding: 8px 10px;
     flex-shrink: 0;
   }
   #battleQuestion.q-pop {
-    animation: qPop 0.35s ease;
+    animation: qPop 0.3s ease;
   }
   @keyframes qPop {
-    0%   { transform: scale(1); box-shadow: 0 0 10px rgba(255,215,0,0.25); }
-    40%  { transform: scale(1.015); box-shadow: 0 0 22px rgba(255,215,0,0.7); }
-    100% { transform: scale(1); box-shadow: 0 0 10px rgba(255,215,0,0.25); }
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.012); }
+    100% { transform: scale(1); }
   }
   .q-label {
     font-family: 'Press Start 2P', monospace;
