@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>怪獸探索 Creature Quest</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #1a1a2e; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
+#gameContainer { position: relative; width: 1200px; max-width: 100vw; }
+#gameCanvas { display: block; width: 100%; image-rendering: pixelated; cursor: default; }
+/* Title screen */
+#titleScreen { position: absolute; top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100; }
+#titleScreen h1 { font-size: 3em; color: #ffd700; text-shadow: 0 0 20px #ff8c00, 2px 2px 0 #8b4513; margin-bottom: 0.3em; letter-spacing: 4px; }
+#titleScreen h2 { font-size: 1.4em; color: #87ceeb; margin-bottom: 2em; letter-spacing: 2px; }
+#titleScreen .emoji-row { font-size: 3em; margin-bottom: 2em; animation: bounce 1s infinite alternate; }
+@keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-10px)} }
+.btn { background: linear-gradient(135deg,#ffd700,#ff8c00); color: #1a1a2e; border: none; padding: 14px 40px; font-size: 1.2em; font-weight: bold; border-radius: 30px; cursor: pointer; box-shadow: 0 4px 15px rgba(255,165,0,0.5); transition: all 0.2s; margin: 6px; }
+.btn:hover, .btn:active { transform: scale(1.07); box-shadow: 0 6px 20px rgba(255,165,0,0.8); }
+.btn-secondary { background: linear-gradient(135deg,#4a90d9,#2666a0); color: #fff; }
+.btn-danger { background: linear-gradient(135deg,#e55,#a22); color: #fff; }
+.btn-green { background: linear-gradient(135deg,#4a9,#276); color: #fff; }
+/* Starter select */
+#starterScreen { position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(10,10,30,0.97);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:99; }
+#starterScreen h2 { color:#ffd700;font-size:1.8em;margin-bottom:0.5em; }
+#starterScreen p { color:#aaa;margin-bottom:1.5em; }
+#starterCards { display:flex;gap:20px;flex-wrap:wrap;justify-content:center; }
+.starterCard { background:linear-gradient(135deg,#1e2a4a,#2a3a6a);border:2px solid #4a6;border-radius:16px;padding:20px;width:170px;cursor:pointer;transition:all 0.2s;text-align:center; }
+.starterCard:hover { transform:scale(1.07);border-color:#ffd700;box-shadow:0 0 20px rgba(255,215,0,0.4); }
+.starterCard .emoji { font-size:3em;display:block;margin-bottom:10px; }
+.starterCard .sname { color:#ffd700;font-size:1.2em;font-weight:bold; }
+.starterCard .stype { color:#87ceeb;font-size:0.9em;margin:4px 0; }
+.starterCard .sdesc { color:#aaa;font-size:0.8em;line-height:1.4; }
+/* Party screen overlay */
+#partyScreen { position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:98; }
+#partyScreen h2 { color:#ffd700;font-size:1.5em;margin-bottom:1em; }
+#partyGrid { display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:500px;width:90%; }
+.partySlot { background:linear-gradient(135deg,#1e2a4a,#2a3a6a);border:2px solid #445;border-radius:12px;padding:14px;min-height:80px; }
+.partySlot.filled { border-color:#4a9; }
+.partySlot .slot-emoji { font-size:2em; }
+.partySlot .slot-name { color:#ffd700;font-size:0.95em;font-weight:bold; }
+.partySlot .slot-level { color:#aaa;font-size:0.8em; }
+.slot-hp-bar { height:8px;background:#333;border-radius:4px;margin-top:6px;overflow:hidden; }
+.slot-hp-fill { height:100%;border-radius:4px;transition:width 0.3s; }
+/* Battle UI */
+#battleUI { position:absolute;bottom:0;left:0;width:100%;display:none;flex-direction:column;z-index:50;pointer-events:all; }
+#battleActions { background:rgba(20,20,40,0.97);border-top:2px solid #334;padding:10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center; }
+#battleActions button { min-width:90px;padding:10px 14px;font-size:1em;border-radius:10px;border:none;cursor:pointer;font-weight:bold;transition:all 0.15s; }
+#battleMoves { background:rgba(20,20,40,0.97);border-top:2px solid #334;padding:10px;display:none;flex-wrap:wrap;gap:8px;justify-content:center; }
+#battleMoves button { min-width:120px;padding:10px 14px;font-size:0.95em;border-radius:10px;border:none;cursor:pointer;font-weight:bold;transition:all 0.15s; }
+#msgLog { background:rgba(10,10,25,0.95);color:#e8e0ff;padding:10px 16px;min-height:48px;font-size:1em;border-top:1px solid #334;cursor:pointer;line-height:1.5; }
+#msgLog .tap-hint { color:#666;font-size:0.8em; }
+/* HUD */
+#hud { position:absolute;top:0;left:0;width:100%;background:rgba(10,10,25,0.85);border-bottom:2px solid #334;padding:6px 10px;display:flex;align-items:center;gap:12px;z-index:30;pointer-events:none; }
+#hudParty { display:flex;gap:6px; }
+.hud-mon { font-size:1.4em;position:relative;display:inline-block;margin-right:2px; }
+.hud-mon .hud-hp { position:absolute;bottom:-3px;left:0;right:0;height:3px;background:#333;border-radius:2px;overflow:hidden; }
+.hud-mon .hud-hp-fill { height:100%;border-radius:2px; }
+#hudItems { margin-left:auto;color:#ffd700;font-size:0.95em;display:flex;gap:16px; }
+#hudItems span { color:#ccc; }
+/* Virtual D-pad */
+#dpad { position:absolute;bottom:10px;left:10px;display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:3px;z-index:60;pointer-events:all; }
+#dpad button { background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;font-size:1.2em;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none; }
+#dpad button:active { background:rgba(255,255,255,0.35); }
+#dpad .empty { background:none;border:none; }
+/* Menu button */
+#menuBtn { position:absolute;top:8px;right:10px;z-index:60;pointer-events:all; }
+/* Save indicator */
+#saveIndicator { position:absolute;top:40px;right:10px;color:#4af;font-size:0.8em;opacity:0;transition:opacity 0.5s;z-index:60; }
+/* Type colors for move buttons */
+.type-fire { background:linear-gradient(135deg,#e55,#c30) !important;color:#fff !important; }
+.type-water { background:linear-gradient(135deg,#48f,#259) !important;color:#fff !important; }
+.type-grass { background:linear-gradient(135deg,#4a9,#276) !important;color:#fff !important; }
+.type-electric { background:linear-gradient(135deg,#fd2,#a80) !important;color:#333 !important; }
+.type-dark { background:linear-gradient(135deg,#669,#335) !important;color:#fff !important; }
+.type-rock { background:linear-gradient(135deg,#986,#654) !important;color:#fff !important; }
+.type-normal { background:linear-gradient(135deg,#aaa,#777) !important;color:#fff !important; }
+/* Evolution screen */
+#evolutionScreen { position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:97;text-align:center; }
+#evolutionScreen .evo-emoji { font-size:6em;animation:evoSpin 0.5s infinite alternate; }
+@keyframes evoSpin { from{transform:scale(1) rotate(-5deg)} to{transform:scale(1.2) rotate(5deg)} }
+#evolutionScreen h2 { color:#ffd700;font-size:2em;margin:20px 0; }
+#evolutionScreen p { color:#ccc;font-size:1.1em; }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="gameCanvas" width="1200" height="720"></canvas>
+
+  <!-- Title Screen -->
+  <div id="titleScreen">
+    <div class="emoji-row">&#x1F98A; &#x1F41F; &#x1F331;</div>
+    <h1>怪獸探索</h1>
+    <h2>Creature Quest</h2>
+    <button class="btn" id="btnNewGame">開始遊戲</button>
+    <button class="btn btn-secondary" id="btnLoadGame">載入存檔</button>
+  </div>
+
+  <!-- Starter Select -->
+  <div id="starterScreen">
+    <h2>選擇你的夥伴！</h2>
+    <p>選擇你的初始怪獸，踏上冒險之旅</p>
+    <div id="starterCards"></div>
+  </div>
+
+  <!-- Party Screen -->
+  <div id="partyScreen">
+    <h2>&#x1F3D2; 我的隊伍</h2>
+    <div id="partyGrid"></div>
+    <button class="btn btn-secondary" id="btnCloseParty" style="margin-top:16px">關閉</button>
+  </div>
+
+  <!-- Evolution Screen -->
+  <div id="evolutionScreen">
+    <div class="evo-emoji" id="evoEmoji"></div>
+    <h2 id="evoTitle"></h2>
+    <p id="evoDesc"></p>
+    <button class="btn" id="btnCloseEvolution" style="margin-top:20px">繼續！</button>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="hudParty"></div>
+    <div id="hudItems">
+      <span>&#x26BD; <span id="hudBalls">0</span></span>
+      <span>&#x1F48A; <span id="hudPotions">0</span></span>
+    </div>
+  </div>
+
+  <!-- Battle UI -->
+  <div id="battleUI">
+    <div id="battleActions">
+      <button class="btn type-normal" id="btnFight">&#x2694;&#xFE0F; 戰鬥</button>
+      <button class="btn type-water" id="btnBall">&#x26BD; 捕捉球</button>
+      <button class="btn type-grass" id="btnPotion">&#x1F48A; 藥水</button>
+      <button class="btn type-dark" id="btnRun">&#x1F3C3; 逃跑</button>
+    </div>
+    <div id="battleMoves"></div>
+    <div id="msgLog">
+      <span id="msgText">...</span>
+      <span class="tap-hint" id="tapHint"></span>
+    </div>
+  </div>
+
+  <!-- Virtual D-pad -->
+  <div id="dpad">
+    <button class="empty" disabled></button>
+    <button id="dpadUp">&#x25B2;</button>
+    <button class="empty" disabled></button>
+    <button id="dpadLeft">&#x25C4;</button>
+    <button class="empty" disabled></button>
+    <button id="dpadRight">&#x25BA;</button>
+    <button class="empty" disabled></button>
+    <button id="dpadDown">&#x25BC;</button>
+    <button class="empty" disabled></button>
+  </div>
+
+  <!-- Menu Button -->
+  <div id="menuBtn">
+    <button class="btn btn-secondary" style="padding:8px 14px;font-size:0.85em" id="btnParty">&#x1F3D2; 隊伍</button>
+    <button class="btn" style="padding:8px 14px;font-size:0.85em" id="btnSave">&#x1F4BE; 存檔</button>
+  </div>
+
+  <div id="saveIndicator">已存檔！</div>
+</div>
+
+<script>
+(function() {
+'use strict';
+
+// ==================== CONSTANTS ====================
+var TILE = 40;
+var MAP_W = 30, MAP_H = 24;
+var CANVAS_W = 1200, CANVAS_H = 720;
+
+// Tile types
+var T_PATH = 0, T_GRASS = 1, T_TREE = 2, T_WATER = 3, T_TOWN = 4, T_FLOWER = 5, T_BUILDING = 6;
+
+// Tile colors
+var TILE_COLORS = {};
+TILE_COLORS[T_PATH]     = '#d4b870';
+TILE_COLORS[T_GRASS]    = '#3a8020';
+TILE_COLORS[T_TREE]     = '#1a5c10';
+TILE_COLORS[T_WATER]    = '#2878d0';
+TILE_COLORS[T_TOWN]     = '#f0d090';
+TILE_COLORS[T_FLOWER]   = '#f0a820';
+TILE_COLORS[T_BUILDING] = '#6b3a1f';
+
+// Type effectiveness: attacker -> { defender: multiplier }
+var TYPE_EFF = {
+  fire:     { grass: 2 },
+  water:    { fire: 2, rock: 2 },
+  grass:    { water: 2, rock: 2 },
+  electric: { water: 2 },
+  dark:     { normal: 2, grass: 2 },
+  rock:     { fire: 2, electric: 2 }
+};
+
+var TYPE_COLORS = {
+  fire:'#e55555', water:'#4488ff', grass:'#44aa77', electric:'#ffdd22',
+  dark:'#6666aa', rock:'#998866', normal:'#aaaaaa'
+};
+
+// ==================== MOVES DATABASE ====================
+var MOVES = {
+  scratch:       { name:'抓擊',       type:'normal',   power:40,  acc:100, effect:null },
+  headbutt:      { name:'衝撞',       type:'normal',   power:70,  acc:100, effect:null },
+  quick_atk:     { name:'迅速攻擊',   type:'normal',   power:40,  acc:100, effect:'priority' },
+  growl:         { name:'叫聲',       type:'normal',   power:0,   acc:100, effect:'lower_atk' },
+  ember:         { name:'火花',       type:'fire',     power:40,  acc:100, effect:null },
+  flamethrower:  { name:'噴火',       type:'fire',     power:90,  acc:100, effect:null },
+  fire_blast:    { name:'火焰爆射',   type:'fire',     power:110, acc:85,  effect:null },
+  water_gun:     { name:'水槍',       type:'water',    power:40,  acc:100, effect:null },
+  surf:          { name:'衝浪',       type:'water',    power:90,  acc:100, effect:null },
+  hydro_pump:    { name:'水砲',       type:'water',    power:110, acc:80,  effect:null },
+  vine_whip:     { name:'蔓藤鞭',     type:'grass',    power:40,  acc:100, effect:null },
+  razor_leaf:    { name:'飛葉快刀',   type:'grass',    power:55,  acc:100, effect:null },
+  solar_beam:    { name:'日光束',     type:'grass',    power:120, acc:100, effect:null },
+  thunder_shock: { name:'電擊',       type:'electric', power:40,  acc:100, effect:null },
+  thunderbolt:   { name:'十萬伏特',   type:'electric', power:90,  acc:100, effect:null },
+  bite:          { name:'咬合',       type:'dark',     power:60,  acc:100, effect:null },
+  shadow_ball:   { name:'暗影球',     type:'dark',     power:80,  acc:100, effect:null },
+  rock_throw:    { name:'丟石頭',     type:'rock',     power:50,  acc:90,  effect:null },
+  stone_edge:    { name:'尖石攻擊',   type:'rock',     power:100, acc:80,  effect:null },
+  recover:       { name:'回復',       type:'normal',   power:0,   acc:100, effect:'recover' }
+};
+
+// ==================== SPECIES DATABASE ====================
+var SPECIES = {
+  embrite:    { name:'燄狐',   emoji:'\u{1F98A}', type:'fire',     hp:45, atk:52, def:38, spd:48, evo:{lv:16,to:'pyrclaw'},    catchRate:45,
+                moves:[{lv:1,id:'scratch'},{lv:1,id:'growl'},{lv:7,id:'ember'},{lv:13,id:'quick_atk'},{lv:20,id:'flamethrower'}] },
+  pyrclaw:    { name:'火爪獸', emoji:'\u{1F981}', type:'fire',     hp:68, atk:75, def:58, spd:68, evo:{lv:36,to:'infernus'},   catchRate:45,
+                moves:[{lv:1,id:'scratch'},{lv:1,id:'ember'},{lv:16,id:'flamethrower'},{lv:28,id:'headbutt'}] },
+  infernus:   { name:'炎龍皇', emoji:'\u{1F432}', type:'fire',     hp:95, atk:108,def:75, spd:88, evo:null,                    catchRate:45,
+                moves:[{lv:1,id:'flamethrower'},{lv:1,id:'headbutt'},{lv:36,id:'fire_blast'},{lv:55,id:'quick_atk'}] },
+  bublin:     { name:'泡魚',   emoji:'\u{1F41F}', type:'water',    hp:45, atk:42, def:52, spd:48, evo:{lv:16,to:'tidewing'},   catchRate:45,
+                moves:[{lv:1,id:'scratch'},{lv:1,id:'growl'},{lv:7,id:'water_gun'},{lv:13,id:'headbutt'},{lv:20,id:'surf'}] },
+  tidewing:   { name:'潮翼',   emoji:'\u{1F42C}', type:'water',    hp:68, atk:65, def:72, spd:72, evo:{lv:36,to:'abysal'},    catchRate:45,
+                moves:[{lv:1,id:'water_gun'},{lv:1,id:'headbutt'},{lv:16,id:'surf'},{lv:28,id:'quick_atk'}] },
+  abysal:     { name:'深淵鯨', emoji:'\u{1F30A}', type:'water',    hp:95, atk:95, def:108,spd:78, evo:null,                    catchRate:45,
+                moves:[{lv:1,id:'surf'},{lv:1,id:'headbutt'},{lv:36,id:'hydro_pump'},{lv:55,id:'recover'}] },
+  leafling:   { name:'葉靈',   emoji:'\u{1F331}', type:'grass',    hp:45, atk:48, def:48, spd:40, evo:{lv:16,to:'thornback'}, catchRate:45,
+                moves:[{lv:1,id:'scratch'},{lv:1,id:'growl'},{lv:7,id:'vine_whip'},{lv:13,id:'headbutt'},{lv:20,id:'razor_leaf'}] },
+  thornback:  { name:'刺背龍', emoji:'\u{1F98E}', type:'grass',    hp:68, atk:70, def:68, spd:55, evo:{lv:36,to:'bloomira'},  catchRate:45,
+                moves:[{lv:1,id:'vine_whip'},{lv:1,id:'razor_leaf'},{lv:16,id:'solar_beam'},{lv:28,id:'headbutt'}] },
+  bloomira:   { name:'花皇',   emoji:'\u{1F33A}', type:'grass',    hp:95, atk:92, def:92, spd:68, evo:null,                    catchRate:45,
+                moves:[{lv:1,id:'razor_leaf'},{lv:1,id:'headbutt'},{lv:36,id:'solar_beam'},{lv:55,id:'recover'}] },
+  sparkit:    { name:'電鼠',   emoji:'\u{1F42D}', type:'electric', hp:35, atk:55, def:35, spd:90, evo:{lv:25,to:'volthorn'},  catchRate:190,
+                moves:[{lv:1,id:'scratch'},{lv:5,id:'thunder_shock'},{lv:14,id:'quick_atk'},{lv:22,id:'thunderbolt'}] },
+  volthorn:   { name:'雷鹿',   emoji:'\u{1F98C}', type:'electric', hp:60, atk:90, def:55, spd:110,evo:null,                   catchRate:75,
+                moves:[{lv:1,id:'thunder_shock'},{lv:1,id:'quick_atk'},{lv:25,id:'thunderbolt'},{lv:38,id:'headbutt'}] },
+  shadowpup:  { name:'暗影狗', emoji:'\u{1F43A}', type:'dark',     hp:55, atk:60, def:42, spd:65, evo:{lv:28,to:'gloomfang'},catchRate:190,
+                moves:[{lv:1,id:'scratch'},{lv:8,id:'bite'},{lv:16,id:'quick_atk'},{lv:26,id:'shadow_ball'}] },
+  gloomfang:  { name:'黑暗獠牙',emoji:'\u{1F417}',type:'dark',     hp:78, atk:88, def:62, spd:88, evo:null,                   catchRate:75,
+                moves:[{lv:1,id:'bite'},{lv:1,id:'quick_atk'},{lv:28,id:'shadow_ball'},{lv:40,id:'headbutt'}] },
+  pebblor:    { name:'石礫獸', emoji:'\u{1FAA8}', type:'rock',     hp:65, atk:52, def:80, spd:25, evo:{lv:26,to:'stoneback'},catchRate:190,
+                moves:[{lv:1,id:'headbutt'},{lv:6,id:'rock_throw'},{lv:16,id:'growl'},{lv:24,id:'stone_edge'}] },
+  stoneback:  { name:'磐石獸', emoji:'\u{1F5FF}', type:'rock',     hp:95, atk:72, def:120,spd:38, evo:null,                   catchRate:75,
+                moves:[{lv:1,id:'rock_throw'},{lv:1,id:'headbutt'},{lv:26,id:'stone_edge'},{lv:38,id:'recover'}] }
+};
+
+// ==================== ENCOUNTER TABLES ====================
+var ENCOUNTERS = {
+  route:  [{id:'sparkit',w:30},{id:'shadowpup',w:25},{id:'pebblor',w:20},{id:'leafling',w:12},{id:'bublin',w:8},{id:'embrite',w:5}],
+  forest: [{id:'volthorn',w:20},{id:'gloomfang',w:18},{id:'stoneback',w:15},{id:'thornback',w:12},{id:'tidewing',w:10},{id:'pyrclaw',w:8},{id:'sparkit',w:5},{id:'pebblor',w:12}]
+};
+
+// ==================== GAME STATE ====================
+var state = {
+  phase: 'title',
+  player: { x: 14, y: 4, facing: 'down' },
+  party: [],
+  items: { balls: 10, potions: 5 },
+  steps: 0,
+  battle: null,
+  map: null,
+  camera: { x: 0, y: 0 },
+  keys: {},
+  dpadDir: null,
+  moveTimer: 0,
+  moveDelay: 160,
+  msgQueue: [],
+  msgCallback: null,
+  showingMsg: false,
+  evoCallback: null
+};
+
+// ==================== MAP GENERATION ====================
+function generateMap() {
+  var map = [];
+  var r, c;
+  for (r = 0; r < MAP_H; r++) {
+    map.push([]);
+    for (c = 0; c < MAP_W; c++) {
+      var tile;
+      // Border = trees
+      if (r===0 || r===MAP_H-1 || c===0 || c===MAP_W-1) {
+        tile = T_TREE;
+      }
+      // Town rows 1-7
+      else if (r >= 1 && r <= 7) {
+        if (c===14 || c===15) {
+          tile = T_TOWN;
+        } else if ((r>=2&&r<=5&&c>=3&&c<=8) || (r>=2&&r<=5&&c>=20&&c<=25)) {
+          tile = T_BUILDING;
+        } else if ((r>=2&&r<=4&&c>=10&&c<=12) || (r>=5&&r<=7&&c>=5&&c<=7)) {
+          tile = T_FLOWER;
+        } else {
+          tile = T_TOWN;
+        }
+      }
+      // Gate row 8
+      else if (r === 8) {
+        if (c>=13 && c<=16) tile = T_PATH;
+        else tile = T_TREE;
+      }
+      // Route rows 9-19
+      else if (r >= 9 && r <= 19) {
+        if (c>=13 && c<=16) tile = T_PATH;
+        else if (c>=1 && c<=28) tile = T_GRASS;
+        else tile = T_TREE;
+      }
+      // Deep Forest rows 20-23
+      else if (r >= 20) {
+        tile = T_GRASS;
+      } else {
+        tile = T_PATH;
+      }
+      map[r].push(tile);
+    }
+  }
+  return map;
+}
+
+// ==================== CREATURE FACTORY ====================
+function calcStats(speciesId, level) {
+  var sp = SPECIES[speciesId];
+  var scale = 1 + (level - 1) * 0.06;
+  return {
+    maxHP: Math.floor(sp.hp * scale + level * 2),
+    atk:   Math.floor(sp.atk * scale),
+    def:   Math.floor(sp.def * scale),
+    spd:   Math.floor(sp.spd * scale)
+  };
+}
+
+function getMoves(speciesId, level) {
+  var sp = SPECIES[speciesId];
+  var known = [];
+  var i;
+  for (i = 0; i < sp.moves.length; i++) {
+    if (sp.moves[i].lv <= level) known.push(sp.moves[i].id);
+  }
+  return known.slice(-4);
+}
+
+function createCreature(speciesId, level) {
+  var sp = SPECIES[speciesId];
+  var stats = calcStats(speciesId, level);
+  var moves = getMoves(speciesId, level);
+  return {
+    speciesId: speciesId,
+    name: sp.name,
+    emoji: sp.emoji,
+    type: sp.type,
+    level: level,
+    exp: 0,
+    expNeeded: level * level * 5,
+    hp: stats.maxHP,
+    maxHP: stats.maxHP,
+    atk: stats.atk,
+    def: stats.def,
+    spd: stats.spd,
+    atkMod: 0,
+    moves: moves
+  };
+}
+
+function pickEncounter(zone) {
+  var table = ENCOUNTERS[zone];
+  var total = 0, i;
+  for (i = 0; i < table.length; i++) total += table[i].w;
+  var r = Math.random() * total;
+  for (i = 0; i < table.length; i++) { r -= table[i].w; if (r <= 0) return table[i].id; }
+  return table[0].id;
+}
+
+function getTypeEff(atkType, defType) {
+  if (TYPE_EFF[atkType] && TYPE_EFF[atkType][defType]) return TYPE_EFF[atkType][defType];
+  return 1;
+}
+
+// ==================== XP / LEVEL UP ====================
+function gainExp(creature, amount) {
+  creature.exp += amount;
+  var evolutions = [];
+  while (creature.exp >= creature.expNeeded) {
+    creature.exp -= creature.expNeeded;
+    creature.level++;
+    creature.expNeeded = creature.level * creature.level * 5;
+    var stats = calcStats(creature.speciesId, creature.level);
+    var hpGain = stats.maxHP - creature.maxHP;
+    creature.maxHP = stats.maxHP;
+    creature.hp = Math.min(creature.hp + hpGain, creature.maxHP);
+    creature.atk = stats.atk;
+    creature.def = stats.def;
+    creature.spd = stats.spd;
+    // Learn new moves
+    var sp = SPECIES[creature.speciesId];
+    var i;
+    for (i = 0; i < sp.moves.length; i++) {
+      var m = sp.moves[i];
+      if (m.lv === creature.level && creature.moves.indexOf(m.id) === -1) {
+        creature.moves.push(m.id);
+        if (creature.moves.length > 4) creature.moves.shift();
+        addMsg(creature.name + ' 學會了 ' + MOVES[m.id].name + '！');
+      }
+    }
+    // Check evolution
+    var evo = SPECIES[creature.speciesId].evo;
+    if (evo && creature.level >= evo.lv) {
+      evolutions.push({ creature: creature, to: evo.to });
+    }
+  }
+  return evolutions;
+}
+
+// ==================== CANVAS RENDERING ====================
+var canvas = document.getElementById('gameCanvas');
+var ctx = canvas.getContext('2d');
+
+function updateCamera() {
+  var cx = state.player.x * TILE - CANVAS_W/2 + TILE/2;
+  var cy = state.player.y * TILE - CANVAS_H/2 + TILE/2;
+  state.camera.x = Math.max(0, Math.min(cx, MAP_W*TILE - CANVAS_W));
+  state.camera.y = Math.max(0, Math.min(cy, MAP_H*TILE - CANVAS_H));
+}
+
+function roundRect(cx2d, x, y, w, h, rad) {
+  cx2d.beginPath();
+  cx2d.moveTo(x+rad, y);
+  cx2d.lineTo(x+w-rad, y);
+  cx2d.quadraticCurveTo(x+w, y, x+w, y+rad);
+  cx2d.lineTo(x+w, y+h-rad);
+  cx2d.quadraticCurveTo(x+w, y+h, x+w-rad, y+h);
+  cx2d.lineTo(x+rad, y+h);
+  cx2d.quadraticCurveTo(x, y+h, x, y+h-rad);
+  cx2d.lineTo(x, y+rad);
+  cx2d.quadraticCurveTo(x, y, x+rad, y);
+  cx2d.closePath();
+}
+
+function drawWorld() {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+  var camX = state.camera.x, camY = state.camera.y;
+  var startC = Math.floor(camX / TILE);
+  var startR = Math.floor(camY / TILE);
+  var endC = Math.min(startC + Math.ceil(CANVAS_W/TILE) + 1, MAP_W);
+  var endR = Math.min(startR + Math.ceil(CANVAS_H/TILE) + 1, MAP_H);
+  var r, c, tile, x, y;
+
+  for (r = startR; r < endR; r++) {
+    for (c = startC; c < endC; c++) {
+      tile = state.map[r][c];
+      x = c * TILE - camX;
+      y = r * TILE - camY;
+      ctx.fillStyle = TILE_COLORS[tile] || '#888';
+      ctx.fillRect(x, y, TILE, TILE);
+
+      if (tile === T_GRASS) {
+        ctx.fillStyle = '#2a6016';
+        ctx.fillRect(x+5, y+12, 3, 16);
+        ctx.fillRect(x+14, y+8, 3, 20);
+        ctx.fillRect(x+24, y+14, 3, 14);
+        ctx.fillStyle = '#4aaa28';
+        ctx.fillRect(x+6, y+8, 2, 8);
+        ctx.fillRect(x+16, y+4, 2, 8);
+        ctx.fillRect(x+26, y+10, 2, 8);
+      } else if (tile === T_TREE) {
+        ctx.fillStyle = '#0d3a08';
+        ctx.fillRect(x+2, y+2, TILE-4, TILE-4);
+        ctx.fillStyle = '#1e6614';
+        ctx.fillRect(x+6, y+6, TILE-12, TILE-12);
+        ctx.fillStyle = '#2a8c1a';
+        ctx.fillRect(x+10, y+10, TILE-20, TILE-20);
+      } else if (tile === T_FLOWER) {
+        ctx.fillStyle = '#e8cc88';
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.fillStyle = '#ff88aa';
+        ctx.fillRect(x+8, y+8, 8, 8);
+        ctx.fillRect(x+22, y+18, 8, 8);
+        ctx.fillStyle = '#ffdd44';
+        ctx.fillRect(x+10, y+10, 4, 4);
+        ctx.fillRect(x+24, y+20, 4, 4);
+      } else if (tile === T_BUILDING) {
+        ctx.fillStyle = '#8b5e3c';
+        ctx.fillRect(x+2, y+2, TILE-4, TILE-4);
+        ctx.fillStyle = '#c0845e';
+        ctx.fillRect(x+4, y+4, TILE-8, TILE-16);
+        ctx.fillStyle = '#5a3a1a';
+        ctx.fillRect(x+14, y+20, 12, 14);
+        ctx.fillStyle = '#88aaff';
+        ctx.fillRect(x+5, y+8, 8, 8);
+      } else if (tile === T_PATH) {
+        ctx.fillStyle = 'rgba(180,150,80,0.25)';
+        ctx.fillRect(x+1, y+1, TILE-2, TILE-2);
+      } else if (tile === T_TOWN) {
+        ctx.fillStyle = 'rgba(220,200,130,0.2)';
+        ctx.fillRect(x+1, y+1, TILE-2, TILE-2);
+      }
+    }
+  }
+
+  // Subtle grid
+  ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+  ctx.lineWidth = 0.5;
+  for (r = startR; r <= endR; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r*TILE-camY); ctx.lineTo(CANVAS_W, r*TILE-camY); ctx.stroke();
+  }
+  for (c = startC; c <= endC; c++) {
+    ctx.beginPath(); ctx.moveTo(c*TILE-camX, 0); ctx.lineTo(c*TILE-camX, CANVAS_H); ctx.stroke();
+  }
+
+  // Player character
+  var px = state.player.x * TILE - camX;
+  var py = state.player.y * TILE - camY;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(px+8, py+4, 24, 32);
+  ctx.fillStyle = '#ffe0b0';
+  ctx.fillRect(px+12, py+4, 16, 14);
+  ctx.fillStyle = '#3a3aaa';
+  ctx.fillRect(px+8, py+18, 24, 16);
+  ctx.fillStyle = '#226';
+  ctx.fillRect(px+8, py+34, 10, 6);
+  ctx.fillRect(px+22, py+34, 10, 6);
+
+  // Zone label
+  var pr = state.player.y;
+  var zoneLabel = '';
+  if (pr <= 7) zoneLabel = '初始鎮';
+  else if (pr <= 19) zoneLabel = '探索路';
+  else zoneLabel = '深林';
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  roundRect(ctx, CANVAS_W-170, CANVAS_H-44, 162, 36, 8);
+  ctx.fill();
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(zoneLabel, CANVAS_W-18, CANVAS_H-20);
+  ctx.textAlign = 'left';
+}
+
+function drawBattle() {
+  if (!state.battle) return;
+  var b = state.battle;
+  var wild = b.wild, player = b.player;
+
+  // Background gradient
+  ctx.fillStyle = '#151525';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  var grad = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
+  grad.addColorStop(0, '#1c1c35');
+  grad.addColorStop(1, '#0a0a1a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Divider line
+  ctx.strokeStyle = '#2a2a55';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, CANVAS_H*0.55); ctx.lineTo(CANVAS_W, CANVAS_H*0.55); ctx.stroke();
+
+  // Wild creature area (top right)
+  // Platform shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(820, 280, 110, 24, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Wild creature emoji (large)
+  ctx.font = '130px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(wild.emoji, 820, 260);
+  ctx.textAlign = 'left';
+
+  // Wild info panel
+  ctx.fillStyle = 'rgba(20,20,50,0.92)';
+  roundRect(ctx, 570, 42, 390, 130, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#3355aa';
+  ctx.lineWidth = 2;
+  roundRect(ctx, 570, 42, 390, 130, 14);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillText(wild.name, 592, 80);
+
+  ctx.fillStyle = '#9999cc';
+  ctx.font = '16px sans-serif';
+  ctx.fillText('Lv.' + wild.level, 592, 102);
+
+  // Type badge
+  ctx.fillStyle = TYPE_COLORS[wild.type] || '#888';
+  roundRect(ctx, 648, 86, 72, 22, 8);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(wild.type.toUpperCase(), 684, 102);
+  ctx.textAlign = 'left';
+
+  // Wild HP bar background
+  ctx.fillStyle = '#222244';
+  roundRect(ctx, 592, 114, 348, 18, 9);
+  ctx.fill();
+  // Wild HP bar fill
+  var whpR = Math.max(0, wild.hp / wild.maxHP);
+  var whpCol = whpR > 0.5 ? '#44ffaa' : whpR > 0.25 ? '#ffaa44' : '#ff4444';
+  ctx.fillStyle = whpCol;
+  roundRect(ctx, 592, 114, Math.floor(348 * whpR), 18, 9);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = '13px monospace';
+  ctx.fillText('HP ' + wild.hp + '/' + wild.maxHP, 592, 148);
+
+  // Player creature area (bottom left)
+  if (!player) return;
+
+  // Platform shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(300, 440, 110, 24, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Player creature emoji
+  ctx.font = '130px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(player.emoji, 300, 420);
+  ctx.textAlign = 'left';
+
+  // Player info panel
+  ctx.fillStyle = 'rgba(20,20,50,0.92)';
+  roundRect(ctx, 30, 458, 420, 150, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#3355aa';
+  ctx.lineWidth = 2;
+  roundRect(ctx, 30, 458, 420, 150, 14);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.fillText(player.name, 52, 496);
+
+  ctx.fillStyle = '#9999cc';
+  ctx.font = '16px sans-serif';
+  ctx.fillText('Lv.' + player.level, 52, 518);
+
+  // Type badge
+  ctx.fillStyle = TYPE_COLORS[player.type] || '#888';
+  roundRect(ctx, 110, 502, 72, 22, 8);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(player.type.toUpperCase(), 146, 518);
+  ctx.textAlign = 'left';
+
+  // HP bar
+  ctx.fillStyle = '#222244';
+  roundRect(ctx, 52, 530, 378, 18, 9);
+  ctx.fill();
+  var phpR = Math.max(0, player.hp / player.maxHP);
+  var phpCol = phpR > 0.5 ? '#44ffaa' : phpR > 0.25 ? '#ffaa44' : '#ff4444';
+  ctx.fillStyle = phpCol;
+  roundRect(ctx, 52, 530, Math.floor(378 * phpR), 18, 9);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = '13px monospace';
+  ctx.fillText('HP ' + player.hp + '/' + player.maxHP, 52, 562);
+
+  // EXP bar
+  ctx.fillStyle = '#111133';
+  roundRect(ctx, 52, 568, 378, 12, 6);
+  ctx.fill();
+  var expR = Math.min(1, player.exp / Math.max(1, player.expNeeded));
+  ctx.fillStyle = '#44aaff';
+  roundRect(ctx, 52, 568, Math.floor(378 * expR), 12, 6);
+  ctx.fill();
+  ctx.fillStyle = '#7788aa';
+  ctx.font = '12px monospace';
+  ctx.fillText('EXP ' + player.exp + '/' + player.expNeeded, 52, 594);
+}
+
+// ==================== MESSAGE SYSTEM ====================
+function addMsg(text, callback) {
+  state.msgQueue.push({ text: text, callback: callback || null });
+  if (!state.showingMsg) showNextMsg();
+}
+
+function showNextMsg() {
+  if (state.msgQueue.length === 0) {
+    state.showingMsg = false;
+    document.getElementById('tapHint').textContent = '';
+    if (state.msgCallback) {
+      var cb = state.msgCallback;
+      state.msgCallback = null;
+      cb();
+    }
+    return;
+  }
+  state.showingMsg = true;
+  var msg = state.msgQueue.shift();
+  document.getElementById('msgText').textContent = msg.text;
+  if (msg.callback) state.msgCallback = msg.callback;
+  if (state.msgQueue.length > 0 || msg.callback) {
+    document.getElementById('tapHint').textContent = ' [點擊繼續]';
+  } else {
+    document.getElementById('tapHint').textContent = '';
+  }
+}
+
+function advanceMessage() {
+  if (state.phase !== 'battle') return;
+  if (!state.showingMsg) return;
+  if (state.msgQueue.length > 0) {
+    showNextMsg();
+  } else {
+    state.showingMsg = false;
+    document.getElementById('tapHint').textContent = '';
+    if (state.msgCallback) {
+      var cb = state.msgCallback;
+      state.msgCallback = null;
+      cb();
+    }
+  }
+}
+
+function clearMessages() {
+  state.msgQueue = [];
+  state.msgCallback = null;
+  state.showingMsg = false;
+  document.getElementById('msgText').textContent = '';
+  document.getElementById('tapHint').textContent = '';
+}
+
+// ==================== BATTLE SYSTEM ====================
+function startBattle(zone) {
+  var speciesId = pickEncounter(zone);
+  var levelMin = zone === 'forest' ? 8 : 2;
+  var levelMax = zone === 'forest' ? 20 : 8;
+  var level = levelMin + Math.floor(Math.random() * (levelMax - levelMin + 1));
+  var wild = createCreature(speciesId, level);
+
+  // Find first alive party member
+  var playerMon = null;
+  var i;
+  for (i = 0; i < state.party.length; i++) {
+    if (state.party[i].hp > 0) { playerMon = state.party[i]; break; }
+  }
+  if (!playerMon) {
+    for (i = 0; i < state.party.length; i++) {
+      state.party[i].hp = 1;
+    }
+    state.player.x = 14;
+    state.player.y = 4;
+    return;
+  }
+
+  state.phase = 'battle';
+  state.battle = {
+    wild: wild,
+    player: playerMon,
+    zone: zone,
+    waitingAction: true,
+    atkModWild: 0
+  };
+
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('dpad').style.display = 'none';
+  document.getElementById('menuBtn').style.display = 'none';
+  document.getElementById('battleUI').style.display = 'flex';
+  document.getElementById('battleActions').style.display = 'flex';
+  document.getElementById('battleMoves').style.display = 'none';
+
+  clearMessages();
+  addMsg('野生的 ' + wild.name + ' (Lv.' + wild.level + ') 出現了！');
+}
+
+function battleAction(action) {
+  if (state.phase !== 'battle') return;
+  var b = state.battle;
+  if (!b || !b.waitingAction) return;
+
+  if (action === 'fight') {
+    showMoveMenu();
+    return;
+  }
+
+  b.waitingAction = false;
+  document.getElementById('battleActions').style.display = 'none';
+  document.getElementById('battleMoves').style.display = 'none';
+
+  if (action === 'ball') {
+    if (state.items.balls <= 0) {
+      addMsg('捕捉球不夠了！');
+      b.waitingAction = true;
+      document.getElementById('battleActions').style.display = 'flex';
+      return;
+    }
+    state.items.balls--;
+    updateHUD();
+    addMsg('投出捕捉球！', function() {
+      var sp = SPECIES[b.wild.speciesId];
+      var catchRate = sp.catchRate || 45;
+      var chance = (catchRate * (3 * b.wild.maxHP - 2 * b.wild.hp)) / (3 * b.wild.maxHP * 255);
+      if (Math.random() < chance) {
+        addMsg('成功捕捉 ' + b.wild.name + '！', function() {
+          if (state.party.length < 6) {
+            b.wild.exp = 0;
+            b.wild.expNeeded = b.wild.level * b.wild.level * 5;
+            b.wild.atkMod = 0;
+            state.party.push(b.wild);
+            addMsg(b.wild.name + ' 加入了你的隊伍！', function() { endBattle(); });
+          } else {
+            addMsg('收藏已滿，野生怪獸逃走了', function() { endBattle(); });
+          }
+        });
+      } else {
+        addMsg(b.wild.name + ' 掙脫了！', function() { enemyTurn(); });
+      }
+    });
+    return;
+  }
+
+  if (action === 'potion') {
+    if (state.items.potions <= 0) {
+      addMsg('藥水不夠了！');
+      b.waitingAction = true;
+      document.getElementById('battleActions').style.display = 'flex';
+      return;
+    }
+    if (b.player.hp >= b.player.maxHP) {
+      addMsg(b.player.name + ' HP 已滿，不需要藥水！');
+      b.waitingAction = true;
+      document.getElementById('battleActions').style.display = 'flex';
+      return;
+    }
+    state.items.potions--;
+    updateHUD();
+    var heal = Math.min(50, b.player.maxHP - b.player.hp);
+    b.player.hp += heal;
+    addMsg(b.player.name + ' 回復了 ' + heal + ' HP！', function() { enemyTurn(); });
+    return;
+  }
+
+  if (action === 'run') {
+    var runChance = b.player.spd / (b.wild.spd + b.player.spd + 1);
+    if (Math.random() < runChance + 0.3) {
+      addMsg('成功逃跑了！', function() { endBattle(); });
+    } else {
+      addMsg('逃跑失敗！', function() { enemyTurn(); });
+    }
+    return;
+  }
+}
+
+function showMoveMenu() {
+  var b = state.battle;
+  var movesDiv = document.getElementById('battleMoves');
+  movesDiv.innerHTML = '';
+  document.getElementById('battleActions').style.display = 'none';
+  movesDiv.style.display = 'flex';
+
+  var player = b.player;
+  var i;
+  for (i = 0; i < player.moves.length; i++) {
+    (function(moveId) {
+      var move = MOVES[moveId];
+      var btn = document.createElement('button');
+      btn.textContent = move.name + ' (' + move.type + ')';
+      btn.className = 'type-' + move.type;
+      btn.style.minWidth = '140px';
+      btn.style.padding = '10px 14px';
+      btn.style.fontSize = '0.95em';
+      btn.style.borderRadius = '10px';
+      btn.style.border = 'none';
+      btn.style.cursor = 'pointer';
+      btn.style.fontWeight = 'bold';
+      btn.addEventListener('click', function() { useMove(moveId); });
+      movesDiv.appendChild(btn);
+    })(player.moves[i]);
+  }
+
+  var backBtn = document.createElement('button');
+  backBtn.textContent = '← 返回';
+  backBtn.style.cssText = 'min-width:100px;padding:10px 14px;font-size:0.9em;border-radius:10px;border:none;cursor:pointer;background:#444;color:#fff;font-weight:bold;';
+  backBtn.addEventListener('click', function() {
+    movesDiv.style.display = 'none';
+    document.getElementById('battleActions').style.display = 'flex';
+  });
+  movesDiv.appendChild(backBtn);
+}
+
+function useMove(moveId) {
+  var b = state.battle;
+  b.waitingAction = false;
+  document.getElementById('battleActions').style.display = 'none';
+  document.getElementById('battleMoves').style.display = 'none';
+
+  var move = MOVES[moveId];
+  var player = b.player;
+  var wild = b.wild;
+
+  var playerPriority = (move.effect === 'priority') ? 1 : 0;
+  var playerFirst = playerPriority > 0 || player.spd >= wild.spd;
+
+  if (playerFirst) {
+    doPlayerMove(moveId, function() {
+      if (wild.hp <= 0) {
+        battleWin();
+      } else {
+        enemyTurn();
+      }
+    });
+  } else {
+    doEnemyMove(function() {
+      if (player.hp <= 0) {
+        playerDefeated();
+      } else {
+        doPlayerMove(moveId, function() {
+          if (wild.hp <= 0) {
+            battleWin();
+          } else {
+            restoreActions();
+          }
+        });
+      }
+    });
+  }
+}
+
+function doPlayerMove(moveId, callback) {
+  var b = state.battle;
+  var move = MOVES[moveId];
+  var player = b.player;
+  var wild = b.wild;
+
+  if (move.effect === 'recover') {
+    var healAmt = Math.floor(player.maxHP * 0.5);
+    player.hp = Math.min(player.maxHP, player.hp + healAmt);
+    addMsg(player.name + ' 使用了 ' + move.name + '，回復了 ' + healAmt + ' HP！', callback);
+    return;
+  }
+
+  if (move.effect === 'lower_atk') {
+    b.atkModWild = Math.max(-3, (b.atkModWild || 0) - 1);
+    addMsg(player.name + ' 使用了 ' + move.name + '！' + wild.name + ' 的攻擊降低了！', callback);
+    return;
+  }
+
+  if (Math.random() * 100 > (move.acc || 100)) {
+    addMsg(player.name + ' 使用了 ' + move.name + '，但是沒有命中！', callback);
+    return;
+  }
+
+  var eff = getTypeEff(move.type, wild.type);
+  var atkMod = 1 + (player.atkMod || 0) * 0.25;
+  var rawDmg = Math.floor(player.atk * atkMod * move.power / Math.max(1, wild.def) * eff * (0.85 + Math.random()*0.15) / 50 + 2);
+  var dmg = Math.max(1, rawDmg);
+  wild.hp = Math.max(0, wild.hp - dmg);
+
+  var effText = '';
+  if (eff >= 2) effText = ' 效果絕佳！';
+  else if (eff <= 0.5) effText = ' 效果不好...';
+
+  addMsg(player.name + ' 使用了 ' + move.name + '！造成 ' + dmg + ' 點傷害！' + effText, callback);
+}
+
+function doEnemyMove(callback) {
+  var b = state.battle;
+  var wild = b.wild;
+  var player = b.player;
+
+  var moveId = wild.moves[Math.floor(Math.random() * wild.moves.length)];
+  var move = MOVES[moveId];
+
+  if (move.effect === 'recover') {
+    var healAmt = Math.floor(wild.maxHP * 0.5);
+    wild.hp = Math.min(wild.maxHP, wild.hp + healAmt);
+    addMsg('野生 ' + wild.name + ' 使用了 ' + move.name + '，回復了 ' + healAmt + ' HP！', callback);
+    return;
+  }
+
+  if (move.effect === 'lower_atk') {
+    player.atkMod = Math.max(-3, (player.atkMod || 0) - 1);
+    addMsg('野生 ' + wild.name + ' 使用了 ' + move.name + '！' + player.name + ' 的攻擊降低了！', callback);
+    return;
+  }
+
+  if (Math.random() * 100 > (move.acc || 100)) {
+    addMsg('野生 ' + wild.name + ' 使用了 ' + move.name + '，但是沒有命中！', callback);
+    return;
+  }
+
+  var eff = getTypeEff(move.type, player.type);
+  var atkMod = 1 + (b.atkModWild || 0) * 0.25;
+  var rawDmg = Math.floor(wild.atk * atkMod * move.power / Math.max(1, player.def) * eff * (0.85 + Math.random()*0.15) / 50 + 2);
+  var dmg = Math.max(1, rawDmg);
+  player.hp = Math.max(0, player.hp - dmg);
+
+  var effText = '';
+  if (eff >= 2) effText = ' 效果絕佳！';
+  else if (eff <= 0.5) effText = ' 效果不好...';
+
+  addMsg('野生 ' + wild.name + ' 使用了 ' + move.name + '！造成 ' + dmg + ' 點傷害！' + effText, callback);
+}
+
+function enemyTurn() {
+  doEnemyMove(function() {
+    if (state.battle.player.hp <= 0) {
+      playerDefeated();
+    } else {
+      restoreActions();
+    }
+  });
+}
+
+function restoreActions() {
+  if (!state.battle) return;
+  state.battle.waitingAction = true;
+  document.getElementById('battleActions').style.display = 'flex';
+  document.getElementById('battleMoves').style.display = 'none';
+}
+
+function battleWin() {
+  var b = state.battle;
+  var xpGain = b.wild.level * 5;
+  addMsg(b.wild.name + ' 被打倒了！');
+  addMsg(b.player.name + ' 獲得了 ' + xpGain + ' EXP！', function() {
+    var prevLevel = b.player.level;
+    var evos = gainExp(b.player, xpGain);
+    if (b.player.level > prevLevel) {
+      addMsg(b.player.name + ' 升到了 Lv.' + b.player.level + '！', function() {
+        checkEvolutions(evos);
+      });
+    } else {
+      checkEvolutions(evos);
+    }
+  });
+}
+
+function checkEvolutions(evos) {
+  if (evos && evos.length > 0) {
+    var evo = evos[0];
+    addMsg(evo.creature.name + ' 正在進化！', function() {
+      performEvolution(evo.creature, evo.to, function() {
+        endBattle();
+      });
+    });
+  } else {
+    endBattle();
+  }
+}
+
+function performEvolution(creature, toId, callback) {
+  var fromName = creature.name;
+  var toSp = SPECIES[toId];
+  creature.speciesId = toId;
+  creature.name = toSp.name;
+  creature.emoji = toSp.emoji;
+  creature.type = toSp.type;
+  var stats = calcStats(toId, creature.level);
+  creature.maxHP = stats.maxHP;
+  creature.hp = Math.min(creature.hp + (stats.maxHP - creature.maxHP), creature.maxHP);
+  creature.atk = stats.atk;
+  creature.def = stats.def;
+  creature.spd = stats.spd;
+  // Learn new moves from evolved species
+  var i;
+  for (i = 0; i < toSp.moves.length; i++) {
+    var m = toSp.moves[i];
+    if (m.lv <= creature.level && creature.moves.indexOf(m.id) === -1) {
+      creature.moves.push(m.id);
+      if (creature.moves.length > 4) creature.moves.shift();
+    }
+  }
+  showEvolutionScreen(fromName, creature, callback);
+}
+
+function showEvolutionScreen(fromName, creature, callback) {
+  document.getElementById('evoEmoji').textContent = creature.emoji;
+  document.getElementById('evoTitle').textContent = fromName + ' 進化了！';
+  document.getElementById('evoDesc').textContent = '成為了 ' + creature.name + '！';
+  document.getElementById('evolutionScreen').style.display = 'flex';
+  state.evoCallback = callback;
+}
+
+function playerDefeated() {
+  var b = state.battle;
+  addMsg(b.player.name + ' 倒下了！');
+  var next = null;
+  var i;
+  for (i = 0; i < state.party.length; i++) {
+    if (state.party[i] !== b.player && state.party[i].hp > 0) {
+      next = state.party[i];
+      break;
+    }
+  }
+  if (next) {
+    addMsg('換上 ' + next.name + '！', function() {
+      b.player = next;
+      restoreActions();
+    });
+  } else {
+    addMsg('隊伍全滅了！你回到了初始鎮。', function() {
+      for (var j = 0; j < state.party.length; j++) {
+        if (state.party[j].hp <= 0) state.party[j].hp = 1;
+      }
+      state.player.x = 14;
+      state.player.y = 4;
+      endBattle();
+    });
+  }
+}
+
+function endBattle() {
+  state.phase = 'world';
+  state.battle = null;
+  document.getElementById('battleUI').style.display = 'none';
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('dpad').style.display = 'grid';
+  document.getElementById('menuBtn').style.display = 'block';
+  clearMessages();
+  updateHUD();
+  updateCamera();
+  saveGame();
+}
+
+// ==================== MOVEMENT ====================
+function tryMove(dir) {
+  if (state.phase !== 'world') return;
+  var p = state.player;
+  var nx = p.x, ny = p.y;
+  if (dir === 'up')    ny--;
+  if (dir === 'down')  ny++;
+  if (dir === 'left')  nx--;
+  if (dir === 'right') nx++;
+
+  if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return;
+  var tile = state.map[ny][nx];
+  if (tile === T_TREE || tile === T_BUILDING || tile === T_WATER) return;
+
+  p.x = nx; p.y = ny; p.facing = dir;
+  state.steps++;
+
+  if (tile === T_GRASS) {
+    var zone = null;
+    if (ny >= 9 && ny <= 19) zone = 'route';
+    else if (ny >= 20) zone = 'forest';
+    if (zone && Math.random() < 0.15) {
+      startBattle(zone);
+      return;
+    }
+  }
+
+  updateCamera();
+}
+
+// ==================== HUD ====================
+function updateHUD() {
+  var hudParty = document.getElementById('hudParty');
+  hudParty.innerHTML = '';
+  var i;
+  for (i = 0; i < state.party.length; i++) {
+    var m = state.party[i];
+    var div = document.createElement('div');
+    div.className = 'hud-mon';
+    var ratio = m.hp / Math.max(1, m.maxHP);
+    var col = ratio > 0.5 ? '#44ffaa' : ratio > 0.25 ? '#ffaa44' : '#ff4444';
+    div.innerHTML = m.emoji + '<div class="hud-hp"><div class="hud-hp-fill" style="width:' + Math.floor(ratio*100) + '%;background:' + col + '"></div></div>';
+    hudParty.appendChild(div);
+  }
+  document.getElementById('hudBalls').textContent = state.items.balls;
+  document.getElementById('hudPotions').textContent = state.items.potions;
+}
+
+// ==================== PARTY SCREEN ====================
+function toggleParty() {
+  if (state.phase === 'battle') return;
+  if (document.getElementById('partyScreen').style.display === 'flex') {
+    closeParty();
+  } else {
+    openParty();
+  }
+}
+
+function openParty() {
+  state.phase = 'party';
+  var grid = document.getElementById('partyGrid');
+  grid.innerHTML = '';
+  var i;
+  for (i = 0; i < 6; i++) {
+    var m = state.party[i];
+    var div = document.createElement('div');
+    div.className = 'partySlot' + (m ? ' filled' : '');
+    if (m) {
+      var ratio = m.hp / Math.max(1, m.maxHP);
+      var col = ratio > 0.5 ? '#44ffaa' : ratio > 0.25 ? '#ffaa44' : '#ff4444';
+      var movenames = m.moves.map(function(id) { return MOVES[id] ? MOVES[id].name : id; }).join(', ');
+      div.innerHTML =
+        '<div class="slot-emoji">' + m.emoji + '</div>' +
+        '<div class="slot-name">' + m.name + '</div>' +
+        '<div class="slot-level">Lv.' + m.level + ' | HP: ' + m.hp + '/' + m.maxHP + ' | 類型: ' + m.type + '</div>' +
+        '<div class="slot-hp-bar"><div class="slot-hp-fill" style="width:' + Math.floor(ratio*100) + '%;background:' + col + '"></div></div>' +
+        '<div style="color:#888;font-size:0.75em;margin-top:4px">技能: ' + movenames + '</div>';
+    } else {
+      div.innerHTML = '<div style="color:#555;text-align:center;padding-top:20px">空位</div>';
+    }
+    grid.appendChild(div);
+  }
+  document.getElementById('partyScreen').style.display = 'flex';
+}
+
+function closeParty() {
+  state.phase = 'world';
+  document.getElementById('partyScreen').style.display = 'none';
+}
+
+// ==================== STARTER SELECT ====================
+function showStarterSelect() {
+  document.getElementById('titleScreen').style.display = 'none';
+  document.getElementById('starterScreen').style.display = 'flex';
+  var cards = document.getElementById('starterCards');
+  cards.innerHTML = '';
+
+  var starters = [
+    { id:'embrite',  desc:'火焰型新手怪獸，攻擊力強' },
+    { id:'bublin',   desc:'水系型新手怪獸，防禦力高' },
+    { id:'leafling', desc:'草系型新手怪獸，均衡型選手' }
+  ];
+
+  var i;
+  for (i = 0; i < starters.length; i++) {
+    (function(s) {
+      var sp = SPECIES[s.id];
+      var div = document.createElement('div');
+      div.className = 'starterCard';
+      div.innerHTML =
+        '<span class="emoji">' + sp.emoji + '</span>' +
+        '<div class="sname">' + sp.name + '</div>' +
+        '<div class="stype">類型: ' + sp.type + '</div>' +
+        '<div style="color:#888;font-size:0.75em;margin:4px 0">HP:' + sp.hp + ' ATK:' + sp.atk + ' DEF:' + sp.def + ' SPD:' + sp.spd + '</div>' +
+        '<div class="sdesc">' + s.desc + '</div>';
+      div.addEventListener('click', function() { pickStarter(s.id); });
+      cards.appendChild(div);
+    })(starters[i]);
+  }
+}
+
+function pickStarter(speciesId) {
+  var creature = createCreature(speciesId, 5);
+  state.party = [creature];
+  state.items = { balls: 10, potions: 5 };
+  state.steps = 0;
+  state.player = { x: 14, y: 4, facing: 'down' };
+  state.map = generateMap();
+
+  document.getElementById('starterScreen').style.display = 'none';
+  document.getElementById('titleScreen').style.display = 'none';
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('dpad').style.display = 'grid';
+  document.getElementById('menuBtn').style.display = 'block';
+
+  state.phase = 'world';
+  updateCamera();
+  updateHUD();
+  saveGame();
+  requestAnimationFrame(gameLoop);
+}
+
+// ==================== SAVE / LOAD ====================
+function saveGame() {
+  var data = {
+    party: state.party,
+    player: state.player,
+    items: state.items,
+    steps: state.steps
+  };
+  try {
+    localStorage.setItem('cq_save', JSON.stringify(data));
+    var ind = document.getElementById('saveIndicator');
+    ind.style.opacity = '1';
+    setTimeout(function() { ind.style.opacity = '0'; }, 1500);
+  } catch(e) {}
+}
+
+function loadGame() {
+  try {
+    var raw = localStorage.getItem('cq_save');
+    if (!raw) { alert('沒有存檔資料！'); return; }
+    var data = JSON.parse(raw);
+    state.party = data.party;
+    state.player = data.player;
+    state.items = data.items;
+    state.steps = data.steps || 0;
+    state.map = generateMap();
+
+    document.getElementById('titleScreen').style.display = 'none';
+    document.getElementById('hud').style.display = 'flex';
+    document.getElementById('dpad').style.display = 'grid';
+    document.getElementById('menuBtn').style.display = 'block';
+
+    state.phase = 'world';
+    updateCamera();
+    updateHUD();
+    requestAnimationFrame(gameLoop);
+  } catch(e) {
+    alert('載入存檔失敗：' + e.message);
+  }
+}
+
+// ==================== MAIN LOOP ====================
+var lastTime = 0;
+var rafId = null;
+
+function gameLoop(timestamp) {
+  var dt = timestamp - lastTime;
+  lastTime = timestamp;
+
+  if (state.phase === 'world') {
+    state.moveTimer -= dt;
+    if (state.moveTimer <= 0) {
+      var dir = state.dpadDir;
+      if (!dir) {
+        if (state.keys['ArrowUp']    || state.keys['w'] || state.keys['W']) dir = 'up';
+        if (state.keys['ArrowDown']  || state.keys['s'] || state.keys['S']) dir = 'down';
+        if (state.keys['ArrowLeft']  || state.keys['a'] || state.keys['A']) dir = 'left';
+        if (state.keys['ArrowRight'] || state.keys['d'] || state.keys['D']) dir = 'right';
+      }
+      if (dir) {
+        tryMove(dir);
+        state.moveTimer = state.moveDelay;
+      }
+    }
+    if (state.phase === 'world') {
+      drawWorld();
+    }
+    rafId = requestAnimationFrame(gameLoop);
+  } else if (state.phase === 'battle') {
+    drawBattle();
+    rafId = requestAnimationFrame(gameLoop);
+  } else if (state.phase === 'party') {
+    drawWorld();
+    rafId = requestAnimationFrame(gameLoop);
+  }
+}
+
+// ==================== INPUT ====================
+document.addEventListener('keydown', function(e) {
+  state.keys[e.key] = true;
+  if ((e.key === 'p' || e.key === 'P') && state.phase !== 'battle') toggleParty();
+  if (e.key === 'Escape') {
+    if (state.phase === 'party') closeParty();
+    if (state.phase === 'battle' && state.battle && state.battle.waitingAction) {
+      document.getElementById('battleMoves').style.display = 'none';
+      document.getElementById('battleActions').style.display = 'flex';
+    }
+  }
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key) !== -1) {
+    e.preventDefault();
+  }
+});
+
+document.addEventListener('keyup', function(e) {
+  state.keys[e.key] = false;
+});
+
+// D-pad
+function setupDpad() {
+  function pressDir(dir) {
+    return function(e) { e.preventDefault(); state.dpadDir = dir; };
+  }
+  function releaseDir(e) { e.preventDefault(); state.dpadDir = null; }
+
+  var up = document.getElementById('dpadUp');
+  var down = document.getElementById('dpadDown');
+  var left = document.getElementById('dpadLeft');
+  var right = document.getElementById('dpadRight');
+
+  up.addEventListener('touchstart', pressDir('up'));
+  up.addEventListener('mousedown', pressDir('up'));
+  down.addEventListener('touchstart', pressDir('down'));
+  down.addEventListener('mousedown', pressDir('down'));
+  left.addEventListener('touchstart', pressDir('left'));
+  left.addEventListener('mousedown', pressDir('left'));
+  right.addEventListener('touchstart', pressDir('right'));
+  right.addEventListener('mousedown', pressDir('right'));
+
+  document.addEventListener('touchend', releaseDir);
+  document.addEventListener('mouseup', releaseDir);
+}
+
+// Button bindings
+function setupButtons() {
+  document.getElementById('btnNewGame').addEventListener('click', showStarterSelect);
+  document.getElementById('btnLoadGame').addEventListener('click', loadGame);
+  document.getElementById('btnCloseParty').addEventListener('click', closeParty);
+  document.getElementById('btnParty').addEventListener('click', toggleParty);
+  document.getElementById('btnSave').addEventListener('click', saveGame);
+  document.getElementById('btnFight').addEventListener('click', function() { battleAction('fight'); });
+  document.getElementById('btnBall').addEventListener('click', function() { battleAction('ball'); });
+  document.getElementById('btnPotion').addEventListener('click', function() { battleAction('potion'); });
+  document.getElementById('btnRun').addEventListener('click', function() { battleAction('run'); });
+  document.getElementById('msgLog').addEventListener('click', advanceMessage);
+  document.getElementById('btnCloseEvolution').addEventListener('click', function() {
+    document.getElementById('evolutionScreen').style.display = 'none';
+    if (state.evoCallback) {
+      var cb = state.evoCallback;
+      state.evoCallback = null;
+      cb();
+    }
+  });
+}
+
+// ==================== INIT ====================
+function init() {
+  // Initially hide game elements
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('dpad').style.display = 'none';
+  document.getElementById('menuBtn').style.display = 'none';
+  document.getElementById('battleUI').style.display = 'none';
+  document.getElementById('partyScreen').style.display = 'none';
+  document.getElementById('evolutionScreen').style.display = 'none';
+  document.getElementById('starterScreen').style.display = 'none';
+
+  setupDpad();
+  setupButtons();
+
+  // Show title
+  document.getElementById('titleScreen').style.display = 'flex';
+}
+
+init();
+
+})();
+</script>
+</body>
+</html>
