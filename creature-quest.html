@@ -7,7 +7,7 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #1a1a2e; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
-#gameContainer { position: relative; width: 1200px; max-width: 100vw; }
+#gameContainer { position: relative; max-width: min(900px, 100vw); width: 100%; margin: 0 auto; }
 #gameCanvas { display: block; width: 100%; image-rendering: pixelated; cursor: default; }
 /* Title screen */
 #titleScreen { position: absolute; top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460); display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100; }
@@ -85,7 +85,7 @@ body { background: #1a1a2e; display: flex; flex-direction: column; align-items: 
 </head>
 <body>
 <div id="gameContainer">
-  <canvas id="gameCanvas" width="1200" height="720"></canvas>
+  <canvas id="gameCanvas" width="900" height="540"></canvas>
 
   <!-- Title Screen -->
   <div id="titleScreen">
@@ -171,7 +171,7 @@ body { background: #1a1a2e; display: flex; flex-direction: column; align-items: 
 // ==================== CONSTANTS ====================
 var TILE = 40;
 var MAP_W = 30, MAP_H = 24;
-var CANVAS_W = 1200, CANVAS_H = 720;
+var CANVAS_W = 900, CANVAS_H = 540;
 
 // Tile types
 var T_PATH = 0, T_GRASS = 1, T_TREE = 2, T_WATER = 3, T_TOWN = 4, T_FLOWER = 5, T_BUILDING = 6;
@@ -555,7 +555,7 @@ function drawBattle() {
   var b = state.battle;
   var wild = b.wild, player = b.player;
 
-  // Background gradient
+  // Background gradient (actual canvas space)
   ctx.fillStyle = '#151525';
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   var grad = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
@@ -564,10 +564,14 @@ function drawBattle() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // Divider line
+  // Divider line (actual canvas space)
   ctx.strokeStyle = '#2a2a55';
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(0, CANVAS_H*0.55); ctx.lineTo(CANVAS_W, CANVAS_H*0.55); ctx.stroke();
+
+  // Scale to 1200×720 virtual space so existing coordinates work
+  ctx.save();
+  ctx.scale(CANVAS_W/1200, CANVAS_H/720);
 
   // Wild creature area (top right)
   // Platform shadow
@@ -689,6 +693,8 @@ function drawBattle() {
   ctx.fillStyle = '#7788aa';
   ctx.font = '12px monospace';
   ctx.fillText('EXP ' + player.exp + '/' + player.expNeeded, 52, 594);
+
+  ctx.restore();
 }
 
 // ==================== MESSAGE SYSTEM ====================
@@ -965,7 +971,8 @@ function doPlayerMove(moveId, callback) {
 
   var eff = getTypeEff(move.type, wild.type);
   var atkMod = 1 + (player.atkMod || 0) * 0.25;
-  var rawDmg = Math.floor(player.atk * atkMod * move.power / Math.max(1, wild.def) * eff * (0.85 + Math.random()*0.15) / 50 + 2);
+  var lvMul = Math.floor(2 * player.level / 5) + 2;
+  var rawDmg = Math.floor(lvMul * move.power * (player.atk * atkMod) / Math.max(1, wild.def) * eff * (0.85 + Math.random()*0.15) / 25 + 2);
   var dmg = Math.max(1, rawDmg);
   wild.hp = Math.max(0, wild.hp - dmg);
 
@@ -1004,7 +1011,8 @@ function doEnemyMove(callback) {
 
   var eff = getTypeEff(move.type, player.type);
   var atkMod = 1 + (b.atkModWild || 0) * 0.25;
-  var rawDmg = Math.floor(wild.atk * atkMod * move.power / Math.max(1, player.def) * eff * (0.85 + Math.random()*0.15) / 50 + 2);
+  var lvMul = Math.floor(2 * wild.level / 5) + 2;
+  var rawDmg = Math.floor(lvMul * move.power * (wild.atk * atkMod) / Math.max(1, player.def) * eff * (0.85 + Math.random()*0.15) / 25 + 2);
   var dmg = Math.max(1, rawDmg);
   player.hp = Math.max(0, player.hp - dmg);
 
