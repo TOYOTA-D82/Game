@@ -439,7 +439,7 @@ function buildSpawnQ(wi){
 }
 function makeEnemy(type,hs){
   const d=ED[type];
-  return{type,prog:0,hp:d.hp*hs,maxHp:d.hp*hs,hs,slow:0,slowDur:0,dot:0,dotDur:0,dotT:0,hitF:0,healT:0,id:Math.random()};
+  return{type,prog:0,spd:d.spd,hp:d.hp*hs,maxHp:d.hp*hs,hs,slow:0,slowDur:0,dot:0,dotDur:0,dotT:0,hitF:0,healT:0,id:Math.random()};
 }
 
 // ─── UPDATE ────────────────────────────────────────────────
