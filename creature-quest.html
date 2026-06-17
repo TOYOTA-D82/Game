@@ -81,6 +81,27 @@ body { background: #1a1a2e; display: flex; flex-direction: column; align-items: 
 @keyframes evoSpin { from{transform:scale(1) rotate(-5deg)} to{transform:scale(1.2) rotate(5deg)} }
 #evolutionScreen h2 { color:#ffd700;font-size:2em;margin:20px 0; }
 #evolutionScreen p { color:#ccc;font-size:1.1em; }
+/* Rarity */
+.r-badge { display:inline-block;padding:1px 7px;border-radius:5px;font-size:0.7em;font-weight:bold;margin-left:4px;vertical-align:middle; }
+.r-common { background:#333;color:#aaa; }
+.r-uncommon { background:#1a4a1a;color:#44cc44; }
+.r-rare { background:#1a2a4a;color:#6699ff; }
+.r-epic { background:#2a1a4a;color:#bb66ff; }
+.r-legendary { background:#3a2800;color:#ffcc00; }
+.r-limited { background:#3a001a;color:#ff66cc; }
+/* Story dialog */
+#storyDialog { position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:115; }
+#storyBox { background:linear-gradient(135deg,#0d1528,#1a2545);border:2px solid #ffd700;border-radius:18px;padding:28px 22px;max-width:480px;width:90%;text-align:center; }
+#storyChapter { color:#ffd700;font-size:1.15em;font-weight:bold;margin-bottom:14px;letter-spacing:1px; }
+#storyText { color:#c8d0ff;font-size:0.88em;line-height:1.85;margin-bottom:14px;white-space:pre-line;text-align:left; }
+#storyReward { background:rgba(68,200,140,0.12);border:1px solid #44cc88;border-radius:8px;padding:8px 12px;color:#44ffaa;font-size:0.85em;margin-bottom:16px; }
+/* Quest HUD strip */
+#questHud { position:absolute;top:46px;left:0;right:0;background:rgba(8,8,22,0.88);border-bottom:1px solid #2a2a44;padding:4px 12px;z-index:28;pointer-events:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+.qh-label { color:#ffd700;font-size:0.7em;font-weight:bold;white-space:nowrap; }
+.qh-name { color:#e0e0ff;font-size:0.7em;white-space:nowrap; }
+.qh-sep { color:#444;font-size:0.7em; }
+.qh-desc { color:#888;font-size:0.7em;flex:1; }
+.qh-prog { color:#44aaff;font-size:0.7em;white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -162,6 +183,25 @@ body { background: #1a1a2e; display: flex; flex-direction: column; align-items: 
   </div>
 
   <div id="saveIndicator">已存檔！</div>
+
+  <!-- Story / Quest Dialog -->
+  <div id="storyDialog">
+    <div id="storyBox">
+      <div id="storyChapter">&#x1F4D6; 故事開始</div>
+      <div id="storyText"></div>
+      <div id="storyReward"></div>
+      <button class="btn" id="btnStoryOk">&#x1F680; 繼續冒險！</button>
+    </div>
+  </div>
+
+  <!-- Quest HUD strip (shown below main HUD) -->
+  <div id="questHud" style="display:none">
+    <span class="qh-label">&#x1F4CB; 任務:</span>
+    <span class="qh-name" id="questHudName"></span>
+    <span class="qh-sep">|</span>
+    <span class="qh-desc" id="questHudDesc"></span>
+    <span class="qh-prog" id="questHudProg"></span>
+  </div>
 </div>
 
 <script>
@@ -199,6 +239,25 @@ var TYPE_EFF = {
 var TYPE_COLORS = {
   fire:'#e55555', water:'#4488ff', grass:'#44aa77', electric:'#ffdd22',
   dark:'#6666aa', rock:'#998866', normal:'#aaaaaa'
+};
+
+var RARITY_COLOR = {
+  common:'#aaaaaa', uncommon:'#44cc44', rare:'#6699ff',
+  epic:'#bb66ff', legendary:'#ffcc00', limited:'#ff66cc'
+};
+var RARITY_NAME = {
+  common:'普通', uncommon:'稀有', rare:'罕見', epic:'史詩', legendary:'傳說', limited:'限定'
+};
+
+// Rarity lookup (separate to avoid touching SPECIES entries)
+var SPECIES_RARITY = {
+  embrite:'common', pyrclaw:'uncommon', infernus:'rare',
+  bublin:'common', tidewing:'uncommon', abysal:'rare',
+  leafling:'common', thornback:'uncommon', bloomira:'rare',
+  sparkit:'uncommon', volthorn:'rare',
+  shadowpup:'uncommon', gloomfang:'rare',
+  pebblor:'common', stoneback:'uncommon',
+  lumindra:'legendary', voidwing:'legendary', crystalfox:'limited'
 };
 
 // ==================== MOVES DATABASE ====================
@@ -256,14 +315,56 @@ var SPECIES = {
   pebblor:    { name:'石礫獸', emoji:'\u{1FAA8}', type:'rock',     hp:65, atk:52, def:80, spd:25, evo:{lv:26,to:'stoneback'},catchRate:190,
                 moves:[{lv:1,id:'headbutt'},{lv:6,id:'rock_throw'},{lv:16,id:'growl'},{lv:24,id:'stone_edge'}] },
   stoneback:  { name:'磐石獸', emoji:'\u{1F5FF}', type:'rock',     hp:95, atk:72, def:120,spd:38, evo:null,                   catchRate:75,
-                moves:[{lv:1,id:'rock_throw'},{lv:1,id:'headbutt'},{lv:26,id:'stone_edge'},{lv:38,id:'recover'}] }
+                moves:[{lv:1,id:'rock_throw'},{lv:1,id:'headbutt'},{lv:26,id:'stone_edge'},{lv:38,id:'recover'}] },
+  // ── Legendary creatures (傳說) ──
+  lumindra:   { name:'光龍王', emoji:'\u{1F409}', type:'electric', hp:115,atk:125,def:92, spd:120,evo:null,                   catchRate:3,
+                moves:[{lv:1,id:'thunderbolt'},{lv:1,id:'quick_atk'},{lv:1,id:'solar_beam'},{lv:1,id:'headbutt'}] },
+  voidwing:   { name:'虛空翼神',emoji:'\u{1F985}',type:'dark',     hp:105,atk:135,def:82, spd:132,evo:null,                   catchRate:3,
+                moves:[{lv:1,id:'shadow_ball'},{lv:1,id:'bite'},{lv:1,id:'quick_atk'},{lv:1,id:'headbutt'}] },
+  // ── Limited skin creature (限定) ──
+  crystalfox: { name:'閃光燄狐',emoji:'\u{1F99D}',type:'fire',     hp:58, atk:68, def:52, spd:75, evo:null,                   catchRate:5,
+                moves:[{lv:1,id:'ember'},{lv:1,id:'quick_atk'},{lv:1,id:'flamethrower'},{lv:1,id:'fire_blast'}] }
 };
 
 // ==================== ENCOUNTER TABLES ====================
 var ENCOUNTERS = {
   route:  [{id:'sparkit',w:30},{id:'shadowpup',w:25},{id:'pebblor',w:20},{id:'leafling',w:12},{id:'bublin',w:8},{id:'embrite',w:5}],
-  forest: [{id:'volthorn',w:20},{id:'gloomfang',w:18},{id:'stoneback',w:15},{id:'thornback',w:12},{id:'tidewing',w:10},{id:'pyrclaw',w:8},{id:'sparkit',w:5},{id:'pebblor',w:12}]
+  forest: [{id:'volthorn',w:20},{id:'gloomfang',w:18},{id:'stoneback',w:15},{id:'thornback',w:12},{id:'tidewing',w:10},{id:'pyrclaw',w:8},{id:'sparkit',w:5},{id:'pebblor',w:12},{id:'crystalfox',w:2}]
 };
+
+// ==================== QUEST DATABASE ====================
+var QUESTS = [
+  { id:'q1', chapter:'序章', title:'踏上旅途',
+    desc:'走入草叢，遭遇第一場戰鬥',
+    type:'battle_count', target:1,
+    story:'傳說這片大陸上棲息著無數神奇怪獸，\n從普通（灰）、稀有（綠）、罕見（藍）、史詩（紫）\n到傳說（金）甚至限定（粉）的存在！\n\n作為新晉探索者，走進草叢遭遇你的第一隻野生怪獸吧！',
+    reward:{ balls:5 }, rewardText:'獲得 5 個捕捉球！' },
+  { id:'q2', chapter:'第一章', title:'首個夥伴',
+    desc:'成功捕捉一隻野生怪獸',
+    type:'catch_count', target:1,
+    story:'很棒！你捕捉到了第一個夥伴！\n\n每個強大的探索者，都是從第一隻夥伴開始的。\n繼續走入草叢，收集更多不同種類的怪獸！',
+    reward:{ potions:5 }, rewardText:'獲得 5 瓶藥水！' },
+  { id:'q3', chapter:'第二章', title:'深入叢林',
+    desc:'前往南方「深林」探索（向下走到底）',
+    type:'reach_forest', target:1,
+    story:'你已足夠勇敢，可以挑戰南方的深林了！\n\n深林棲息著更強大的怪獸……\n傳說中還有「傳說級」的神祕存在潛伏其中。\n小心，也要帶好足夠的捕捉球！',
+    reward:{ balls:8, potions:3 }, rewardText:'獲得 8 個捕捉球 ＋ 3 瓶藥水！' },
+  { id:'q4', chapter:'第三章', title:'茁壯成長',
+    desc:'讓任何一隻怪獸升到 15 級',
+    type:'level_reach', target:15,
+    story:'你的怪獸越來越強大！\n\n傳說當探索者足夠強大時，\n傳說怪獸「光龍王」與「虛空翼神」會出現在深林。\n它們非常難以捕捉——只有 3 顆球的捕獲率，\n但一旦成功，它們將成為最強的夥伴！',
+    reward:{ balls:6, potions:6 }, rewardText:'獲得 6 個捕捉球 ＋ 6 瓶藥水！' },
+  { id:'q5', chapter:'第四章', title:'傳說邂逅',
+    desc:'在深林中遭遇一隻傳說怪獸',
+    type:'legendary_battle', target:1,
+    story:'傳說怪獸的力量震撼人心！\n\n你也許還沒捕捉到它，但能夠遭遇它，\n已證明你是頂尖的探索者。\n繼續努力，收集限定怪獸「閃光燄狐」也是一大挑戰！\n（深林遭遇率極低，需要好運氣）',
+    reward:{ balls:15 }, rewardText:'獲得 15 個捕捉球！' },
+  { id:'q6', chapter:'終章', title:'怪獸大師',
+    desc:'讓一隻怪獸進化到最終形態',
+    type:'final_evo', target:1,
+    story:'恭喜！你完成了探索者的試煉！\n\n【隱藏成就提示】\n• 異色怪獸（✨）：任何遭遇有 1/150 機率出現，\n  能力值提升 15%，更難捕捉！\n• 限定「閃光燄狐」：深林低機率出現，捕捉難度高\n• 傳說「光龍王/虛空翼神」：深林低機率，\n  只有 3 的捕獲率，集齊所有怪獸才是真正的大師！\n\n屬於你的傳說，就此展開！',
+    reward:{ balls:10, potions:10 }, rewardText:'獲得 10 個捕捉球 ＋ 10 瓶藥水！ 🏆 稱號：怪獸大師' }
+];
 
 // ==================== GAME STATE ====================
 var state = {
@@ -282,7 +383,9 @@ var state = {
   msgQueue: [],
   msgCallback: null,
   showingMsg: false,
-  evoCallback: null
+  evoCallback: null,
+  quests: { completed: [], activeIdx: 0, progress: {} },
+  pendingQuests: []
 };
 
 // ==================== MAP GENERATION ====================
@@ -363,6 +466,8 @@ function createCreature(speciesId, level) {
     name: sp.name,
     emoji: sp.emoji,
     type: sp.type,
+    rarity: SPECIES_RARITY[speciesId] || 'common',
+    shiny: false,
     level: level,
     exp: 0,
     expNeeded: level * level * 5,
@@ -388,6 +493,125 @@ function pickEncounter(zone) {
 function getTypeEff(atkType, defType) {
   if (TYPE_EFF[atkType] && TYPE_EFF[atkType][defType]) return TYPE_EFF[atkType][defType];
   return 1;
+}
+
+// ==================== SHINY / RARE SPAWNS ====================
+// Make a wild creature, factoring in shiny (異色) odds and rare legendary spawns.
+function rollShiny(c) {
+  if (Math.random() < 1/150) {
+    c.shiny = true;
+    c.name = '✨' + c.name; // sparkle prefix
+    c.maxHP = Math.floor(c.maxHP * 1.15);
+    c.hp = c.maxHP;
+    c.atk = Math.floor(c.atk * 1.15);
+    c.def = Math.floor(c.def * 1.15);
+    c.spd = Math.floor(c.spd * 1.15);
+  }
+  return c;
+}
+
+function createWildCreature(zone, level) {
+  // Deep forest can rarely spawn a legendary (4% chance)
+  if (zone === 'forest' && Math.random() < 0.04) {
+    var legs = ['lumindra', 'voidwing'];
+    var legId = legs[Math.floor(Math.random() * legs.length)];
+    var legLevel = 25 + Math.floor(Math.random() * 11); // Lv.25-35
+    return rollShiny(createCreature(legId, legLevel));
+  }
+  var speciesId = pickEncounter(zone);
+  return rollShiny(createCreature(speciesId, level));
+}
+
+// ==================== QUEST SYSTEM ====================
+function advanceQuest(type, value) {
+  var qs = state.quests;
+  if (!qs || qs.activeIdx >= QUESTS.length) return;
+  var q = QUESTS[qs.activeIdx];
+  if (q.type !== type) return;
+
+  if (type === 'level_reach') {
+    if ((value || 0) >= q.target) completeQuest(q);
+  } else {
+    qs.progress[type] = (qs.progress[type] || 0) + 1;
+    if (qs.progress[type] >= q.target) completeQuest(q);
+  }
+}
+
+function completeQuest(q) {
+  var qs = state.quests;
+  qs.completed.push(q.id);
+  qs.activeIdx++;
+  if (q.reward.balls)   state.items.balls   += q.reward.balls;
+  if (q.reward.potions) state.items.potions += q.reward.potions;
+  updateHUD();
+  if (state.phase === 'battle') {
+    state.pendingQuests.push(q);
+  } else {
+    showStoryDialog(q);
+  }
+}
+
+function flushPendingQuests() {
+  if (state.pendingQuests && state.pendingQuests.length > 0) {
+    var q = state.pendingQuests.shift();
+    showStoryDialog(q);
+    return true;
+  }
+  return false;
+}
+
+function showIntroDialog() {
+  document.getElementById('storyChapter').textContent = '\u{1F30F} 旅程開始';
+  document.getElementById('storyText').textContent =
+    '歡迎來到怪獸探索的世界！\n\n' +
+    '這片大陸上棲息著各種稀有度的神奇怪獸：\n' +
+    '普通（灰） → 稀有（綠） → 罕見（藍）\n' +
+    '→ 史詩（紫） → 傳說（金） → 限定（粉）\n\n' +
+    '完成主線任務、捕捉強大夥伴，成為真正的怪獸大師！\n' +
+    '（走進草叢，開始你的第一場冒險）';
+  document.getElementById('storyReward').style.display = 'none';
+  document.getElementById('storyDialog').style.display = 'flex';
+  state.phase = 'story';
+}
+
+function showStoryDialog(q) {
+  document.getElementById('storyChapter').textContent = '\u{1F4D6} ' + q.chapter + '：' + q.title + ' 完成！';
+  document.getElementById('storyText').textContent = q.story;
+  var rew = document.getElementById('storyReward');
+  rew.style.display = 'block';
+  rew.textContent = '\u{1F381} ' + q.rewardText;
+  document.getElementById('storyDialog').style.display = 'flex';
+  state.phase = 'story';
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('questHud').style.display = 'none';
+  document.getElementById('dpad').style.display = 'none';
+  document.getElementById('menuBtn').style.display = 'none';
+}
+
+function closeStoryDialog() {
+  document.getElementById('storyDialog').style.display = 'none';
+  document.getElementById('storyReward').style.display = 'block';
+  // If more quests completed at once, show the next story beat
+  if (flushPendingQuests()) return;
+  state.phase = 'world';
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('dpad').style.display = 'grid';
+  document.getElementById('menuBtn').style.display = 'block';
+  updateQuestHUD();
+  updateHUD();
+  saveGame();
+}
+
+function updateQuestHUD() {
+  var qs = state.quests;
+  var qEl = document.getElementById('questHud');
+  if (!qs || qs.activeIdx >= QUESTS.length) { qEl.style.display = 'none'; return; }
+  var q = QUESTS[qs.activeIdx];
+  qEl.style.display = 'flex';
+  document.getElementById('questHudName').textContent = q.chapter + ' - ' + q.title;
+  document.getElementById('questHudDesc').textContent = q.desc;
+  var prog = qs.progress[q.type] || 0;
+  document.getElementById('questHudProg').textContent = q.target > 1 ? (prog + '/' + q.target) : '';
 }
 
 // ==================== XP / LEVEL UP ====================
@@ -599,6 +823,14 @@ function drawBattle() {
   ctx.font = 'bold 24px sans-serif';
   ctx.fillText(wild.name, 592, 80);
 
+  // Rarity badge (top-right of wild panel)
+  var wrar = wild.rarity || 'common';
+  ctx.fillStyle = RARITY_COLOR[wrar] || '#aaa';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('◆ ' + (RARITY_NAME[wrar] || ''), 944, 80);
+  ctx.textAlign = 'left';
+
   ctx.fillStyle = '#9999cc';
   ctx.font = '16px sans-serif';
   ctx.fillText('Lv.' + wild.level, 592, 102);
@@ -751,11 +983,10 @@ function clearMessages() {
 
 // ==================== BATTLE SYSTEM ====================
 function startBattle(zone) {
-  var speciesId = pickEncounter(zone);
   var levelMin = zone === 'forest' ? 8 : 2;
   var levelMax = zone === 'forest' ? 20 : 8;
   var level = levelMin + Math.floor(Math.random() * (levelMax - levelMin + 1));
-  var wild = createCreature(speciesId, level);
+  var wild = createWildCreature(zone, level);
 
   // Find first alive party member
   var playerMon = null;
@@ -782,14 +1013,27 @@ function startBattle(zone) {
   };
 
   document.getElementById('hud').style.display = 'none';
+  document.getElementById('questHud').style.display = 'none';
   document.getElementById('dpad').style.display = 'none';
   document.getElementById('menuBtn').style.display = 'none';
   document.getElementById('battleUI').style.display = 'flex';
   document.getElementById('battleActions').style.display = 'flex';
   document.getElementById('battleMoves').style.display = 'none';
 
+  // Quest progress: first battle, and legendary encounters
+  advanceQuest('battle_count', 1);
+  if (wild.rarity === 'legendary') advanceQuest('legendary_battle', 1);
+
   clearMessages();
-  addMsg('野生的 ' + wild.name + ' (Lv.' + wild.level + ') 出現了！');
+  if (wild.rarity === 'legendary') {
+    addMsg('⚡ 天地變色…傳說怪獸 ' + wild.name + ' (Lv.' + wild.level + ') 出現了！！');
+  } else if (wild.rarity === 'limited') {
+    addMsg('🌟 罕見的限定怪獸 ' + wild.name + ' (Lv.' + wild.level + ') 出現了！');
+  } else if (wild.shiny) {
+    addMsg('✨ 閃耀的異色 ' + wild.name + ' (Lv.' + wild.level + ') 出現了！');
+  } else {
+    addMsg('野生的 ' + wild.name + ' (Lv.' + wild.level + ') 出現了！');
+  }
 }
 
 function battleAction(action) {
@@ -820,12 +1064,15 @@ function battleAction(action) {
       var catchRate = sp.catchRate || 45;
       var chance = (catchRate * (3 * b.wild.maxHP - 2 * b.wild.hp)) / (3 * b.wild.maxHP * 255);
       if (Math.random() < chance) {
-        addMsg('成功捕捉 ' + b.wild.name + '！', function() {
+        var rar = b.wild.rarity || 'common';
+        var rarMsg = (rar !== 'common') ? '【' + (RARITY_NAME[rar] || '') + '】' : '';
+        addMsg('成功捕捉 ' + rarMsg + b.wild.name + '！', function() {
           if (state.party.length < 6) {
             b.wild.exp = 0;
             b.wild.expNeeded = b.wild.level * b.wild.level * 5;
             b.wild.atkMod = 0;
             state.party.push(b.wild);
+            advanceQuest('catch_count', 1);
             addMsg(b.wild.name + ' 加入了你的隊伍！', function() { endBattle(); });
           } else {
             addMsg('收藏已滿，野生怪獸逃走了', function() { endBattle(); });
@@ -1048,6 +1295,7 @@ function battleWin() {
     var prevLevel = b.player.level;
     var evos = gainExp(b.player, xpGain);
     if (b.player.level > prevLevel) {
+      advanceQuest('level_reach', b.player.level);
       addMsg(b.player.name + ' 升到了 Lv.' + b.player.level + '！', function() {
         checkEvolutions(evos);
       });
@@ -1092,6 +1340,8 @@ function performEvolution(creature, toId, callback) {
       if (creature.moves.length > 4) creature.moves.shift();
     }
   }
+  // Quest: reaching a final evolution form (no further evolution)
+  if (!toSp.evo) advanceQuest('final_evo', 1);
   showEvolutionScreen(fromName, creature, callback);
 }
 
@@ -1140,7 +1390,10 @@ function endBattle() {
   document.getElementById('menuBtn').style.display = 'block';
   clearMessages();
   updateHUD();
+  updateQuestHUD();
   updateCamera();
+  // Show any story beats earned during the battle
+  if (flushPendingQuests()) return;
   saveGame();
 }
 
@@ -1160,6 +1413,9 @@ function tryMove(dir) {
 
   p.x = nx; p.y = ny; p.facing = dir;
   state.steps++;
+
+  // Quest: reaching the deep forest (rows 20+)
+  if (ny >= 20) advanceQuest('reach_forest', 1);
 
   if (tile === T_GRASS) {
     var zone = null;
@@ -1215,9 +1471,11 @@ function openParty() {
       var ratio = m.hp / Math.max(1, m.maxHP);
       var col = ratio > 0.5 ? '#44ffaa' : ratio > 0.25 ? '#ffaa44' : '#ff4444';
       var movenames = m.moves.map(function(id) { return MOVES[id] ? MOVES[id].name : id; }).join(', ');
+      var rar = m.rarity || SPECIES_RARITY[m.speciesId] || 'common';
+      var rarBadge = '<span class="r-badge r-' + rar + '">' + (RARITY_NAME[rar] || '') + '</span>';
       div.innerHTML =
         '<div class="slot-emoji">' + m.emoji + '</div>' +
-        '<div class="slot-name">' + m.name + '</div>' +
+        '<div class="slot-name">' + m.name + rarBadge + '</div>' +
         '<div class="slot-level">Lv.' + m.level + ' | HP: ' + m.hp + '/' + m.maxHP + ' | 類型: ' + m.type + '</div>' +
         '<div class="slot-hp-bar"><div class="slot-hp-fill" style="width:' + Math.floor(ratio*100) + '%;background:' + col + '"></div></div>' +
         '<div style="color:#888;font-size:0.75em;margin-top:4px">技能: ' + movenames + '</div>';
@@ -1272,6 +1530,8 @@ function pickStarter(speciesId) {
   state.steps = 0;
   state.player = { x: 14, y: 4, facing: 'down' };
   state.map = generateMap();
+  state.quests = { completed: [], activeIdx: 0, progress: {} };
+  state.pendingQuests = [];
 
   document.getElementById('starterScreen').style.display = 'none';
   document.getElementById('titleScreen').style.display = 'none';
@@ -1282,8 +1542,11 @@ function pickStarter(speciesId) {
   state.phase = 'world';
   updateCamera();
   updateHUD();
+  updateQuestHUD();
   saveGame();
   requestAnimationFrame(gameLoop);
+  // Opening story
+  showIntroDialog();
 }
 
 // ==================== SAVE / LOAD ====================
@@ -1292,7 +1555,8 @@ function saveGame() {
     party: state.party,
     player: state.player,
     items: state.items,
-    steps: state.steps
+    steps: state.steps,
+    quests: state.quests
   };
   try {
     localStorage.setItem('cq_save', JSON.stringify(data));
@@ -1311,6 +1575,8 @@ function loadGame() {
     state.player = data.player;
     state.items = data.items;
     state.steps = data.steps || 0;
+    state.quests = data.quests || { completed: [], activeIdx: 0, progress: {} };
+    state.pendingQuests = [];
     state.map = generateMap();
 
     document.getElementById('titleScreen').style.display = 'none';
@@ -1321,6 +1587,7 @@ function loadGame() {
     state.phase = 'world';
     updateCamera();
     updateHUD();
+    updateQuestHUD();
     requestAnimationFrame(gameLoop);
   } catch(e) {
     alert('載入存檔失敗：' + e.message);
@@ -1353,14 +1620,13 @@ function gameLoop(timestamp) {
     if (state.phase === 'world') {
       drawWorld();
     }
-    rafId = requestAnimationFrame(gameLoop);
   } else if (state.phase === 'battle') {
     drawBattle();
-    rafId = requestAnimationFrame(gameLoop);
   } else if (state.phase === 'party') {
     drawWorld();
-    rafId = requestAnimationFrame(gameLoop);
   }
+  // 'story' and other overlay phases draw nothing (the dialog covers the canvas)
+  rafId = requestAnimationFrame(gameLoop);
 }
 
 // ==================== INPUT ====================
@@ -1428,6 +1694,7 @@ function setupButtons() {
       cb();
     }
   });
+  document.getElementById('btnStoryOk').addEventListener('click', closeStoryDialog);
 }
 
 // ==================== INIT ====================
