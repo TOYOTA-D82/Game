@@ -56,6 +56,19 @@ body { background: #1a1a2e; display: flex; flex-direction: column; align-items: 
 #msgTimerBar { height:100%;background:#4466cc;width:100%;transition:width linear; }
 #battleActions small, #battleMoves small { opacity:0.45;font-size:0.7em;font-weight:normal;margin-left:3px; }
 @media (pointer:coarse) { #battleActions small, #battleMoves small { display:none; } }
+/* Battle cursor highlight */
+#battleActions button.cursor-on, #battleMoves button.cursor-on { outline:3px solid #ffd700 !important; box-shadow:0 0 12px rgba(255,215,0,0.7) !important; transform:scale(1.06) !important; }
+/* Zone / NPC / Victory */
+#zoneOverlay { position:absolute;top:0;left:0;width:100%;height:100%;background:#000;z-index:200;opacity:0;pointer-events:none;transition:opacity 0.35s; }
+#zoneBanner { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.88);color:#ffd700;font-size:1.25em;font-weight:bold;padding:12px 28px;border-radius:14px;border:2px solid #ffd700;z-index:210;opacity:0;pointer-events:none;transition:opacity 0.4s;white-space:nowrap;text-align:center; }
+#trainerDialog { position:absolute;bottom:0;left:0;width:100%;background:rgba(8,4,24,0.97);border-top:2px solid #ffd700;padding:14px 18px;display:none;flex-direction:column;align-items:center;z-index:110; }
+#trainerDialogEmoji { font-size:2.8em;margin-bottom:6px; }
+#trainerDialogName { color:#ffd700;font-weight:bold;font-size:1.1em;margin-bottom:6px; }
+#trainerDialogText { color:#ccc;font-size:0.88em;margin-bottom:14px;text-align:center;line-height:1.6;white-space:pre-line; }
+#victoryScreen { position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#1a0a00,#2a1400,#080820);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:125;text-align:center;padding:20px; }
+#victoryScreen h1 { color:#ffd700;font-size:2.2em;text-shadow:0 0 20px #ff8800;margin:14px 0; }
+#victoryScreen p { color:#ddd;max-width:340px;line-height:1.8;font-size:0.95em;margin-bottom:20px;white-space:pre-line; }
+#victoryBadges { font-size:2.2em;letter-spacing:8px;margin-bottom:20px; }
 /* HUD */
 #hud { position:absolute;top:0;left:0;width:100%;background:rgba(10,10,25,0.85);border-bottom:2px solid #334;padding:6px 10px;display:flex;align-items:center;gap:12px;z-index:30;pointer-events:none; }
 #hudParty { display:flex;gap:6px; }
@@ -151,6 +164,7 @@ body { background: #1a1a2e; display: flex; flex-direction: column; align-items: 
     <div id="hudItems">
       <span>&#x26BD; <span id="hudBalls">0</span></span>
       <span>&#x1F48A; <span id="hudPotions">0</span></span>
+      <span id="hudBadges" style="letter-spacing:2px;font-size:0.9em"></span>
     </div>
   </div>
 
@@ -191,6 +205,27 @@ body { background: #1a1a2e; display: flex; flex-direction: column; align-items: 
 
   <div id="saveIndicator">已存檔！</div>
 
+  <!-- Zone transition -->
+  <div id="zoneOverlay"></div>
+  <div id="zoneBanner"></div>
+
+  <!-- Trainer pre-battle dialog -->
+  <div id="trainerDialog">
+    <div id="trainerDialogEmoji"></div>
+    <div id="trainerDialogName"></div>
+    <div id="trainerDialogText"></div>
+    <button class="btn" id="btnTrainerFight">應戰！</button>
+  </div>
+
+  <!-- Victory screen -->
+  <div id="victoryScreen">
+    <div style="font-size:5em">🏆</div>
+    <h1>怪獸大師誕生！</h1>
+    <p id="victoryText"></p>
+    <div id="victoryBadges"></div>
+    <button class="btn" id="btnVictoryOk">繼續探索世界</button>
+  </div>
+
   <!-- Story / Quest Dialog -->
   <div id="storyDialog">
     <div id="storyBox">
@@ -222,7 +257,7 @@ var CANVAS_W = 900, CANVAS_H = 540;
 
 // Tile types
 var T_PATH = 0, T_GRASS = 1, T_TREE = 2, T_WATER = 3, T_TOWN = 4, T_FLOWER = 5, T_BUILDING = 6,
-    T_DEEPGRASS = 7, T_ROCK = 8, T_SAND = 9;
+    T_DEEPGRASS = 7, T_ROCK = 8, T_SAND = 9, T_WARP = 10;
 
 // Tile colors
 var TILE_COLORS = {};
@@ -236,6 +271,70 @@ TILE_COLORS[T_BUILDING]  = '#6b3a1f';
 TILE_COLORS[T_DEEPGRASS] = '#245814';
 TILE_COLORS[T_ROCK]      = '#8a8278';
 TILE_COLORS[T_SAND]      = '#e6d29a';
+TILE_COLORS[T_WARP]      = '#7733cc';
+
+// ==================== ZONE CONFIGS ====================
+var ZONE_CONFIG = {
+  start: {
+    title:'翠綠草原', bgColor:'#1a1a2e',
+    tileOverride:{},
+    warps:[ {x:29,y:13,toZone:'cave',toX:1,toY:13}, {x:29,y:14,toZone:'cave',toX:1,toY:14} ]
+  },
+  cave: {
+    title:'岩石洞窟', bgColor:'#060408',
+    tileOverride:{ 1:'#1e2818', 0:'#181412', 5:'#162614', 7:'#1e2818' },
+    waterColor:'#0a1a3a',
+    warps:[
+      {x:0,y:13,toZone:'start',toX:28,toY:13}, {x:0,y:14,toZone:'start',toX:28,toY:14},
+      {x:14,y:23,toZone:'volcano',toX:14,toY:1}, {x:15,y:23,toZone:'volcano',toX:15,toY:1}
+    ],
+    encounterZone:'cave', levelRange:[16,26]
+  },
+  volcano: {
+    title:'炎火山道', bgColor:'#1e0400',
+    tileOverride:{ 1:'#3a1808', 0:'#2a1206', 7:'#3a1808' },
+    waterColor:'#cc4400',
+    warps:[ {x:14,y:0,toZone:'cave',toX:14,toY:22}, {x:15,y:0,toZone:'cave',toX:15,toY:22} ],
+    encounterZone:'volcano', levelRange:[24,36]
+  }
+};
+
+// ==================== TRAINER DEFS ====================
+var TRAINER_DEFS = {
+  trainer_grass: {
+    zone:'start', tx:22, ty:13, emoji:'\u{1F33F}',
+    name:'草原道館主·翠兒',
+    title:'草原道館主', badge:'翠葉徽章', badgeEmoji:'\u{1F343}',
+    preDialog:'我是草原道館主翠兒！\n你的怪獸够強壯嗎？',
+    winDialog:'太厉害了！你約得了翠葉徽章！\n地圖右侧有洞窟入口，前進吧！',
+    teamSpec:[{id:'thornback',lv:14},{id:'bloomira',lv:16}], requiredBadges:0
+  },
+  trainer_dark: {
+    zone:'start', tx:14, ty:22, emoji:'\u{1F311}',
+    name:'深林道館主·影月',
+    title:'深林道館主', badge:'暗影徽章', badgeEmoji:'\u{1F311}',
+    preDialog:'黑暗之中，只有強者才能生存…\n你能挑戰我嗎？',
+    winDialog:'驚人！收下暗影徽章！\n前往右遙的洞窟，再深入炎火山道吧！',
+    teamSpec:[{id:'gloomfang',lv:20},{id:'shadowpup',lv:18},{id:'voidwing',lv:22}], requiredBadges:1
+  },
+  trainer_rock: {
+    zone:'cave', tx:14, ty:12, emoji:'⛰',
+    name:'洞窟道館主·石剛',
+    title:'洞窟道館主', badge:'磐石徽章', badgeEmoji:'\u{1FAA8}',
+    preDialog:'這洞窟是我的地盤！\n磐石徽章可不是輕易能拿的！',
+    winDialog:'你突破了磐石防線！\n磐石徽章是你的！往南前往炎火山道！',
+    teamSpec:[{id:'stoneback',lv:24},{id:'pebblor',lv:22},{id:'volthorn',lv:25}], requiredBadges:2
+  },
+  trainer_final: {
+    zone:'volcano', tx:14, ty:10, emoji:'\u{1F451}',
+    name:'炎皇大師·焰王',
+    title:'最終魔王', badge:'怪獸大師', badgeEmoji:'\u{1F3C6}',
+    isFinalBoss:true,
+    preDialog:'哼…你真的走到這裡了。\n我是最後的考驗，\n準備好迎接最終試煉！',
+    winDialog:'…不可能！\n你確實是真正的怪獸大師！\n整個大陸都會銅記你的名字！',
+    teamSpec:[{id:'infernus',lv:32},{id:'abysal',lv:30},{id:'lumindra',lv:35}], requiredBadges:3
+  }
+};
 
 // Type effectiveness: attacker type -> { defender type: multiplier }
 var TYPE_EFF = {
@@ -340,7 +439,9 @@ var SPECIES = {
 // ==================== ENCOUNTER TABLES ====================
 var ENCOUNTERS = {
   route:  [{id:'sparkit',w:30},{id:'shadowpup',w:25},{id:'pebblor',w:20},{id:'leafling',w:12},{id:'bublin',w:8},{id:'embrite',w:5}],
-  forest: [{id:'volthorn',w:20},{id:'gloomfang',w:18},{id:'stoneback',w:15},{id:'thornback',w:12},{id:'tidewing',w:10},{id:'pyrclaw',w:8},{id:'sparkit',w:5},{id:'pebblor',w:12},{id:'crystalfox',w:2}]
+  forest: [{id:'volthorn',w:20},{id:'gloomfang',w:18},{id:'stoneback',w:15},{id:'thornback',w:12},{id:'tidewing',w:10},{id:'pyrclaw',w:8},{id:'sparkit',w:5},{id:'pebblor',w:12},{id:'crystalfox',w:2}],
+  cave:   [{id:'pebblor',w:22},{id:'stoneback',w:14},{id:'shadowpup',w:18},{id:'gloomfang',w:10},{id:'sparkit',w:16},{id:'volthorn',w:10},{id:'voidwing',w:4},{id:'lumindra',w:3},{id:'crystalfox',w:3}],
+  volcano:[{id:'embrite',w:22},{id:'pyrclaw',w:15},{id:'infernus',w:8},{id:'sparkit',w:12},{id:'volthorn',w:10},{id:'shadowpup',w:10},{id:'gloomfang',w:8},{id:'crystalfox',w:6},{id:'lumindra',w:5},{id:'voidwing',w:4}]
 };
 
 // ==================== QUEST DATABASE ====================
@@ -397,7 +498,12 @@ var state = {
   msgTimer: null,
   evoCallback: null,
   quests: { completed: [], activeIdx: 0, progress: {} },
-  pendingQuests: []
+  pendingQuests: [],
+  currentZone: 'start',
+  zoneMaps: {},
+  defeatedTrainers: {},
+  badges: 0,
+  pendingTrainer: null
 };
 
 // ==================== MAP GENERATION ====================
@@ -481,6 +587,93 @@ function generateMap() {
     }
   }
   return map;
+}
+
+function generateCaveMap() {
+  var map = [], r, c, hv, wi, wl = ZONE_CONFIG.cave.warps;
+  for (r = 0; r < MAP_H; r++) {
+    map.push([]);
+    for (c = 0; c < MAP_W; c++) {
+      // Border: warp exits or solid rock
+      if (r === 0 || r === MAP_H-1 || c === 0 || c === MAP_W-1) {
+        var isW = false; for (wi=0;wi<wl.length;wi++) { if (wl[wi].x===c&&wl[wi].y===r){isW=true;break;} }
+        map[r].push(isW ? T_WARP : T_TREE); continue;
+      }
+      if (c >= 13 && c <= 16) { map[r].push(T_PATH); continue; } // central corridor
+      // Cross-corridor rows
+      if ((r >= 10 && r <= 14) || (r >= 4 && r <= 6) || (r >= 17 && r <= 19)) {
+        if (c >= 1 && c <= 28) {
+          hv = tileHash(r, c);
+          if (hv < 0.14) { map[r].push(T_ROCK); continue; }
+          if (hv < 0.22) { map[r].push(T_WATER); continue; }
+          map[r].push(T_GRASS); continue;
+        }
+      }
+      // Chambers
+      if (((r>=2&&r<=8&&c>=2&&c<=11)||(r>=2&&r<=8&&c>=18&&c<=27)||
+           (r>=15&&r<=21&&c>=2&&c<=11)||(r>=15&&r<=21&&c>=18&&c<=27))) {
+        hv = tileHash(r+100, c);
+        if (hv < 0.20) { map[r].push(T_ROCK); continue; }
+        if (hv < 0.28) { map[r].push(T_WATER); continue; }
+        if (hv < 0.35) { map[r].push(T_FLOWER); continue; }
+        map[r].push(T_GRASS); continue;
+      }
+      map[r].push(T_TREE); // solid cave wall
+    }
+  }
+  return map;
+}
+
+function generateVolcanoMap() {
+  var map = [], r, c, hv, wi, wl = ZONE_CONFIG.volcano.warps;
+  for (r = 0; r < MAP_H; r++) {
+    map.push([]);
+    for (c = 0; c < MAP_W; c++) {
+      if (r === 0 || r === MAP_H-1 || c === 0 || c === MAP_W-1) {
+        var isW2 = false; for (wi=0;wi<wl.length;wi++) { if (wl[wi].x===c&&wl[wi].y===r){isW2=true;break;} }
+        map[r].push(isW2 ? T_WARP : T_TREE); continue;
+      }
+      if (c >= 13 && c <= 16) { map[r].push(T_PATH); continue; }
+      // Lava rivers (T_WATER, rendered orange in volcano zone)
+      if ((r>=5&&r<=7&&c>=1&&c<=12)||(r>=15&&r<=17&&c>=17&&c<=28)||
+          (r>=10&&r<=11&&c>=1&&c<=6)||(r>=12&&r<=13&&c>=22&&c<=28)) {
+        map[r].push(T_WATER); continue;
+      }
+      hv = tileHash(r+500, c);
+      if (hv < 0.12) { map[r].push(T_ROCK); continue; }
+      if (hv < 0.20) { map[r].push(T_FLOWER); continue; } // fire patches (rendered red)
+      if (hv < 0.24) { map[r].push(T_WATER); continue; } // lava pool
+      map[r].push(T_GRASS); // scorched ash ground
+    }
+  }
+  return map;
+}
+
+function getOrCreateZoneMap(zone) {
+  if (!state.zoneMaps[zone]) {
+    if (zone === 'cave')         state.zoneMaps[zone] = generateCaveMap();
+    else if (zone === 'volcano') state.zoneMaps[zone] = generateVolcanoMap();
+    else                         state.zoneMaps[zone] = generateMap();
+  }
+  return state.zoneMaps[zone];
+}
+
+function enterZone(zoneName, toX, toY) {
+  state.currentZone = zoneName;
+  state.map = getOrCreateZoneMap(zoneName);
+  state.player.x = toX; state.player.y = toY;
+  updateCamera();
+  var cfg = ZONE_CONFIG[zoneName] || {};
+  var banner = document.getElementById('zoneBanner');
+  var overlay = document.getElementById('zoneOverlay');
+  if (overlay) { overlay.style.opacity='1'; setTimeout(function(){overlay.style.opacity='0';},320); }
+  if (banner && cfg.title) {
+    banner.textContent = cfg.title;
+    banner.style.opacity = '1';
+    setTimeout(function(){ banner.style.opacity = '0'; }, 1800);
+  }
+  // Update body background to match zone feel
+  document.body.style.background = cfg.bgColor || '#1a1a2e';
 }
 
 // ==================== CREATURE FACTORY ====================
@@ -732,13 +925,15 @@ function drawWorld() {
   var endC = Math.min(startC + Math.ceil(CANVAS_W/TILE) + 1, MAP_W);
   var endR = Math.min(startR + Math.ceil(CANVAS_H/TILE) + 1, MAP_H);
   var r, c, tile, x, y;
+  var zCfg = ZONE_CONFIG[state.currentZone] || {};
+  var tOver = zCfg.tileOverride || {};
 
   for (r = startR; r < endR; r++) {
     for (c = startC; c < endC; c++) {
       tile = state.map[r][c];
       x = c * TILE - camX;
       y = r * TILE - camY;
-      ctx.fillStyle = TILE_COLORS[tile] || '#888';
+      ctx.fillStyle = tOver[tile] || TILE_COLORS[tile] || '#888';
       ctx.fillRect(x, y, TILE, TILE);
 
       if (tile === T_GRASS) {
@@ -783,13 +978,22 @@ function drawWorld() {
         ctx.fillRect(x+1, y+1, TILE-2, TILE-2);
       } else if (tile === T_WATER) {
         var ph = worldAnim*0.06 + r*0.7 + c*0.5;
-        ctx.fillStyle = '#3a90e0';
+        var isLava = (state.currentZone === 'volcano');
+        ctx.fillStyle = isLava ? '#aa3300' : '#3a90e0';
         ctx.fillRect(x+1, y+1, TILE-2, TILE-2);
-        ctx.fillStyle = 'rgba(190,225,255,0.55)';
-        ctx.fillRect(x+6, y+13 + Math.sin(ph)*3, 12, 2);
+        ctx.fillStyle = isLava ? 'rgba(255,180,0,0.55)' : 'rgba(190,225,255,0.55)';
+        ctx.fillRect(x+6,  y+13 + Math.sin(ph)*3,   12, 2);
         ctx.fillRect(x+22, y+25 + Math.sin(ph+1.5)*3, 10, 2);
-        ctx.fillStyle = 'rgba(30,80,150,0.5)';
+        ctx.fillStyle = isLava ? 'rgba(255,100,0,0.5)' : 'rgba(30,80,150,0.5)';
         ctx.fillRect(x+10, y+30 + Math.sin(ph+0.8)*2, 14, 2);
+      } else if (tile === T_WARP) {
+        var wp = worldAnim*0.09 + r*0.5 + c*0.5;
+        ctx.fillStyle = 'rgba(120,60,220,' + (0.35 + Math.sin(wp)*0.25) + ')';
+        ctx.fillRect(x+3, y+3, TILE-6, TILE-6);
+        ctx.fillStyle = 'rgba(200,150,255,0.8)';
+        ctx.font = '20px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('✦', x+TILE/2, y+TILE/2+7);
+        ctx.textAlign = 'left';
       } else if (tile === T_DEEPGRASS) {
         ctx.fillStyle = '#163a0c';
         ctx.fillRect(x+4, y+10, 3, 18);
@@ -831,6 +1035,28 @@ function drawWorld() {
   }
   for (c = startC; c <= endC; c++) {
     ctx.beginPath(); ctx.moveTo(c*TILE-camX, 0); ctx.lineTo(c*TILE-camX, CANVAS_H); ctx.stroke();
+  }
+
+  // NPC Trainers
+  var tkeys = Object.keys(TRAINER_DEFS);
+  for (var ti = 0; ti < tkeys.length; ti++) {
+    var tid = tkeys[ti], tdef = TRAINER_DEFS[tid];
+    if (tdef.zone !== state.currentZone) continue;
+    var nx2 = tdef.tx * TILE - camX, ny2 = tdef.ty * TILE - camY;
+    if (nx2 < -TILE || nx2 > CANVAS_W || ny2 < -TILE || ny2 > CANVAS_H) continue;
+    if (!state.defeatedTrainers[tid]) {
+      ctx.fillStyle = 'rgba(255,230,50,0.18)';
+      ctx.fillRect(nx2-2, ny2-2, TILE+4, TILE+4);
+    }
+    ctx.font = '26px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(tdef.emoji, nx2+TILE/2, ny2+TILE-3);
+    ctx.textAlign = 'left';
+    if (!state.defeatedTrainers[tid]) {
+      ctx.fillStyle = '#ffd700'; ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('!', nx2+TILE/2, ny2+12);
+      ctx.textAlign = 'left';
+    }
   }
 
   // Player character
@@ -1103,9 +1329,9 @@ function clearMessages() {
 
 // ==================== BATTLE SYSTEM ====================
 function startBattle(zone) {
-  var levelMin = zone === 'forest' ? 8 : 2;
-  var levelMax = zone === 'forest' ? 20 : 8;
-  var level = levelMin + Math.floor(Math.random() * (levelMax - levelMin + 1));
+  var cfg3 = ZONE_CONFIG[state.currentZone] || {};
+  var lr = cfg3.levelRange || (zone === 'forest' ? [8,20] : [2,8]);
+  var level = lr[0] + Math.floor(Math.random() * (lr[1] - lr[0] + 1));
   var wild = createWildCreature(zone, level);
 
   // Find first alive party member
@@ -1270,8 +1496,13 @@ function showMoveMenu() {
   backBtn.addEventListener('click', function() {
     movesDiv.style.display = 'none';
     document.getElementById('battleActions').style.display = 'grid';
+    b.cursorMode = 'actions';
+    updateCursorHighlight();
   });
   movesDiv.appendChild(backBtn);
+  b.cursorMode = 'moves';
+  b.cursor = 0;
+  updateCursorHighlight();
 }
 
 function useMove(moveId) {
@@ -1403,13 +1634,37 @@ function enemyTurn() {
 function restoreActions() {
   if (!state.battle) return;
   state.battle.waitingAction = true;
+  state.battle.cursorMode = 'actions';
   document.getElementById('battleActions').style.display = 'grid';
   document.getElementById('battleMoves').style.display = 'none';
+  updateCursorHighlight();
+}
+
+function updateCursorHighlight() {
+  var b = state.battle;
+  if (!b || !b.waitingAction) return;
+  var mode = b.cursorMode || 'actions';
+  var idx = b.cursor || 0;
+
+  // Clear all highlights
+  var actBtns = document.querySelectorAll('#battleActions button');
+  var moveBtns = document.querySelectorAll('#battleMoves button');
+  [].forEach.call(actBtns, function(btn) { btn.classList.remove('cursor-on'); });
+  [].forEach.call(moveBtns, function(btn) { btn.classList.remove('cursor-on'); });
+
+  if (mode === 'actions') {
+    var btn = actBtns[idx];
+    if (btn) btn.classList.add('cursor-on');
+  } else {
+    var mBtn = moveBtns[idx];
+    if (mBtn) mBtn.classList.add('cursor-on');
+  }
 }
 
 function battleWin() {
   var b = state.battle;
-  var xpGain = b.wild.level * 5;
+  var xpMul = b.isTrainer ? 2 : 1; // trainer battles give 2× XP
+  var xpGain = b.wild.level * 5 * xpMul;
   addMsg(b.wild.name + ' 被打倒了！');
   addMsg(b.player.name + ' 獲得了 ' + xpGain + ' EXP！', function() {
     var prevLevel = b.player.level;
@@ -1417,25 +1672,134 @@ function battleWin() {
     if (b.player.level > prevLevel) {
       advanceQuest('level_reach', b.player.level);
       addMsg(b.player.name + ' 升到了 Lv.' + b.player.level + '！', function() {
-        checkEvolutions(evos);
+        checkEvolutions(evos, afterBattleWin);
       });
     } else {
-      checkEvolutions(evos);
+      checkEvolutions(evos, afterBattleWin);
     }
   });
 }
 
-function checkEvolutions(evos) {
+function afterBattleWin() {
+  var b = state.battle;
+  if (b && b.isTrainer) { trainerNextMon(); } else { endBattle(); }
+}
+
+function checkEvolutions(evos, callback) {
+  var cb = callback || function() { endBattle(); };
   if (evos && evos.length > 0) {
     var evo = evos[0];
     addMsg(evo.creature.name + ' 正在進化！', function() {
-      performEvolution(evo.creature, evo.to, function() {
-        endBattle();
-      });
+      performEvolution(evo.creature, evo.to, cb);
     });
   } else {
-    endBattle();
+    cb();
   }
+}
+
+// ==================== TRAINER BATTLES ====================
+function challengeTrainer(trainerId) {
+  var tdef = TRAINER_DEFS[trainerId];
+  if (!tdef || state.phase !== 'world') return;
+  var dialogEl = document.getElementById('trainerDialog');
+  document.getElementById('trainerDialogEmoji').textContent = tdef.emoji;
+  document.getElementById('trainerDialogName').textContent = tdef.name;
+  var locked = state.badges < (tdef.requiredBadges || 0);
+  var defeated = state.defeatedTrainers[trainerId];
+  if (locked) {
+    document.getElementById('trainerDialogText').textContent =
+      '挑戰我需要 ' + tdef.requiredBadges + ' 個徽章！\n你目前只有 ' + state.badges + ' 個。先去變強！';
+    document.getElementById('btnTrainerFight').textContent = '好的';
+    document.getElementById('btnTrainerFight').onclick = function() { dialogEl.style.display = 'none'; };
+  } else if (defeated) {
+    document.getElementById('trainerDialogText').textContent = '你已經打敗過我了！繼續前進吧！';
+    document.getElementById('btnTrainerFight').textContent = '繼續！';
+    document.getElementById('btnTrainerFight').onclick = function() { dialogEl.style.display = 'none'; };
+  } else {
+    document.getElementById('trainerDialogText').textContent = tdef.preDialog;
+    document.getElementById('btnTrainerFight').textContent = '應戰！';
+    document.getElementById('btnTrainerFight').onclick = function() {
+      dialogEl.style.display = 'none';
+      startTrainerBattle(trainerId);
+    };
+  }
+  dialogEl.style.display = 'flex';
+}
+
+function startTrainerBattle(trainerId) {
+  var tdef = TRAINER_DEFS[trainerId];
+  var playerMon = null;
+  for (var i = 0; i < state.party.length; i++) {
+    if (state.party[i].hp > 0) { playerMon = state.party[i]; break; }
+  }
+  if (!playerMon) return;
+  var team = [];
+  for (var j = 0; j < tdef.teamSpec.length; j++) {
+    team.push(createCreature(tdef.teamSpec[j].id, tdef.teamSpec[j].lv));
+  }
+  state.phase = 'battle';
+  state.battle = {
+    wild: team[0], player: playerMon,
+    zone: state.currentZone, waitingAction: true, atkModWild: 0,
+    isTrainer: true, trainerId: trainerId, trainerName: tdef.name,
+    trainerTeam: team, trainerIdx: 0,
+    cursor: 0, cursorMode: 'actions'
+  };
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('questHud').style.display = 'none';
+  document.getElementById('dpad').style.display = 'none';
+  document.getElementById('menuBtn').style.display = 'none';
+  document.getElementById('battleUI').style.display = 'flex';
+  document.getElementById('battleActions').style.display = 'grid';
+  document.getElementById('battleMoves').style.display = 'none';
+  document.getElementById('btnBall').disabled = true;
+  document.getElementById('btnBall').style.opacity = '0.35';
+  clearMessages();
+  addMsg(tdef.name + ' 向你發起挑戰！');
+  addMsg('對方派出了 ' + team[0].name + ' (Lv.' + team[0].level + ')！');
+}
+
+function trainerNextMon() {
+  var b = state.battle;
+  b.trainerIdx++;
+  if (b.trainerIdx < b.trainerTeam.length) {
+    var nxt = b.trainerTeam[b.trainerIdx];
+    b.wild = nxt; b.atkModWild = 0;
+    addMsg(b.trainerName + ' 換出了 ' + nxt.name + ' (Lv.' + nxt.level + ')！', function() {
+      restoreActions();
+    });
+  } else {
+    trainerVictory();
+  }
+}
+
+function trainerVictory() {
+  var b = state.battle;
+  var tdef = TRAINER_DEFS[b.trainerId];
+  state.defeatedTrainers[b.trainerId] = true;
+  state.badges = Math.min(4, state.badges + 1);
+  document.getElementById('btnBall').disabled = false;
+  document.getElementById('btnBall').style.opacity = '';
+  addMsg(b.trainerName + ' 被打敗了！');
+  addMsg('獲得【' + tdef.badge + '】' + tdef.badgeEmoji + '！', function() {
+    if (tdef.isFinalBoss) {
+      addMsg(tdef.winDialog, function() { endBattle(); showVictoryScreen(); });
+    } else {
+      addMsg(tdef.winDialog, function() { endBattle(); });
+    }
+  });
+}
+
+function showVictoryScreen() {
+  var vs = document.getElementById('victoryScreen');
+  document.getElementById('victoryText').textContent =
+    '你打敗了所有道館主與最終魔王焰王！\n\n' +
+    '集齊了 ' + state.badges + ' 個徽章，\n' +
+    '你已成為這片大陸上傳說的怪獸大師！\n\n' +
+    '屬於你的傳說就此展開！';
+  document.getElementById('victoryBadges').textContent = '\u{1F343}\u{1F311}\u{1FAA8}\u{1F3C6}';
+  vs.style.display = 'flex';
+  state.phase = 'victory';
 }
 
 function performEvolution(creature, toId, callback) {
@@ -1531,20 +1895,36 @@ function tryMove(dir) {
   var tile = state.map[ny][nx];
   if (tile === T_TREE || tile === T_BUILDING || tile === T_WATER || tile === T_ROCK) return;
 
+  // Check for NPC trainer at destination (blocks movement + opens dialog)
+  var nkArr = Object.keys(TRAINER_DEFS), ni2;
+  for (ni2 = 0; ni2 < nkArr.length; ni2++) {
+    var nid2 = nkArr[ni2], npc2 = TRAINER_DEFS[nid2];
+    if (npc2.zone === state.currentZone && npc2.tx === nx && npc2.ty === ny) {
+      challengeTrainer(nid2); return;
+    }
+  }
+
   p.x = nx; p.y = ny; p.facing = dir;
   state.steps++;
 
+  // Zone warp tile
+  if (tile === T_WARP) {
+    var zwarps = (ZONE_CONFIG[state.currentZone] || {}).warps || [], wi3;
+    for (wi3 = 0; wi3 < zwarps.length; wi3++) {
+      if (zwarps[wi3].x === nx && zwarps[wi3].y === ny) {
+        enterZone(zwarps[wi3].toZone, zwarps[wi3].toX, zwarps[wi3].toY); return;
+      }
+    }
+    updateCamera(); return;
+  }
+
   // Quest: reaching the deep forest (rows 20+)
-  if (ny >= 20) advanceQuest('reach_forest', 1);
+  if (state.currentZone === 'start' && ny >= 20) advanceQuest('reach_forest', 1);
 
   if (tile === T_GRASS || tile === T_DEEPGRASS) {
-    var zone = null;
-    if (ny >= 9 && ny <= 19) zone = 'route';
-    else if (ny >= 20) zone = 'forest';
-    if (zone && Math.random() < 0.15) {
-      startBattle(zone);
-      return;
-    }
+    var cfg2 = ZONE_CONFIG[state.currentZone] || {};
+    var battleZone = cfg2.encounterZone || (ny >= 20 ? 'forest' : 'route');
+    if (Math.random() < 0.15) { startBattle(battleZone); return; }
   }
 
   updateCamera();
@@ -1566,6 +1946,18 @@ function updateHUD() {
   }
   document.getElementById('hudBalls').textContent = state.items.balls;
   document.getElementById('hudPotions').textContent = state.items.potions;
+  var hudBadgesEl = document.getElementById('hudBadges');
+  if (hudBadgesEl) {
+    var bStr = '';
+    var tkeys4 = Object.keys(TRAINER_DEFS), bi;
+    for (bi = 0; bi < tkeys4.length; bi++) {
+      if (state.defeatedTrainers && state.defeatedTrainers[tkeys4[bi]]) {
+        bStr += TRAINER_DEFS[tkeys4[bi]].badgeEmoji;
+      }
+    }
+    hudBadgesEl.textContent = bStr;
+  }
+  updateQuestHUD();
 }
 
 // ==================== PARTY SCREEN ====================
@@ -1649,7 +2041,11 @@ function pickStarter(speciesId) {
   state.items = { balls: 10, potions: 5 };
   state.steps = 0;
   state.player = { x: 14, y: 4, facing: 'down' };
-  state.map = generateMap();
+  state.currentZone = 'start';
+  state.zoneMaps = {};
+  state.defeatedTrainers = {};
+  state.badges = 0;
+  state.map = getOrCreateZoneMap('start');
   state.quests = { completed: [], activeIdx: 0, progress: {} };
   state.pendingQuests = [];
 
@@ -1676,7 +2072,10 @@ function saveGame() {
     player: state.player,
     items: state.items,
     steps: state.steps,
-    quests: state.quests
+    quests: state.quests,
+    currentZone: state.currentZone,
+    defeatedTrainers: state.defeatedTrainers,
+    badges: state.badges
   };
   try {
     localStorage.setItem('cq_save', JSON.stringify(data));
@@ -1697,7 +2096,11 @@ function loadGame() {
     state.steps = data.steps || 0;
     state.quests = data.quests || { completed: [], activeIdx: 0, progress: {} };
     state.pendingQuests = [];
-    state.map = generateMap();
+    state.currentZone = data.currentZone || 'start';
+    state.defeatedTrainers = data.defeatedTrainers || {};
+    state.badges = data.badges || 0;
+    state.zoneMaps = {};
+    state.map = getOrCreateZoneMap(state.currentZone);
     // Recalculate stats with current formula so old saves stay consistent
     state.party.forEach(function(m) {
       if (!m.speciesId) return;
@@ -1773,6 +2176,32 @@ document.addEventListener('keydown', function(e) {
     if (b && b.waitingAction) {
       var actionsVisible = document.getElementById('battleActions').style.display !== 'none';
       var movesVisible   = document.getElementById('battleMoves').style.display !== 'none';
+      var cursorMode = b.cursorMode || 'actions';
+
+      // Arrow key navigation
+      if (e.key === 'ArrowLeft'  && actionsVisible) { e.preventDefault(); b.cursor = (b.cursor ^ 1); updateCursorHighlight(); return; }
+      if (e.key === 'ArrowRight' && actionsVisible) { e.preventDefault(); b.cursor = (b.cursor ^ 1); updateCursorHighlight(); return; }
+      if (e.key === 'ArrowUp'    && actionsVisible) { e.preventDefault(); b.cursor = (b.cursor ^ 2); updateCursorHighlight(); return; }
+      if (e.key === 'ArrowDown'  && actionsVisible) { e.preventDefault(); b.cursor = (b.cursor ^ 2); updateCursorHighlight(); return; }
+      if (e.key === 'ArrowLeft'  && movesVisible) { e.preventDefault(); b.cursor = Math.max(0, b.cursor - 1); updateCursorHighlight(); return; }
+      if (e.key === 'ArrowRight' && movesVisible) { e.preventDefault(); b.cursor = Math.min(b.player.moves.length - 1, b.cursor + 1); updateCursorHighlight(); return; }
+      if (e.key === 'ArrowUp'    && movesVisible) { e.preventDefault(); b.cursor = Math.max(0, b.cursor - 2); updateCursorHighlight(); return; }
+      if (e.key === 'ArrowDown'  && movesVisible) { e.preventDefault(); b.cursor = Math.min(b.player.moves.length - 1, b.cursor + 2); updateCursorHighlight(); return; }
+
+      // Enter to confirm cursor selection
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (actionsVisible) {
+          var actions = ['fight', 'ball', 'potion', 'run'];
+          var act = actions[b.cursor || 0];
+          if (act) battleAction(act);
+        } else if (movesVisible) {
+          var moveIds2 = b.player.moves;
+          var mi = b.cursor || 0;
+          if (moveIds2[mi]) useMove(moveIds2[mi]);
+        }
+        return;
+      }
 
       if (actionsVisible) {
         if (e.key === '1') { e.preventDefault(); battleAction('fight'); }
@@ -1784,6 +2213,8 @@ document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
           document.getElementById('battleMoves').style.display = 'none';
           document.getElementById('battleActions').style.display = 'grid';
+          b.cursorMode = 'actions';
+          updateCursorHighlight();
         }
         var moveIds = b.player.moves;
         if (e.key === '1' && moveIds[0]) { e.preventDefault(); useMove(moveIds[0]); }
@@ -1850,6 +2281,18 @@ function setupButtons() {
     }
   });
   document.getElementById('btnStoryOk').addEventListener('click', closeStoryDialog);
+  document.getElementById('btnTrainerFight').addEventListener('click', function() {
+    if (state.pendingTrainer) startTrainerBattle(state.pendingTrainer);
+  });
+  document.getElementById('btnVictoryOk').addEventListener('click', function() {
+    var vs = document.getElementById('victoryScreen');
+    if (vs) vs.style.display = 'none';
+    state.phase = 'world';
+    document.getElementById('hud').style.display = 'flex';
+    document.getElementById('dpad').style.display = 'grid';
+    document.getElementById('menuBtn').style.display = 'block';
+    updateHUD();
+  });
 }
 
 // ==================== INIT ====================
@@ -1862,6 +2305,8 @@ function init() {
   document.getElementById('partyScreen').style.display = 'none';
   document.getElementById('evolutionScreen').style.display = 'none';
   document.getElementById('starterScreen').style.display = 'none';
+  document.getElementById('victoryScreen').style.display = 'none';
+  document.getElementById('trainerDialog').style.display = 'none';
 
   setupDpad();
   setupButtons();
