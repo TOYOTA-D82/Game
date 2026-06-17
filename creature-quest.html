@@ -853,6 +853,8 @@ function closeStoryDialog() {
 function updateQuestHUD() {
   var qs = state.quests;
   var qEl = document.getElementById('questHud');
+  // Never show the quest strip while a battle overlay is active
+  if (state.phase === 'battle') { qEl.style.display = 'none'; return; }
   if (!qs || qs.activeIdx >= QUESTS.length) { qEl.style.display = 'none'; return; }
   var q = QUESTS[qs.activeIdx];
   qEl.style.display = 'flex';
@@ -1455,7 +1457,9 @@ function startBattle(zone) {
     player: playerMon,
     zone: zone,
     waitingAction: true,
-    atkModWild: 0
+    atkModWild: 0,
+    cursor: 0,
+    cursorMode: 'actions'
   };
 
   document.getElementById('hud').style.display = 'none';
@@ -1466,7 +1470,10 @@ function startBattle(zone) {
   document.getElementById('battleActions').style.display = 'grid';
   document.getElementById('battleMoves').style.display = 'none';
 
-  // Quest progress: first battle, and legendary encounters
+  updateCursorHighlight();
+
+  // Quest progress: first battle, and legendary encounters (called after display
+  // changes so updateQuestHUD won't re-show the strip over the battle canvas)
   advanceQuest('battle_count', 1);
   if (wild.rarity === 'legendary') advanceQuest('legendary_battle', 1);
 
@@ -2288,10 +2295,11 @@ document.addEventListener('keydown', function(e) {
 
   // --- Battle controls ---
   if (state.phase === 'battle') {
-    // Space / Enter: skip to next message
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advanceMessage(); return; }
-
     var b = state.battle;
+    // Space always advances messages. Enter advances messages ONLY when not
+    // waiting for a menu choice; when waiting, it confirms the cursor instead.
+    if (e.key === ' ') { e.preventDefault(); advanceMessage(); return; }
+
     if (b && b.waitingAction) {
       var actionsVisible = document.getElementById('battleActions').style.display !== 'none';
       var movesVisible   = document.getElementById('battleMoves').style.display !== 'none';
@@ -2342,7 +2350,9 @@ document.addEventListener('keydown', function(e) {
         if (e.key === '4' && moveIds[3]) { e.preventDefault(); useMove(moveIds[3]); }
       }
     }
-    if (e.key === 'Escape' && state.battle && !state.battle.waitingAction) { /* no-op, mid battle */ }
+    // Enter outside of waitingAction (e.g. message is scrolling): advance it
+    if (e.key === 'Enter') { e.preventDefault(); advanceMessage(); }
+    if (e.key === 'Escape' && !b.waitingAction) { /* no-op mid-battle */ }
   } else {
     if (e.key === 'Escape' && state.phase === 'party') closeParty();
   }
