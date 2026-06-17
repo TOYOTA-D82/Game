@@ -257,7 +257,7 @@ var CANVAS_W = 900, CANVAS_H = 540;
 
 // Tile types
 var T_PATH = 0, T_GRASS = 1, T_TREE = 2, T_WATER = 3, T_TOWN = 4, T_FLOWER = 5, T_BUILDING = 6,
-    T_DEEPGRASS = 7, T_ROCK = 8, T_SAND = 9, T_WARP = 10;
+    T_DEEPGRASS = 7, T_ROCK = 8, T_SAND = 9, T_WARP = 10, T_HEAL = 11;
 
 // Tile colors
 var TILE_COLORS = {};
@@ -272,6 +272,14 @@ TILE_COLORS[T_DEEPGRASS] = '#245814';
 TILE_COLORS[T_ROCK]      = '#8a8278';
 TILE_COLORS[T_SAND]      = '#e6d29a';
 TILE_COLORS[T_WARP]      = '#7733cc';
+TILE_COLORS[T_HEAL]      = '#ffe8ee';
+
+// Healing stations (怪獸醫療站) — step onto one to fully restore the party.
+var HEAL_STATIONS = {
+  start:   [{ x:16, y:4 }],
+  cave:    [{ x:15, y:16 }],
+  volcano: [{ x:15, y:4 }]
+};
 
 // ==================== ZONE CONFIGS ====================
 var ZONE_CONFIG = {
@@ -661,6 +669,11 @@ function getOrCreateZoneMap(zone) {
     if (zone === 'cave')         state.zoneMaps[zone] = generateCaveMap();
     else if (zone === 'volcano') state.zoneMaps[zone] = generateVolcanoMap();
     else                         state.zoneMaps[zone] = generateMap();
+    // Stamp healing stations onto walkable tiles for this zone
+    var hs = HEAL_STATIONS[zone] || [];
+    for (var i = 0; i < hs.length; i++) {
+      state.zoneMaps[zone][hs[i].y][hs[i].x] = T_HEAL;
+    }
   }
   return state.zoneMaps[zone];
 }
@@ -681,6 +694,44 @@ function enterZone(zoneName, toX, toY) {
   }
   // Update body background to match zone feel
   document.body.style.background = cfg.bgColor || '#1a1a2e';
+}
+
+// ==================== HEALING STATION ====================
+var _audioCtx = null;
+function playHealChime() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var ac = _audioCtx;
+    var notes = [523.25, 659.25, 783.99]; // C5 E5 G5 — a gentle major chord arpeggio
+    notes.forEach(function(freq, i) {
+      var osc = ac.createOscillator(), gain = ac.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      var t0 = ac.currentTime + i * 0.11;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.18, t0 + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.35);
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.start(t0); osc.stop(t0 + 0.4);
+    });
+  } catch (e) {}
+}
+
+function healParty() {
+  var anyHurt = false;
+  var i;
+  for (i = 0; i < state.party.length; i++) {
+    if (state.party[i].hp < state.party[i].maxHP) anyHurt = true;
+    state.party[i].hp = state.party[i].maxHP;
+  }
+  updateHUD();
+  saveGame();
+  playHealChime();
+  var banner = document.getElementById('zoneBanner');
+  if (banner) {
+    banner.textContent = anyHurt ? '💚 醫療站：全隊已完全恢復！' : '💚 全隊狀態良好！';
+    banner.style.opacity = '1';
+    setTimeout(function() { banner.style.opacity = '0'; }, 1500);
+  }
 }
 
 // ==================== CREATURE FACTORY ====================
@@ -1045,6 +1096,21 @@ function drawWorld() {
         ctx.fillRect(x+20, y+14, 4, 3);
         ctx.fillRect(x+12, y+26, 4, 3);
         ctx.fillRect(x+28, y+22, 4, 3);
+      } else if (tile === T_HEAL) {
+        // Healing station: white pad with a pulsing green cross
+        var hpz = 0.5 + Math.sin(worldAnim*0.08) * 0.5;
+        ctx.fillStyle = '#f3fff6';
+        ctx.fillRect(x+1, y+1, TILE-2, TILE-2);
+        ctx.fillStyle = 'rgba(60,220,130,' + (0.25 + hpz*0.3) + ')';
+        ctx.fillRect(x+3, y+3, TILE-6, TILE-6);
+        // green cross
+        ctx.fillStyle = '#1faf5a';
+        var cx0 = x + TILE/2, cy0 = y + TILE/2;
+        ctx.fillRect(cx0-3, cy0-9, 6, 18);
+        ctx.fillRect(cx0-9, cy0-3, 18, 6);
+        ctx.strokeStyle = 'rgba(40,180,100,' + (0.4 + hpz*0.5) + ')';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x+2, y+2, TILE-4, TILE-4);
       }
     }
   }
@@ -1059,8 +1125,32 @@ function drawWorld() {
     ctx.beginPath(); ctx.moveTo(c*TILE-camX, 0); ctx.lineTo(c*TILE-camX, CANVAS_H); ctx.stroke();
   }
 
-  // Warp / portal destination labels (grouped per destination zone)
   var bob = Math.sin(worldAnim * 0.08) * 3;
+
+  // Healing station signposts
+  var hStations = HEAL_STATIONS[state.currentZone] || [];
+  for (var hsi = 0; hsi < hStations.length; hsi++) {
+    var hsx = hStations[hsi].x * TILE - camX + TILE/2;
+    var hsy = hStations[hsi].y * TILE - camY;
+    if (hsx < -60 || hsx > CANVAS_W + 60 || hsy < -40 || hsy > CANVAS_H + 40) continue;
+    var hTxt = '💚 醫療站';
+    ctx.font = 'bold 13px sans-serif';
+    var hlw = ctx.measureText(hTxt).width + 18;
+    var hlx = hsx - hlw/2, hly = hsy - 30 + bob;
+    ctx.fillStyle = 'rgba(15,70,40,0.92)';
+    roundRect(ctx, hlx, hly, hlw, 22, 8); ctx.fill();
+    ctx.strokeStyle = '#5fe79a'; ctx.lineWidth = 1.5;
+    roundRect(ctx, hlx, hly, hlw, 22, 8); ctx.stroke();
+    ctx.fillStyle = '#d6ffe6'; ctx.textAlign = 'center';
+    ctx.fillText(hTxt, hsx, hly + 15);
+    ctx.fillStyle = '#5fe79a';
+    ctx.beginPath();
+    ctx.moveTo(hsx - 5, hly + 22); ctx.lineTo(hsx + 5, hly + 22); ctx.lineTo(hsx, hly + 28);
+    ctx.closePath(); ctx.fill();
+    ctx.textAlign = 'left';
+  }
+
+  // Warp / portal destination labels (grouped per destination zone)
   var zWarps = (ZONE_CONFIG[state.currentZone] || {}).warps || [];
   var warpGroups = {};
   for (var wgi = 0; wgi < zWarps.length; wgi++) {
@@ -1978,10 +2068,14 @@ function playerDefeated() {
       restoreActions();
     });
   } else {
-    addMsg('隊伍全滅了！你回到了初始鎮。', function() {
+    addMsg('隊伍全滅了！你被送回初始鎮的醫療站，全隊已恢復。', function() {
       for (var j = 0; j < state.party.length; j++) {
-        if (state.party[j].hp <= 0) state.party[j].hp = 1;
+        state.party[j].hp = state.party[j].maxHP; // full heal on whiteout
       }
+      // Return to the start zone (the player may have fainted in cave/volcano)
+      state.currentZone = 'start';
+      state.map = getOrCreateZoneMap('start');
+      document.body.style.background = (ZONE_CONFIG.start.bgColor) || '#1a1a2e';
       state.player.x = 14;
       state.player.y = 4;
       endBattle();
@@ -2043,6 +2137,9 @@ function tryMove(dir) {
     }
     updateCamera(); return;
   }
+
+  // Healing station — restore the whole party on step
+  if (tile === T_HEAL) { healParty(); updateCamera(); return; }
 
   // Quest: reaching the deep forest (rows 20+)
   if (state.currentZone === 'start' && ny >= 20) advanceQuest('reach_forest', 1);
