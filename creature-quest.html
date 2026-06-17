@@ -583,6 +583,11 @@ function generateMap() {
       } else {
         tile = T_PATH;
       }
+      // East passage (rows 13-14): a clear dirt road from the central corridor
+      // out to the cave portal so the player can always reach it.
+      if ((r === 13 || r === 14) && c >= 16 && c <= 28) tile = T_PATH;
+      // Cave portals on the east border
+      if ((r === 13 || r === 14) && c === MAP_W - 1) tile = T_WARP;
       map[r].push(tile);
     }
   }
@@ -600,6 +605,8 @@ function generateCaveMap() {
         map[r].push(isW ? T_WARP : T_TREE); continue;
       }
       if (c >= 13 && c <= 16) { map[r].push(T_PATH); continue; } // central corridor
+      // Guaranteed clear lane from the west portal (rows 13-14) to the corridor
+      if ((r === 13 || r === 14) && c >= 1 && c <= 12) { map[r].push(T_PATH); continue; }
       // Cross-corridor rows
       if ((r >= 10 && r <= 14) || (r >= 4 && r <= 6) || (r >= 17 && r <= 19)) {
         if (c >= 1 && c <= 28) {
@@ -987,13 +994,26 @@ function drawWorld() {
         ctx.fillStyle = isLava ? 'rgba(255,100,0,0.5)' : 'rgba(30,80,150,0.5)';
         ctx.fillRect(x+10, y+30 + Math.sin(ph+0.8)*2, 14, 2);
       } else if (tile === T_WARP) {
-        var wp = worldAnim*0.09 + r*0.5 + c*0.5;
-        ctx.fillStyle = 'rgba(120,60,220,' + (0.35 + Math.sin(wp)*0.25) + ')';
-        ctx.fillRect(x+3, y+3, TILE-6, TILE-6);
-        ctx.fillStyle = 'rgba(200,150,255,0.8)';
-        ctx.font = '20px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('✦', x+TILE/2, y+TILE/2+7);
-        ctx.textAlign = 'left';
+        var wp = worldAnim*0.08;
+        var cxp = x+TILE/2, cyp = y+TILE/2;
+        // dark base so the portal pops against any terrain
+        ctx.fillStyle = '#1a0833';
+        ctx.fillRect(x, y, TILE, TILE);
+        // glowing concentric rings
+        var k;
+        for (k = 0; k < 3; k++) {
+          var rad = 6 + k*5 + (Math.sin(wp + k*0.9) + 1) * 3;
+          ctx.strokeStyle = 'rgba(190,120,255,' + (0.75 - k*0.18) + ')';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(cxp, cyp, rad, 0, Math.PI*2);
+          ctx.stroke();
+        }
+        // bright swirling core
+        ctx.fillStyle = 'rgba(225,190,255,' + (0.6 + Math.sin(wp)*0.3) + ')';
+        ctx.beginPath();
+        ctx.arc(cxp, cyp, 5, 0, Math.PI*2);
+        ctx.fill();
       } else if (tile === T_DEEPGRASS) {
         ctx.fillStyle = '#163a0c';
         ctx.fillRect(x+4, y+10, 3, 18);
@@ -1037,24 +1057,102 @@ function drawWorld() {
     ctx.beginPath(); ctx.moveTo(c*TILE-camX, 0); ctx.lineTo(c*TILE-camX, CANVAS_H); ctx.stroke();
   }
 
+  // Warp / portal destination labels (grouped per destination zone)
+  var bob = Math.sin(worldAnim * 0.08) * 3;
+  var zWarps = (ZONE_CONFIG[state.currentZone] || {}).warps || [];
+  var warpGroups = {};
+  for (var wgi = 0; wgi < zWarps.length; wgi++) {
+    var wpD = zWarps[wgi];
+    if (!warpGroups[wpD.toZone]) warpGroups[wpD.toZone] = { sx: 0, sy: 0, n: 0, miny: 1e9 };
+    var g = warpGroups[wpD.toZone];
+    g.sx += wpD.x * TILE - camX + TILE/2;
+    g.sy += wpD.y * TILE - camY;
+    g.miny = Math.min(g.miny, wpD.y * TILE - camY);
+    g.n++;
+  }
+  for (var gz in warpGroups) {
+    if (!warpGroups.hasOwnProperty(gz)) continue;
+    var gg = warpGroups[gz];
+    var lcx = gg.sx / gg.n;
+    var lcy = gg.miny;
+    if (lcx < -60 || lcx > CANVAS_W + 60 || lcy < -40 || lcy > CANVAS_H + 40) continue;
+    var destTitle = (ZONE_CONFIG[gz] || {}).title || gz;
+    var labelTxt = '⇄ ' + destTitle;
+    ctx.font = 'bold 13px sans-serif';
+    var lw = ctx.measureText(labelTxt).width + 18;
+    var lx = lcx - lw/2, ly = lcy - 30 + bob;
+    ctx.fillStyle = 'rgba(60,20,110,0.92)';
+    roundRect(ctx, lx, ly, lw, 22, 8); ctx.fill();
+    ctx.strokeStyle = '#c89bff'; ctx.lineWidth = 1.5;
+    roundRect(ctx, lx, ly, lw, 22, 8); ctx.stroke();
+    ctx.fillStyle = '#f0e0ff';
+    ctx.textAlign = 'center';
+    ctx.fillText(labelTxt, lcx, ly + 15);
+    // little pointer arrow toward the portal
+    ctx.fillStyle = '#c89bff';
+    ctx.beginPath();
+    ctx.moveTo(lcx - 5, ly + 22);
+    ctx.lineTo(lcx + 5, ly + 22);
+    ctx.lineTo(lcx, ly + 28);
+    ctx.closePath(); ctx.fill();
+    ctx.textAlign = 'left';
+  }
+
   // NPC Trainers
   var tkeys = Object.keys(TRAINER_DEFS);
   for (var ti = 0; ti < tkeys.length; ti++) {
     var tid = tkeys[ti], tdef = TRAINER_DEFS[tid];
     if (tdef.zone !== state.currentZone) continue;
     var nx2 = tdef.tx * TILE - camX, ny2 = tdef.ty * TILE - camY;
-    if (nx2 < -TILE || nx2 > CANVAS_W || ny2 < -TILE || ny2 > CANVAS_H) continue;
-    if (!state.defeatedTrainers[tid]) {
-      ctx.fillStyle = 'rgba(255,230,50,0.18)';
-      ctx.fillRect(nx2-2, ny2-2, TILE+4, TILE+4);
+    if (nx2 < -TILE*2 || nx2 > CANVAS_W+TILE || ny2 < -TILE*2 || ny2 > CANVAS_H+TILE) continue;
+    var beaten = state.defeatedTrainers[tid];
+    var cxn = nx2 + TILE/2;
+
+    // glowing pedestal under the trainer
+    var pulse = 0.5 + Math.sin(worldAnim*0.07) * 0.25;
+    ctx.fillStyle = beaten ? 'rgba(120,120,140,0.35)' : 'rgba(255,210,40,' + pulse + ')';
+    ctx.beginPath();
+    ctx.ellipse(cxn, ny2 + TILE - 4, TILE/2 + 3, 9, 0, 0, Math.PI*2);
+    ctx.fill();
+    if (!beaten) {
+      ctx.strokeStyle = 'rgba(255,235,120,0.9)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(cxn, ny2 + TILE - 4, TILE/2 + 6, 11, 0, 0, Math.PI*2);
+      ctx.stroke();
     }
-    ctx.font = '26px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(tdef.emoji, nx2+TILE/2, ny2+TILE-3);
+
+    // trainer emoji (bobbing if active)
+    var npcBob = beaten ? 0 : Math.sin(worldAnim*0.09 + ti) * 2;
+    ctx.font = '30px serif'; ctx.textAlign = 'center';
+    ctx.globalAlpha = beaten ? 0.5 : 1;
+    ctx.fillText(tdef.emoji, cxn, ny2 + TILE - 5 + npcBob);
+    ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
-    if (!state.defeatedTrainers[tid]) {
-      ctx.fillStyle = '#ffd700'; ctx.font = 'bold 12px sans-serif';
+
+    // name plate above the trainer
+    var plate = beaten ? ('✓ ' + tdef.name) : tdef.name;
+    ctx.font = 'bold 12px sans-serif';
+    var pw = ctx.measureText(plate).width + 14;
+    var plx = cxn - pw/2, ply = ny2 - 30;
+    ctx.fillStyle = beaten ? 'rgba(40,40,55,0.9)' : 'rgba(20,10,40,0.92)';
+    roundRect(ctx, plx, ply, pw, 19, 7); ctx.fill();
+    ctx.strokeStyle = beaten ? '#666' : '#ffd700'; ctx.lineWidth = 1.5;
+    roundRect(ctx, plx, ply, pw, 19, 7); ctx.stroke();
+    ctx.fillStyle = beaten ? '#999' : '#ffd700';
+    ctx.textAlign = 'center';
+    ctx.fillText(plate, cxn, ply + 14);
+    ctx.textAlign = 'left';
+
+    // floating "!" bubble for an undefeated challenger
+    if (!beaten) {
+      var exB = Math.sin(worldAnim*0.12 + ti) * 2;
+      ctx.fillStyle = '#ff3344';
+      ctx.beginPath();
+      ctx.arc(nx2 + TILE - 6, ny2 - 6 + exB, 8, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('!', nx2+TILE/2, ny2+12);
+      ctx.fillText('!', nx2 + TILE - 6, ny2 - 1 + exB);
       ctx.textAlign = 'left';
     }
   }
@@ -1073,11 +1171,13 @@ function drawWorld() {
   ctx.fillRect(px+22, py+34, 10, 6);
 
   // Zone label
-  var pr = state.player.y;
-  var zoneLabel = '';
-  if (pr <= 7) zoneLabel = '初始鎮';
-  else if (pr <= 19) zoneLabel = '探索路';
-  else zoneLabel = '深林';
+  var zoneLabel = (ZONE_CONFIG[state.currentZone] || {}).title || '探索區';
+  if (state.currentZone === 'start') {
+    var pr = state.player.y;
+    if (pr <= 7) zoneLabel = '初始鎮';
+    else if (pr >= 20) zoneLabel = '深林';
+    else zoneLabel = '翠綠草原';
+  }
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   roundRect(ctx, CANVAS_W-170, CANVAS_H-44, 162, 36, 8);
   ctx.fill();
@@ -1698,9 +1798,25 @@ function checkEvolutions(evos, callback) {
 }
 
 // ==================== TRAINER BATTLES ====================
+function closeTrainerDialog() {
+  document.getElementById('trainerDialog').style.display = 'none';
+  state.pendingTrainer = null;
+  state.phase = 'world';
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('dpad').style.display = 'grid';
+  document.getElementById('menuBtn').style.display = 'block';
+}
+
 function challengeTrainer(trainerId) {
   var tdef = TRAINER_DEFS[trainerId];
   if (!tdef || state.phase !== 'world') return;
+  // Freeze the overworld so the player can't walk away (and trigger a wild
+  // battle) while the trainer dialog is open.
+  state.phase = 'dialog';
+  state.pendingTrainer = trainerId;
+  state.dpadDir = null;
+  document.getElementById('dpad').style.display = 'none';
+  document.getElementById('menuBtn').style.display = 'none';
   var dialogEl = document.getElementById('trainerDialog');
   document.getElementById('trainerDialogEmoji').textContent = tdef.emoji;
   document.getElementById('trainerDialogName').textContent = tdef.name;
@@ -1710,11 +1826,11 @@ function challengeTrainer(trainerId) {
     document.getElementById('trainerDialogText').textContent =
       '挑戰我需要 ' + tdef.requiredBadges + ' 個徽章！\n你目前只有 ' + state.badges + ' 個。先去變強！';
     document.getElementById('btnTrainerFight').textContent = '好的';
-    document.getElementById('btnTrainerFight').onclick = function() { dialogEl.style.display = 'none'; };
+    document.getElementById('btnTrainerFight').onclick = closeTrainerDialog;
   } else if (defeated) {
     document.getElementById('trainerDialogText').textContent = '你已經打敗過我了！繼續前進吧！';
     document.getElementById('btnTrainerFight').textContent = '繼續！';
-    document.getElementById('btnTrainerFight').onclick = function() { dialogEl.style.display = 'none'; };
+    document.getElementById('btnTrainerFight').onclick = closeTrainerDialog;
   } else {
     document.getElementById('trainerDialogText').textContent = tdef.preDialog;
     document.getElementById('btnTrainerFight').textContent = '應戰！';
@@ -1732,7 +1848,8 @@ function startTrainerBattle(trainerId) {
   for (var i = 0; i < state.party.length; i++) {
     if (state.party[i].hp > 0) { playerMon = state.party[i]; break; }
   }
-  if (!playerMon) return;
+  if (!playerMon) { closeTrainerDialog(); return; }
+  state.pendingTrainer = null;
   var team = [];
   for (var j = 0; j < tdef.teamSpec.length; j++) {
     team.push(createCreature(tdef.teamSpec[j].id, tdef.teamSpec[j].lv));
@@ -1895,11 +2012,13 @@ function tryMove(dir) {
   var tile = state.map[ny][nx];
   if (tile === T_TREE || tile === T_BUILDING || tile === T_WATER || tile === T_ROCK) return;
 
-  // Check for NPC trainer at destination (blocks movement + opens dialog)
+  // Check for NPC trainer at destination. An undefeated trainer blocks the tile
+  // and opens the challenge dialog; a defeated one can be walked through freely.
   var nkArr = Object.keys(TRAINER_DEFS), ni2;
   for (ni2 = 0; ni2 < nkArr.length; ni2++) {
     var nid2 = nkArr[ni2], npc2 = TRAINER_DEFS[nid2];
     if (npc2.zone === state.currentZone && npc2.tx === nx && npc2.ty === ny) {
+      if (state.defeatedTrainers[nid2]) break; // already beaten — pass through
       challengeTrainer(nid2); return;
     }
   }
@@ -2153,10 +2272,10 @@ function gameLoop(timestamp) {
     }
   } else if (state.phase === 'battle') {
     drawBattle();
-  } else if (state.phase === 'party') {
+  } else if (state.phase === 'party' || state.phase === 'dialog') {
     drawWorld();
   }
-  // 'story' and other overlay phases draw nothing (the dialog covers the canvas)
+  // 'story' / 'victory' overlay phases draw nothing (the overlay covers the canvas)
   rafId = requestAnimationFrame(gameLoop);
 }
 
@@ -2281,9 +2400,6 @@ function setupButtons() {
     }
   });
   document.getElementById('btnStoryOk').addEventListener('click', closeStoryDialog);
-  document.getElementById('btnTrainerFight').addEventListener('click', function() {
-    if (state.pendingTrainer) startTrainerBattle(state.pendingTrainer);
-  });
   document.getElementById('btnVictoryOk').addEventListener('click', function() {
     var vs = document.getElementById('victoryScreen');
     if (vs) vs.style.display = 'none';
