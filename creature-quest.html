@@ -44,12 +44,18 @@ body { background: #1a1a2e; display: flex; flex-direction: column; align-items: 
 .slot-hp-fill { height:100%;border-radius:4px;transition:width 0.3s; }
 /* Battle UI */
 #battleUI { position:absolute;bottom:0;left:0;width:100%;display:none;flex-direction:column;z-index:50;pointer-events:all; }
-#battleActions { background:rgba(20,20,40,0.97);border-top:2px solid #334;padding:10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center; }
-#battleActions button { min-width:90px;padding:10px 14px;font-size:1em;border-radius:10px;border:none;cursor:pointer;font-weight:bold;transition:all 0.15s; }
-#battleMoves { background:rgba(20,20,40,0.97);border-top:2px solid #334;padding:10px;display:none;flex-wrap:wrap;gap:8px;justify-content:center; }
-#battleMoves button { min-width:120px;padding:10px 14px;font-size:0.95em;border-radius:10px;border:none;cursor:pointer;font-weight:bold;transition:all 0.15s; }
-#msgLog { background:rgba(10,10,25,0.95);color:#e8e0ff;padding:10px 16px;min-height:48px;font-size:1em;border-top:1px solid #334;cursor:pointer;line-height:1.5; }
-#msgLog .tap-hint { color:#666;font-size:0.8em; }
+#battleActions { background:rgba(20,20,40,0.97);border-top:2px solid #334;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+#battleActions button { min-height:54px;padding:8px 6px;font-size:1.05em;border-radius:12px;border:none;cursor:pointer;font-weight:bold;transition:all 0.15s;touch-action:manipulation; }
+#battleActions button:active { transform:scale(0.95); }
+#battleMoves { background:rgba(20,20,40,0.97);border-top:2px solid #334;padding:10px 12px;display:none;grid-template-columns:1fr 1fr;gap:8px; }
+#battleMoves button { min-height:50px;padding:8px 6px;font-size:0.95em;border-radius:12px;border:none;cursor:pointer;font-weight:bold;transition:all 0.15s;touch-action:manipulation; }
+#battleMoves button:active { transform:scale(0.95); }
+#msgLog { background:rgba(10,10,25,0.97);color:#e8e0ff;padding:10px 16px;min-height:52px;font-size:1em;border-top:1px solid #334;cursor:pointer;line-height:1.55;user-select:none; }
+#msgLog .tap-hint { color:#445;font-size:0.8em; }
+#msgTimer { height:3px;background:#334;overflow:hidden; }
+#msgTimerBar { height:100%;background:#4466cc;width:100%;transition:width linear; }
+#battleActions small, #battleMoves small { opacity:0.45;font-size:0.7em;font-weight:normal;margin-left:3px; }
+@media (pointer:coarse) { #battleActions small, #battleMoves small { display:none; } }
 /* HUD */
 #hud { position:absolute;top:0;left:0;width:100%;background:rgba(10,10,25,0.85);border-bottom:2px solid #334;padding:6px 10px;display:flex;align-items:center;gap:12px;z-index:30;pointer-events:none; }
 #hudParty { display:flex;gap:6px; }
@@ -59,9 +65,9 @@ body { background: #1a1a2e; display: flex; flex-direction: column; align-items: 
 #hudItems { margin-left:auto;color:#ffd700;font-size:0.95em;display:flex;gap:16px; }
 #hudItems span { color:#ccc; }
 /* Virtual D-pad */
-#dpad { position:absolute;bottom:10px;left:10px;display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:3px;z-index:60;pointer-events:all; }
-#dpad button { background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;font-size:1.2em;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none; }
-#dpad button:active { background:rgba(255,255,255,0.35); }
+#dpad { position:absolute;bottom:10px;left:10px;display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);gap:3px;z-index:60;pointer-events:all; }
+#dpad button { background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:#fff;font-size:1.4em;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none;transition:background 0.1s; }
+#dpad button:active { background:rgba(255,255,255,0.45); }
 #dpad .empty { background:none;border:none; }
 /* Menu button */
 #menuBtn { position:absolute;top:8px;right:10px;z-index:60;pointer-events:all; }
@@ -151,12 +157,13 @@ body { background: #1a1a2e; display: flex; flex-direction: column; align-items: 
   <!-- Battle UI -->
   <div id="battleUI">
     <div id="battleActions">
-      <button class="btn type-normal" id="btnFight">&#x2694;&#xFE0F; 戰鬥</button>
-      <button class="btn type-water" id="btnBall">&#x26BD; 捕捉球</button>
-      <button class="btn type-grass" id="btnPotion">&#x1F48A; 藥水</button>
-      <button class="btn type-dark" id="btnRun">&#x1F3C3; 逃跑</button>
+      <button class="btn type-normal" id="btnFight">&#x2694;&#xFE0F; 戰鬥 <small>[1]</small></button>
+      <button class="btn type-water" id="btnBall">&#x26BD; 捕捉球 <small>[2]</small></button>
+      <button class="btn type-grass" id="btnPotion">&#x1F48A; 藥水 <small>[3]</small></button>
+      <button class="btn type-dark" id="btnRun">&#x1F3C3; 逃跑 <small>[4]</small></button>
     </div>
     <div id="battleMoves"></div>
+    <div id="msgTimer"><div id="msgTimerBar"></div></div>
     <div id="msgLog">
       <span id="msgText">...</span>
       <span class="tap-hint" id="tapHint"></span>
@@ -230,14 +237,14 @@ TILE_COLORS[T_DEEPGRASS] = '#245814';
 TILE_COLORS[T_ROCK]      = '#8a8278';
 TILE_COLORS[T_SAND]      = '#e6d29a';
 
-// Type effectiveness: attacker -> { defender: multiplier }
+// Type effectiveness: attacker type -> { defender type: multiplier }
 var TYPE_EFF = {
-  fire:     { grass: 2 },
-  water:    { fire: 2, rock: 2 },
-  grass:    { water: 2, rock: 2 },
-  electric: { water: 2 },
-  dark:     { normal: 2, grass: 2 },
-  rock:     { fire: 2, electric: 2 }
+  fire:     { grass: 2, water: 0.5, rock: 0.5 },
+  water:    { fire: 2, rock: 2,     grass: 0.5 },
+  grass:    { water: 2, rock: 2,    fire: 0.5  },
+  electric: { water: 2, rock: 0.5               },
+  dark:     { normal: 2, grass: 2               },
+  rock:     { fire: 2, electric: 2              }
 };
 
 var TYPE_COLORS = {
@@ -387,6 +394,7 @@ var state = {
   msgQueue: [],
   msgCallback: null,
   showingMsg: false,
+  msgTimer: null,
   evoCallback: null,
   quests: { completed: [], activeIdx: 0, progress: {} },
   pendingQuests: []
@@ -478,9 +486,9 @@ function generateMap() {
 // ==================== CREATURE FACTORY ====================
 function calcStats(speciesId, level) {
   var sp = SPECIES[speciesId];
-  var scale = 1 + (level - 1) * 0.06;
+  var scale = 1 + (level - 1) * 0.05;
   return {
-    maxHP: Math.floor(sp.hp * scale + level * 2),
+    maxHP: Math.floor(sp.hp * scale),   // removed +level*2 that bloated low-level HP
     atk:   Math.floor(sp.atk * scale),
     def:   Math.floor(sp.def * scale),
     spd:   Math.floor(sp.spd * scale)
@@ -1010,12 +1018,37 @@ function drawBattle() {
 }
 
 // ==================== MESSAGE SYSTEM ====================
+var MSG_DELAY = 1100; // ms before auto-advancing to next message / callback
+
 function addMsg(text, callback) {
   state.msgQueue.push({ text: text, callback: callback || null });
   if (!state.showingMsg) showNextMsg();
 }
 
+function _clearMsgTimer() {
+  if (state.msgTimer) { clearTimeout(state.msgTimer); state.msgTimer = null; }
+  var bar = document.getElementById('msgTimerBar');
+  if (bar) { bar.style.transition = 'none'; bar.style.width = '100%'; }
+}
+
+function _startMsgTimer() {
+  _clearMsgTimer();
+  var bar = document.getElementById('msgTimerBar');
+  if (bar) {
+    bar.style.transition = 'none'; bar.style.width = '100%';
+    // Force reflow then animate to 0
+    bar.getBoundingClientRect();
+    bar.style.transition = 'width ' + MSG_DELAY + 'ms linear';
+    bar.style.width = '0%';
+  }
+  state.msgTimer = setTimeout(function() {
+    state.msgTimer = null;
+    advanceMessage();
+  }, MSG_DELAY);
+}
+
 function showNextMsg() {
+  _clearMsgTimer();
   if (state.msgQueue.length === 0) {
     state.showingMsg = false;
     document.getElementById('tapHint').textContent = '';
@@ -1030,8 +1063,11 @@ function showNextMsg() {
   var msg = state.msgQueue.shift();
   document.getElementById('msgText').textContent = msg.text;
   if (msg.callback) state.msgCallback = msg.callback;
-  if (state.msgQueue.length > 0 || msg.callback) {
-    document.getElementById('tapHint').textContent = ' [點擊繼續]';
+
+  var hasMore = state.msgQueue.length > 0 || msg.callback || state.msgCallback;
+  if (hasMore) {
+    document.getElementById('tapHint').textContent = ' ▸';
+    _startMsgTimer();
   } else {
     document.getElementById('tapHint').textContent = '';
   }
@@ -1040,6 +1076,7 @@ function showNextMsg() {
 function advanceMessage() {
   if (state.phase !== 'battle') return;
   if (!state.showingMsg) return;
+  _clearMsgTimer();
   if (state.msgQueue.length > 0) {
     showNextMsg();
   } else {
@@ -1054,11 +1091,14 @@ function advanceMessage() {
 }
 
 function clearMessages() {
+  _clearMsgTimer();
   state.msgQueue = [];
   state.msgCallback = null;
   state.showingMsg = false;
   document.getElementById('msgText').textContent = '';
   document.getElementById('tapHint').textContent = '';
+  var bar = document.getElementById('msgTimerBar');
+  if (bar) { bar.style.transition = 'none'; bar.style.width = '100%'; }
 }
 
 // ==================== BATTLE SYSTEM ====================
@@ -1097,7 +1137,7 @@ function startBattle(zone) {
   document.getElementById('dpad').style.display = 'none';
   document.getElementById('menuBtn').style.display = 'none';
   document.getElementById('battleUI').style.display = 'flex';
-  document.getElementById('battleActions').style.display = 'flex';
+  document.getElementById('battleActions').style.display = 'grid';
   document.getElementById('battleMoves').style.display = 'none';
 
   // Quest progress: first battle, and legendary encounters
@@ -1134,7 +1174,7 @@ function battleAction(action) {
     if (state.items.balls <= 0) {
       addMsg('捕捉球不夠了！');
       b.waitingAction = true;
-      document.getElementById('battleActions').style.display = 'flex';
+      document.getElementById('battleActions').style.display = 'grid';
       return;
     }
     state.items.balls--;
@@ -1169,18 +1209,18 @@ function battleAction(action) {
     if (state.items.potions <= 0) {
       addMsg('藥水不夠了！');
       b.waitingAction = true;
-      document.getElementById('battleActions').style.display = 'flex';
+      document.getElementById('battleActions').style.display = 'grid';
       return;
     }
     if (b.player.hp >= b.player.maxHP) {
       addMsg(b.player.name + ' HP 已滿，不需要藥水！');
       b.waitingAction = true;
-      document.getElementById('battleActions').style.display = 'flex';
+      document.getElementById('battleActions').style.display = 'grid';
       return;
     }
     state.items.potions--;
     updateHUD();
-    var heal = Math.min(50, b.player.maxHP - b.player.hp);
+    var heal = Math.min(Math.floor(b.player.maxHP * 0.4), b.player.maxHP - b.player.hp);
     b.player.hp += heal;
     addMsg(b.player.name + ' 回復了 ' + heal + ' HP！', function() { enemyTurn(); });
     return;
@@ -1202,7 +1242,7 @@ function showMoveMenu() {
   var movesDiv = document.getElementById('battleMoves');
   movesDiv.innerHTML = '';
   document.getElementById('battleActions').style.display = 'none';
-  movesDiv.style.display = 'flex';
+  movesDiv.style.display = 'grid';
 
   var player = b.player;
   var i;
@@ -1229,7 +1269,7 @@ function showMoveMenu() {
   backBtn.style.cssText = 'min-width:100px;padding:10px 14px;font-size:0.9em;border-radius:10px;border:none;cursor:pointer;background:#444;color:#fff;font-weight:bold;';
   backBtn.addEventListener('click', function() {
     movesDiv.style.display = 'none';
-    document.getElementById('battleActions').style.display = 'flex';
+    document.getElementById('battleActions').style.display = 'grid';
   });
   movesDiv.appendChild(backBtn);
 }
@@ -1299,7 +1339,7 @@ function doPlayerMove(moveId, callback) {
   var eff = getTypeEff(move.type, wild.type);
   var atkMod = 1 + (player.atkMod || 0) * 0.25;
   var lvMul = Math.floor(2 * player.level / 5) + 2;
-  var rawDmg = Math.floor(lvMul * move.power * (player.atk * atkMod) / Math.max(1, wild.def) * eff * (0.85 + Math.random()*0.15) / 25 + 2);
+  var rawDmg = Math.floor(lvMul * move.power * (player.atk * atkMod) / Math.max(1, wild.def) * eff * (0.85 + Math.random()*0.15) / 15 + 2);
   var dmg = Math.max(1, rawDmg);
   wild.hp = Math.max(0, wild.hp - dmg);
 
@@ -1339,7 +1379,7 @@ function doEnemyMove(callback) {
   var eff = getTypeEff(move.type, player.type);
   var atkMod = 1 + (b.atkModWild || 0) * 0.25;
   var lvMul = Math.floor(2 * wild.level / 5) + 2;
-  var rawDmg = Math.floor(lvMul * move.power * (wild.atk * atkMod) / Math.max(1, player.def) * eff * (0.85 + Math.random()*0.15) / 25 + 2);
+  var rawDmg = Math.floor(lvMul * move.power * (wild.atk * atkMod) / Math.max(1, player.def) * eff * (0.85 + Math.random()*0.15) / 15 + 2);
   var dmg = Math.max(1, rawDmg);
   player.hp = Math.max(0, player.hp - dmg);
 
@@ -1363,7 +1403,7 @@ function enemyTurn() {
 function restoreActions() {
   if (!state.battle) return;
   state.battle.waitingAction = true;
-  document.getElementById('battleActions').style.display = 'flex';
+  document.getElementById('battleActions').style.display = 'grid';
   document.getElementById('battleMoves').style.display = 'none';
 }
 
@@ -1658,6 +1698,14 @@ function loadGame() {
     state.quests = data.quests || { completed: [], activeIdx: 0, progress: {} };
     state.pendingQuests = [];
     state.map = generateMap();
+    // Recalculate stats with current formula so old saves stay consistent
+    state.party.forEach(function(m) {
+      if (!m.speciesId) return;
+      var st = calcStats(m.speciesId, m.level);
+      var ratio = Math.max(0, m.hp) / Math.max(1, m.maxHP);
+      m.maxHP = st.maxHP; m.hp = Math.max(1, Math.floor(ratio * st.maxHP));
+      m.atk = st.atk; m.def = st.def; m.spd = st.spd;
+    });
 
     document.getElementById('titleScreen').style.display = 'none';
     document.getElementById('hud').style.display = 'flex';
@@ -1712,17 +1760,44 @@ function gameLoop(timestamp) {
 // ==================== INPUT ====================
 document.addEventListener('keydown', function(e) {
   state.keys[e.key] = true;
-  if ((e.key === 'p' || e.key === 'P') && state.phase !== 'battle') toggleParty();
-  if (e.key === 'Escape') {
-    if (state.phase === 'party') closeParty();
-    if (state.phase === 'battle' && state.battle && state.battle.waitingAction) {
-      document.getElementById('battleMoves').style.display = 'none';
-      document.getElementById('battleActions').style.display = 'flex';
+
+  // --- World controls ---
+  if ((e.key === 'p' || e.key === 'P') && state.phase !== 'battle') { toggleParty(); return; }
+
+  // --- Battle controls ---
+  if (state.phase === 'battle') {
+    // Space / Enter: skip to next message
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advanceMessage(); return; }
+
+    var b = state.battle;
+    if (b && b.waitingAction) {
+      var actionsVisible = document.getElementById('battleActions').style.display !== 'none';
+      var movesVisible   = document.getElementById('battleMoves').style.display !== 'none';
+
+      if (actionsVisible) {
+        if (e.key === '1') { e.preventDefault(); battleAction('fight'); }
+        if (e.key === '2') { e.preventDefault(); battleAction('ball'); }
+        if (e.key === '3') { e.preventDefault(); battleAction('potion'); }
+        if (e.key === '4') { e.preventDefault(); battleAction('run'); }
+      }
+      if (movesVisible) {
+        if (e.key === 'Escape') {
+          document.getElementById('battleMoves').style.display = 'none';
+          document.getElementById('battleActions').style.display = 'grid';
+        }
+        var moveIds = b.player.moves;
+        if (e.key === '1' && moveIds[0]) { e.preventDefault(); useMove(moveIds[0]); }
+        if (e.key === '2' && moveIds[1]) { e.preventDefault(); useMove(moveIds[1]); }
+        if (e.key === '3' && moveIds[2]) { e.preventDefault(); useMove(moveIds[2]); }
+        if (e.key === '4' && moveIds[3]) { e.preventDefault(); useMove(moveIds[3]); }
+      }
     }
+    if (e.key === 'Escape' && state.battle && !state.battle.waitingAction) { /* no-op, mid battle */ }
+  } else {
+    if (e.key === 'Escape' && state.phase === 'party') closeParty();
   }
-  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key) !== -1) {
-    e.preventDefault();
-  }
+
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(e.key) !== -1) e.preventDefault();
 });
 
 document.addEventListener('keyup', function(e) {
