@@ -650,7 +650,8 @@ function analyze(label){
   // 建議
   const strat=state.strategy||'balanced';
   const letFactor = strat==='margin'?0.5 : strat==='progress'?1.3 : 1;
-  const body3=(why,rec,how)=>`<b>原因</b>:${why}<br><b>建議毛利</b>:${rec}<br><b>處理方式</b>:${how}`;
+  // 數字建議放最前、說明(原因)弱化放最後
+  const body3=(why,rec,how)=>`<div style="font-size:14px;margin-bottom:3px"><b style="color:var(--text)">➤ 建議</b>:${rec}</div><div><b>處理方式</b>:${how}</div><div class="small muted" style="margin-top:4px">說明:${why}</div>`;
   const roomPts=r=>{ if(!(r.units>0)||r.total==null||bl==null) return null; const slack=bl-T; if(slack<=0) return 0; return slack*totalUnits/r.units; };
   const adv=[];
 
