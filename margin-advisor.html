@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>販促毛利週顧問 · TOYOTA 中部</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+
+  :root {
+    --bg: #0f1220;
+    --bg2: #161a2e;
+    --panel: #1c2138;
+    --panel2: #232a47;
+    --line: #2e3556;
+    --text: #e8ecff;
+    --muted: #9aa3c7;
+    --red: #eb0a1e;
+    --redsoft: #ff5c6b;
+    --green: #34d399;
+    --yellow: #fbbf24;
+    --blue: #60a5fa;
+    --shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: 'Noto Sans TC', system-ui, sans-serif; }
+  body { min-height: 100vh; padding-bottom: 60px; }
+  a { color: var(--blue); }
+
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: linear-gradient(180deg, #12152a, #0f1220);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  header .brand { font-weight: 900; letter-spacing: .5px; font-size: 18px; }
+  header .brand b { color: var(--red); }
+  header .dealer { color: var(--muted); font-size: 13px; }
+  header .spacer { flex: 1; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  nav button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500;
+  }
+  nav button.active { background: var(--red); border-color: var(--red); color: #fff; }
+  nav button:hover:not(.active) { background: var(--panel2); }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 18px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card h2 { font-size: 16px; margin-bottom: 4px; }
+  .card .hint { color: var(--muted); font-size: 13px; margin-bottom: 12px; line-height: 1.6; }
+  h3.sec { font-size: 14px; color: var(--muted); margin: 16px 0 8px; font-weight: 700; }
+
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .row.mb { margin-bottom: 12px; }
+  label.fld { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  input, select, textarea {
+    background: var(--bg2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: inherit;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--blue); }
+  textarea { width: 100%; min-height: 120px; resize: vertical; font-family: ui-monospace, monospace; font-size: 13px; }
+
+  button.btn { background: var(--red); color: #fff; border: none; padding: 9px 16px; border-radius: 9px; cursor: pointer; font-weight: 700; font-size: 14px; }
+  button.btn.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--line); font-weight: 500; }
+  button.btn.small { padding: 6px 11px; font-size: 13px; }
+  button.btn:hover { filter: brightness(1.08); }
+  button.link { background: none; border: none; color: var(--redsoft); cursor: pointer; font-size: 13px; text-decoration: underline; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: center; }
+  th { background: var(--panel2); color: var(--muted); font-weight: 700; position: sticky; top: 0; }
+  td.name { text-align: left; font-weight: 700; white-space: nowrap; }
+  table input { width: 100%; text-align: center; padding: 5px 4px; background: transparent; border: 1px solid transparent; border-radius: 6px; }
+  table input:focus { background: var(--bg2); border-color: var(--blue); }
+  .tblwrap { overflow-x: auto; border-radius: 10px; }
+
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .pill.red { background: rgba(235,10,30,.18); color: var(--redsoft); }
+  .pill.yellow { background: rgba(251,191,36,.15); color: var(--yellow); }
+  .pill.green { background: rgba(52,211,153,.15); color: var(--green); }
+  .pill.blue { background: rgba(96,165,250,.15); color: var(--blue); }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kpi { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .kpi .k { font-size: 12px; color: var(--muted); }
+  .kpi .v { font-size: 24px; font-weight: 900; margin-top: 2px; }
+  .kpi .d { font-size: 12px; margin-top: 3px; }
+  .up { color: var(--green); } .down { color: var(--redsoft); } .flat { color: var(--muted); }
+
+  .advice { border-left: 4px solid var(--line); background: var(--panel2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .advice.red { border-color: var(--red); }
+  .advice.yellow { border-color: var(--yellow); }
+  .advice.green { border-color: var(--green); }
+  .advice .t { font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .advice .b { color: var(--muted); font-size: 13px; line-height: 1.65; }
+  .advice .b b { color: var(--text); }
+
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 10px; }
+  .flexgrow { flex: 1; }
+  svg .grid { stroke: var(--line); stroke-width: 1; }
+  svg .lbl { fill: var(--muted); font-size: 11px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line); padding: 10px 18px; border-radius: 10px; box-shadow: var(--shadow); z-index: 99; opacity: 0; transition: opacity .25s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  details { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: var(--panel2); }
+  details summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+  ol.steps { margin: 10px 0 0 20px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>■</b> 販促毛利週顧問</div>
+  <div class="dealer" id="dealerLabel">經銷商:中部</div>
+  <div class="spacer"></div>
+  <nav id="nav">
+    <button data-view="dash" class="active">本週儀表板</button>
+    <button data-view="entry">輸入本週數據</button>
+    <button data-view="plan">月度販促案</button>
+    <button data-view="trend">趨勢比較</button>
+    <button data-view="settings">設定 / 備份</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ DASHBOARD ============ -->
+  <section id="view-dash" class="view active">
+    <div class="card">
+      <div class="row mb">
+        <label class="fld flexgrow">選擇要檢視的週別
+          <select id="dashWeekSel"></select>
+        </label>
+      </div>
+      <div id="dashKpis" class="kpis"></div>
+    </div>
+
+    <div class="card">
+      <h2>本週販促調整建議</h2>
+      <div class="hint">依「毛利率 × 在庫壓力 × 目標達成 × 週對週變化」分析後排序,紅 = 要立刻處理,黃 = 留意,綠 = 可加碼。</div>
+      <div id="adviceList"></div>
+    </div>
+
+    <div class="card">
+      <h2>本週各車種明細</h2>
+      <div class="tblwrap"><table id="dashTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ ENTRY ============ -->
+  <section id="view-entry" class="view">
+    <div class="card">
+      <h2>輸入本週數據</h2>
+      <div class="hint">三種輸入方式擇一,資料都會落到下方表格,你可以直接在格子裡修改。存檔後自動保存在本機瀏覽器。</div>
+      <div class="row mb">
+        <label class="fld">週別標籤
+          <input id="weekLabel" placeholder="例:2026-06 W1">
+        </label>
+        <label class="fld">資料截止日
+          <input id="weekDate" type="date">
+        </label>
+      </div>
+
+      <details>
+        <summary>方式 A ｜ 貼上表格(最可靠,建議用這個)</summary>
+        <ol class="steps">
+          <li>把每週出表中「你自己分公司(中部)」那幾欄複製,或把我在對話裡幫你轉好的 CSV 貼進來。</li>
+          <li>每行格式(用逗號或 Tab 分隔):<code>車種, 台數, 車輛毛利%, 配件毛利%, 合計毛利%, 在庫台數(選填), 車齡天(選填)</code></li>
+        </ol>
+        <textarea id="pasteBox" placeholder="RAV4 HV, 465, 6.3, 0.6, 6.8, 40, 55&#10;Y CROSS, 365, 0.6, -0.2, 0.5, 120, 95&#10;TOWN ACE, 143, -1.7, -0.3, -2.0, 30, 40"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn small" onclick="importPaste()">解析並填入下方表格</button>
+          <span class="muted small">% 只填數字,不用打 %;負值直接打 -1.7</span>
+        </div>
+      </details>
+
+      <details>
+        <summary>方式 B ｜ 上傳圖片自動辨識(免費草稿,務必核對)</summary>
+        <ol class="steps">
+          <li>免費的瀏覽器 OCR 對這種密集表格準確率有限,辨識結果只是<b>草稿</b>,一定要逐格核對。</li>
+          <li>建議把圖片<b>裁切成只剩中部那幾欄</b>再上傳,準確率會高很多。</li>
+          <li>最準的方式:把整張圖丟到我們的對話,我幫你轉成 CSV 再用方式 A 貼上。</li>
+        </ol>
+        <div class="row">
+          <input id="imgInput" type="file" accept="image/*">
+          <button class="btn small ghost" id="ocrBtn" onclick="runOcr()">開始辨識</button>
+          <span id="ocrStatus" class="muted small"></span>
+        </div>
+      </details>
+
+      <h3 class="sec">方式 C ｜ 直接在表格輸入 / 校對</h3>
+      <div class="tblwrap"><table id="entryTable"></table></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" onclick="saveWeek()">儲存本週數據</button>
+        <button class="btn ghost small" onclick="addEntryRow()">+ 新增一列車種</button>
+        <button class="btn ghost small" onclick="loadModelsIntoEntry()">帶入車種清單</button>
+        <span id="entryMsg" class="muted small"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PLAN ============ -->
+  <section id="view-plan" class="view">
+    <div class="card">
+      <h2>月度販促案</h2>
+      <div class="hint">月初先設定本月「每台車的角色與目標」。之後每週分析會拿實際表現跟這個計畫比對,告訴你哪裡偏離、要不要調整。</div>
+      <div class="row mb">
+        <label class="fld">計畫月份
+          <input id="planMonth" placeholder="例:2026-06">
+        </label>
+      </div>
+      <div class="tblwrap"><table id="planTable"></table></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" onclick="savePlan()">儲存月度計畫</button>
+        <button class="btn ghost small" onclick="loadModelsIntoPlan()">帶入車種清單</button>
+        <span id="planMsg" class="muted small"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TREND ============ -->
+  <section id="view-trend" class="view">
+    <div class="card">
+      <h2>整體合計毛利率 · 週趨勢</h2>
+      <div class="hint">加權平均毛利率(以台數加權)隨週別的變化。守住這條線,才是讓利策略成不成功的總指標。</div>
+      <div id="trendChart"></div>
+    </div>
+    <div class="card">
+      <h2>單一車種趨勢</h2>
+      <div class="row mb">
+        <label class="fld">選擇車種
+          <select id="trendModelSel" onchange="renderModelTrend()"></select>
+        </label>
+      </div>
+      <div id="modelTrend"></div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section id="view-settings" class="view">
+    <div class="card">
+      <h2>基本設定</h2>
+      <div class="row mb">
+        <label class="fld">經銷商名稱
+          <input id="dealerName" placeholder="中部">
+        </label>
+      </div>
+      <h3 class="sec">車種主檔(一行一個)</h3>
+      <textarea id="modelsBox"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" onclick="saveSettings()">儲存設定</button>
+        <button class="btn ghost small" onclick="resetModels()">還原預設車種清單</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>分析門檻(進階,可微調)</h2>
+      <div class="hint">這些門檻決定燈號怎麼判。不確定就先用預設值。</div>
+      <div class="row mb">
+        <label class="fld">高毛利門檻 % (≥)
+          <input id="thHigh" type="number" step="0.1" style="width:90px">
+        </label>
+        <label class="fld">低毛利門檻 % (≤)
+          <input id="thLow" type="number" step="0.1" style="width:90px">
+        </label>
+        <label class="fld">在庫壓力:去化週數高 (≥)
+          <input id="thStockHi" type="number" step="0.5" style="width:90px">
+        </label>
+        <label class="fld">車齡壓力 天 (≥)
+          <input id="thAge" type="number" step="1" style="width:90px">
+        </label>
+        <label class="fld">毛利週跌幅警示 % (≥)
+          <input id="thDrop" type="number" step="0.1" style="width:90px">
+        </label>
+      </div>
+      <button class="btn small" onclick="saveThresholds()">儲存門檻</button>
+    </div>
+
+    <div class="card">
+      <h2>資料備份 / 還原</h2>
+      <div class="hint">資料存在這台瀏覽器。想換裝置、多人共用或備份,用匯出 JSON;要還原就匯入。</div>
+      <div class="row">
+        <button class="btn small" onclick="exportData()">匯出全部資料 (JSON)</button>
+        <label class="btn small ghost" style="cursor:pointer">匯入 JSON
+          <input type="file" accept="application/json" style="display:none" onchange="importData(event)">
+        </label>
+        <button class="btn small ghost" onclick="wipeData()">清空全部資料</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============================================================
+   販促毛利週顧問 — 純前端,資料存 localStorage,可匯出 JSON
+   ============================================================ */
+const LS_KEY = 'margin_advisor_v1';
+const DEFAULT_MODELS = [
+  'ALPHARD HV','ALPHARD PH','ALTIS','ALTIS HV','bZ4X','C CROSS','C CROSS HV',
+  'CAMRY','CAMRY HV','COROLLA SP','CROWN HV','GR 86','GR YARIS','HILUX',
+  'L CRUISER','PRIUS PHV','RAV4 HV','RAV4 PHV','SIENNA HV','SUPRA',
+  'TOWN ACE','TOWN ACE V','U CRUISER','VIOS','Y CROSS'
+];
+const DEFAULT_TH = { high: 5, low: 2, stockHi: 8, age: 90, drop: 1.0 };
+const PLAN_ROLES = ['衝量(可讓利)','守毛利','清庫存','維持','觀察'];
+
+let state = load();
+
+function blankState() {
+  return { dealer: '中部', models: [...DEFAULT_MODELS], thresholds: {...DEFAULT_TH}, plan: { month: '', items: {} }, weeks: [] };
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return blankState();
+    const s = JSON.parse(raw);
+    return { ...blankState(), ...s, thresholds: { ...DEFAULT_TH, ...(s.thresholds||{}) } };
+  } catch(e) { return blankState(); }
+}
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._to); t._to = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+const num = v => { const n = parseFloat(String(v).replace(/[%,\s]/g,'')); return isNaN(n) ? null : n; };
+const fmtPct = v => v==null ? '–' : (v>0?'':'') + v.toFixed(1) + '%';
+const fmtDelta = v => v==null ? '' : (v>0?'▲':v<0?'▼':'—') + Math.abs(v).toFixed(1);
+
+/* ---------- Navigation ---------- */
+document.getElementById('nav').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  const v = b.dataset.view;
+  document.querySelectorAll('.view').forEach(s=>s.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  if (v==='dash') renderDash();
+  if (v==='entry') renderEntry();
+  if (v==='plan') renderPlan();
+  if (v==='trend') renderTrend();
+  if (v==='settings') renderSettings();
+});
+
+/* ======================================================
+   ENTRY (輸入本週數據)
+   ====================================================== */
+let entryRows = [];
+
+function renderEntry() {
+  if (!document.getElementById('weekLabel').value) {
+    const d = new Date();
+    document.getElementById('weekDate').value = d.toISOString().slice(0,10);
+  }
+  if (entryRows.length === 0) loadModelsIntoEntry();
+  else drawEntryTable();
+}
+function loadModelsIntoEntry() {
+  entryRows = state.models.map(m => ({ model:m, units:'', veh:'', part:'', total:'', stock:'', age:'' }));
+  drawEntryTable();
+}
+function addEntryRow() { entryRows.push({ model:'', units:'', veh:'', part:'', total:'', stock:'', age:'' }); drawEntryTable(); }
+
+function drawEntryTable() {
+  const t = document.getElementById('entryTable');
+  let h = `<tr><th>車種</th><th>台數</th><th>車輛%</th><th>配件%</th><th>合計%</th><th>在庫台</th><th>車齡天</th><th></th></tr>`;
+  entryRows.forEach((r,i)=>{
+    h += `<tr>
+      <td class="name"><input value="${esc(r.model)}" oninput="entryRows[${i}].model=this.value"></td>
+      <td><input value="${esc(r.units)}" oninput="entryRows[${i}].units=this.value"></td>
+      <td><input value="${esc(r.veh)}" oninput="entryRows[${i}].veh=this.value"></td>
+      <td><input value="${esc(r.part)}" oninput="entryRows[${i}].part=this.value"></td>
+      <td><input value="${esc(r.total)}" oninput="entryRows[${i}].total=this.value"></td>
+      <td><input value="${esc(r.stock)}" oninput="entryRows[${i}].stock=this.value"></td>
+      <td><input value="${esc(r.age)}" oninput="entryRows[${i}].age=this.value"></td>
+      <td><button class="link" onclick="entryRows.splice(${i},1);drawEntryTable()">刪</button></td>
+    </tr>`;
+  });
+  t.innerHTML = h;
+}
+function esc(s){ return String(s==null?'':s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function importPaste() {
+  const raw = document.getElementById('pasteBox').value.trim();
+  if (!raw) { toast('請先貼上資料'); return; }
+  const lines = raw.split(/\r?\n/).filter(l=>l.trim());
+  const parsed = [];
+  for (const line of lines) {
+    const parts = line.split(/\t|,/).map(s=>s.trim());
+    if (parts.length < 2) continue;
+    if (/車種|台數|合計|model/i.test(parts[0]) && num(parts[1])==null) continue; // header
+    parsed.push({ model:parts[0], units:parts[1]||'', veh:parts[2]||'', part:parts[3]||'', total:parts[4]||'', stock:parts[5]||'', age:parts[6]||'' });
+  }
+  if (!parsed.length) { toast('沒解析到資料,檢查格式'); return; }
+  entryRows = parsed; drawEntryTable();
+  toast('解析出 '+parsed.length+' 列,請核對後儲存');
+}
+
+function saveWeek() {
+  const label = document.getElementById('weekLabel').value.trim();
+  const date = document.getElementById('weekDate').value;
+  if (!label) { toast('請填週別標籤'); return; }
+  const rows = entryRows
+    .filter(r => r.model.trim() && num(r.units)!=null)
+    .map(r => ({
+      model: r.model.trim(), units: num(r.units)||0,
+      veh: num(r.veh), part: num(r.part),
+      total: num(r.total) != null ? num(r.total) : (num(r.veh)||0)+(num(r.part)||0),
+      stock: num(r.stock), age: num(r.age)
+    }));
+  if (!rows.length) { toast('至少要有一列有車種+台數'); return; }
+  const idx = state.weeks.findIndex(w => w.label === label);
+  const wk = { label, date, rows };
+  if (idx >= 0) state.weeks[idx] = wk; else state.weeks.push(wk);
+  state.weeks.sort((a,b)=> (a.date||'').localeCompare(b.date||'') || a.label.localeCompare(b.label));
+  save();
+  document.getElementById('entryMsg').textContent = '已儲存 '+label+'（'+rows.length+' 車種）';
+  toast('已儲存 '+label);
+}
+
+/* ---------- OCR (Tesseract, best-effort) ---------- */
+let tesseractLoaded = false;
+function loadTesseract() {
+  return new Promise((resolve, reject) => {
+    if (tesseractLoaded && window.Tesseract) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = () => { tesseractLoaded = true; resolve(); };
+    s.onerror = () => reject(new Error('無法載入 OCR 函式庫(需要網路)'));
+    document.head.appendChild(s);
+  });
+}
+async function runOcr() {
+  const f = document.getElementById('imgInput').files[0];
+  const st = document.getElementById('ocrStatus');
+  if (!f) { toast('請先選擇圖片'); return; }
+  st.textContent = '載入 OCR 中…';
+  try {
+    await loadTesseract();
+    st.textContent = '辨識中(可能要 10~30 秒)…';
+    const { data } = await Tesseract.recognize(f, 'eng', { logger: m => {
+      if (m.status==='recognizing text') st.textContent = '辨識中 '+Math.round(m.progress*100)+'%';
+    }});
+    const lines = (data.text||'').split(/\n/).map(l=>l.trim()).filter(Boolean);
+    const parsed = [];
+    for (const line of lines) {
+      const mName = line.match(/^[A-Za-z][A-Za-z0-9 .]+/);
+      const nums = line.match(/-?\d+\.?\d*/g);
+      if (mName && nums && nums.length >= 2) {
+        parsed.push({ model:mName[0].trim(), units:nums[0]||'', veh:nums[1]||'', part:nums[2]||'', total:nums[3]||'', stock:'', age:'' });
+      }
+    }
+    if (parsed.length) {
+      entryRows = parsed; drawEntryTable();
+      st.textContent = '辨識完成,抓到 '+parsed.length+' 列 — 請務必逐格核對!';
+    } else {
+      st.textContent = '沒抓到可用資料,建議改用貼上或把圖給 Claude 轉。';
+    }
+  } catch(e) { st.textContent = '失敗:'+e.message; }
+}
+
+/* ======================================================
+   PLAN (月度販促案)
+   ====================================================== */
+function renderPlan() {
+  document.getElementById('planMonth').value = state.plan.month || '';
+  if (Object.keys(state.plan.items).length === 0) loadModelsIntoPlan();
+  else drawPlanTable(state.models);
+}
+function loadModelsIntoPlan() { drawPlanTable(state.models); }
+function drawPlanTable(models) {
+  const t = document.getElementById('planTable');
+  let h = `<tr><th>車種</th><th>角色</th><th>本月目標台數</th><th>備註 / 販促手法</th></tr>`;
+  models.forEach(m => {
+    const it = state.plan.items[m] || {};
+    const opts = PLAN_ROLES.map(r=>`<option ${it.role===r?'selected':''}>${r}</option>`).join('');
+    h += `<tr>
+      <td class="name">${esc(m)}</td>
+      <td><select data-m="${esc(m)}" data-f="role"><option value=""></option>${opts}</select></td>
+      <td><input data-m="${esc(m)}" data-f="target" value="${esc(it.target||'')}" style="text-align:center"></td>
+      <td><input data-m="${esc(m)}" data-f="note" value="${esc(it.note||'')}" style="text-align:left"></td>
+    </tr>`;
+  });
+  t.innerHTML = h;
+}
+function savePlan() {
+  state.plan.month = document.getElementById('planMonth').value.trim();
+  const items = {};
+  document.querySelectorAll('#planTable [data-m]').forEach(el => {
+    const m = el.dataset.m, f = el.dataset.f;
+    items[m] = items[m] || {};
+    items[m][f] = el.value;
+  });
+  // drop empty
+  Object.keys(items).forEach(m => {
+    const it = items[m];
+    if (!it.role && !it.target && !it.note) delete items[m];
+  });
+  state.plan.items = items; save();
+  document.getElementById('planMsg').textContent = '已儲存月度計畫';
+  toast('月度計畫已儲存');
+}
+
+/* ======================================================
+   ANALYSIS ENGINE
+   ====================================================== */
+function blended(rows) {
+  let u = 0, w = 0;
+  rows.forEach(r => { if (r.total!=null) { u += r.units; w += r.units * r.total; } });
+  return u ? w/u : null;
+}
+function weekByLabel(label){ return state.weeks.find(w=>w.label===label); }
+function prevWeek(label){
+  const i = state.weeks.findIndex(w=>w.label===label);
+  return i>0 ? state.weeks[i-1] : null;
+}
+
+// 分析單一週,回傳 { kpi, advices, rows(enriched) }
+function analyze(label) {
+  const wk = weekByLabel(label); if (!wk) return null;
+  const th = state.thresholds;
+  const prev = prevWeek(label);
+  const prevMap = {}; if (prev) prev.rows.forEach(r=>prevMap[r.model]=r);
+
+  const enriched = wk.rows.map(r => {
+    const p = prevMap[r.model];
+    const dTotal = (p && p.total!=null && r.total!=null) ? r.total - p.total : null;
+    const dUnits = (p) ? r.units - p.units : null;
+    // 去化週數
+    const dos = (r.stock!=null && r.units>0) ? r.stock / r.units : null;
+    // 分類
+    let marginTier = 'mid';
+    if (r.total!=null) { if (r.total < 0) marginTier='neg'; else if (r.total <= th.low) marginTier='low'; else if (r.total >= th.high) marginTier='high'; }
+    let stockTier = 'ok';
+    if ((dos!=null && dos >= th.stockHi) || (r.age!=null && r.age >= th.age)) stockTier='high';
+    const plan = state.plan.items[r.model] || {};
+    const target = num(plan.target);
+    return { ...r, dTotal, dUnits, dos, marginTier, stockTier, plan, target };
+  });
+
+  // KPI
+  const bl = blended(wk.rows);
+  const blPrev = prev ? blended(prev.rows) : null;
+  const totalUnits = wk.rows.reduce((s,r)=>s+r.units,0);
+  const prevUnits = prev ? prev.rows.reduce((s,r)=>s+r.units,0) : null;
+  const kpi = {
+    blended: bl, dBlended: (bl!=null&&blPrev!=null)? bl-blPrev : null,
+    units: totalUnits, dUnits: prevUnits!=null? totalUnits-prevUnits : null,
+    models: wk.rows.length, prevLabel: prev?prev.label:null
+  };
+
+  // 產生建議
+  const adv = [];
+  enriched.forEach(r => {
+    const roleTag = r.plan.role ? `<span class="pill blue">計畫:${r.plan.role}</span>` : '';
+    const impact = r.units; // 排序用
+    // 規則
+    if (r.marginTier==='neg') {
+      adv.push({ sev:'red', impact, model:r.model,
+        title:`${r.model}｜毛利為負 (${fmtPct(r.total)})`,
+        tags:[roleTag],
+        body: r.stockTier==='high'
+          ? `這台<b>在賠錢又壓庫</b>(去化約 ${r.dos?r.dos.toFixed(1):'?'} 週)。建議設<b>停損檔數限量出清</b>,並強制<b>綁配件包</b>把車輛端損失補回來;不要再單純降車價。`
+          : `賣一台賠一台,但庫存正常。<b>先別再讓利</b>,查是不是被迫殺價;檢討成交紀律、把<b>配件率</b>拉起來(目前配件 ${fmtPct(r.part)})。`
+      });
+    } else if (r.marginTier==='low' && r.stockTier==='high') {
+      adv.push({ sev:'red', impact, model:r.model,
+        title:`${r.model}｜低毛利 (${fmtPct(r.total)}) + 庫存壓力`,
+        tags:[roleTag],
+        body:`去化約 ${r.dos?r.dos.toFixed(1):'?'} 週${r.age!=null?`、車齡 ${r.age} 天`:''}。可做<b>限量讓利清庫</b>,但務必<b>綁配件</b>守住整體毛利,並設每檔讓利上限,避免整批毛利被拖垮。`
+      });
+    } else if (r.marginTier==='high' && r.target!=null && r.units < r.target/4*0.9) {
+      adv.push({ sev:'green', impact, model:r.model,
+        title:`${r.model}｜高毛利但進度落後`,
+        tags:[roleTag],
+        body:`毛利 ${fmtPct(r.total)} 很好,本週 ${r.units} 台、月目標 ${r.target}(週均需約 ${Math.round(r.target/4)})。<b>加碼廣宣/業務獎金衝量,不要降價</b> — 這台多賣直接拉高整體毛利。`
+      });
+    } else if (r.marginTier==='high' && r.stockTier==='high') {
+      adv.push({ sev:'yellow', impact, model:r.model,
+        title:`${r.model}｜高毛利 + 庫存偏高`,
+        tags:[roleTag],
+        body:`毛利 ${fmtPct(r.total)},有去化空間。可用<b>小幅讓利</b>就能加速出清,對整體毛利影響小。`
+      });
+    }
+    // 週對週跌幅
+    if (r.dTotal!=null && r.dTotal <= -state.thresholds.drop) {
+      adv.push({ sev:'yellow', impact, model:r.model,
+        title:`${r.model}｜毛利週跌 ${Math.abs(r.dTotal).toFixed(1)}%`,
+        tags:[roleTag],
+        body:`合計毛利從上週 ${fmtPct(r.total - r.dTotal)} 掉到 ${fmtPct(r.total)}。若非策略性讓利,檢查是不是<b>成交價鬆動</b>或競品促銷,收緊定價紀律。`
+      });
+    }
+    // 配件為負
+    if (r.part!=null && r.part < 0 && r.marginTier!=='neg') {
+      adv.push({ sev:'yellow', impact:impact*0.5, model:r.model,
+        title:`${r.model}｜配件毛利為負 (${fmtPct(r.part)})`,
+        tags:[roleTag],
+        body:`配件端在賠。先修配件方案(成本/折讓),配件是<b>讓利後補毛利的主要工具</b>,不能自己先破。`
+      });
+    }
+    // 計畫偏離:計畫守毛利但掉了
+    if (r.plan.role==='守毛利' && r.dTotal!=null && r.dTotal < -0.5) {
+      adv.push({ sev:'red', impact, model:r.model,
+        title:`${r.model}｜偏離計畫:訂為「守毛利」卻下滑`,
+        tags:[roleTag],
+        body:`月計畫要守毛利,但本週跌了 ${Math.abs(r.dTotal).toFixed(1)}%。與計畫方向相反,建議本週立刻收價。`
+      });
+    }
+    if (r.plan.role==='衝量(可讓利)' && r.target!=null && r.units >= r.target/4) {
+      adv.push({ sev:'green', impact:impact*0.4, model:r.model,
+        title:`${r.model}｜衝量達標`,
+        tags:[roleTag],
+        body:`計畫衝量,本週 ${r.units} 台已達週均目標。可評估<b>逐步收回讓利</b>,把毛利賺回來。`
+      });
+    }
+  });
+
+  // 整體毛利下滑總警示
+  if (kpi.dBlended!=null && kpi.dBlended <= -0.3) {
+    adv.unshift({ sev:'red', impact:1e9, model:'__overall__',
+      title:`整體合計毛利率下滑 ${Math.abs(kpi.dBlended).toFixed(1)}%`,
+      tags:[],
+      body:`從 ${fmtPct(kpi.blended-kpi.dBlended)} 掉到 <b>${fmtPct(kpi.blended)}</b>。多半是<b>量大的低毛利車種</b>被讓太多或殺價。優先看下面紅燈項目、並確認讓利有沒有被配件補回。`
+    });
+  }
+
+  adv.sort((a,b)=> sevRank(b.sev)-sevRank(a.sev) || b.impact-a.impact);
+  return { kpi, advices: adv, rows: enriched };
+}
+function sevRank(s){ return s==='red'?3:s==='yellow'?2:1; }
+
+/* ======================================================
+   DASHBOARD
+   ====================================================== */
+function renderDash() {
+  const sel = document.getElementById('dashWeekSel');
+  if (!state.weeks.length) {
+    sel.innerHTML=''; document.getElementById('dashKpis').innerHTML='';
+    document.getElementById('adviceList').innerHTML = '<div class="empty">還沒有資料。先到「輸入本週數據」建立第一週。</div>';
+    document.getElementById('dashTable').innerHTML=''; return;
+  }
+  const cur = sel.value || state.weeks[state.weeks.length-1].label;
+  sel.innerHTML = state.weeks.map(w=>`<option ${w.label===cur?'selected':''}>${esc(w.label)}</option>`).join('');
+  drawDash(sel.value || cur);
+  sel.onchange = () => drawDash(sel.value);
+}
+function drawDash(label) {
+  const a = analyze(label); if (!a) return;
+  const { kpi, advices, rows } = a;
+  // KPI
+  const dCls = v => v==null?'flat':v>0?'up':v<0?'down':'flat';
+  document.getElementById('dashKpis').innerHTML = `
+    <div class="kpi"><div class="k">整體合計毛利率(加權)</div><div class="v">${fmtPct(kpi.blended)}</div>
+      <div class="d ${dCls(kpi.dBlended)}">${kpi.prevLabel? '週變化 '+fmtDelta(kpi.dBlended)+'%' : '無前一週可比'}</div></div>
+    <div class="kpi"><div class="k">總台數</div><div class="v">${kpi.units}</div>
+      <div class="d ${dCls(kpi.dUnits)}">${kpi.dUnits!=null?'週變化 '+fmtDelta(kpi.dUnits)+' 台':'—'}</div></div>
+    <div class="kpi"><div class="k">車種數</div><div class="v">${kpi.models}</div><div class="d flat">本週有數據</div></div>
+    <div class="kpi"><div class="k">需處理項目</div><div class="v">${advices.filter(x=>x.sev==='red').length}<span class="small muted"> 紅</span></div>
+      <div class="d flat">${advices.filter(x=>x.sev==='yellow').length} 黃 · ${advices.filter(x=>x.sev==='green').length} 綠</div></div>`;
+  // advices
+  const al = document.getElementById('adviceList');
+  al.innerHTML = advices.length ? advices.map(x=>`
+    <div class="advice ${x.sev}">
+      <div class="t"><span class="pill ${x.sev}">${x.sev==='red'?'●立即':x.sev==='yellow'?'●留意':'●加碼'}</span> ${esc(x.title)} ${x.tags.join(' ')}</div>
+      <div class="b">${x.body}</div>
+    </div>`).join('') : '<div class="empty">本週沒有觸發任何規則,狀況穩定 👍</div>';
+  // table
+  drawDashTable(rows);
+}
+function drawDashTable(rows) {
+  const t = document.getElementById('dashTable');
+  let h = `<tr><th>車種</th><th>台數</th><th>車輛%</th><th>配件%</th><th>合計%</th><th>週變化</th><th>在庫</th><th>去化週</th><th>燈號</th></tr>`;
+  rows.sort((a,b)=> b.units-a.units).forEach(r=>{
+    const light = r.marginTier==='neg'?'<span class="pill red">虧損</span>'
+      : (r.marginTier==='low'&&r.stockTier==='high')?'<span class="pill red">低利壓庫</span>'
+      : r.marginTier==='high'?'<span class="pill green">高利</span>'
+      : r.stockTier==='high'?'<span class="pill yellow">壓庫</span>':'<span class="muted small">—</span>';
+    const dcls = r.dTotal==null?'flat':r.dTotal>0?'up':r.dTotal<0?'down':'flat';
+    h += `<tr>
+      <td class="name">${esc(r.model)}</td>
+      <td>${r.units}</td>
+      <td>${fmtPct(r.veh)}</td>
+      <td>${fmtPct(r.part)}</td>
+      <td><b>${fmtPct(r.total)}</b></td>
+      <td class="${dcls}">${r.dTotal==null?'–':fmtDelta(r.dTotal)}</td>
+      <td>${r.stock==null?'–':r.stock}${r.age!=null?`<br><span class="small muted">${r.age}天</span>`:''}</td>
+      <td>${r.dos==null?'–':r.dos.toFixed(1)}</td>
+      <td>${light}</td>
+    </tr>`;
+  });
+  t.innerHTML = h;
+}
+
+/* ======================================================
+   TREND
+   ====================================================== */
+function renderTrend() {
+  drawBlendedChart();
+  const sel = document.getElementById('trendModelSel');
+  sel.innerHTML = state.models.map(m=>`<option>${esc(m)}</option>`).join('');
+  renderModelTrend();
+}
+function drawBlendedChart() {
+  const el = document.getElementById('trendChart');
+  if (state.weeks.length < 1) { el.innerHTML='<div class="empty">還沒有資料</div>'; return; }
+  const pts = state.weeks.map(w=>({ label:w.label, v:blended(w.rows) })).filter(p=>p.v!=null);
+  if (!pts.length){ el.innerHTML='<div class="empty">沒有可畫的毛利資料</div>'; return; }
+  el.innerHTML = lineChart(pts.map(p=>p.v), pts.map(p=>p.label), '%');
+}
+function renderModelTrend() {
+  const m = document.getElementById('trendModelSel').value;
+  const el = document.getElementById('modelTrend');
+  const pts = state.weeks.map(w=>{ const r=w.rows.find(x=>x.model===m); return { label:w.label, total:r?r.total:null, units:r?r.units:null }; });
+  const have = pts.filter(p=>p.total!=null);
+  if (have.length<1){ el.innerHTML='<div class="empty">此車種尚無資料</div>'; return; }
+  let h = lineChart(pts.map(p=>p.total==null?null:p.total), pts.map(p=>p.label), '%');
+  h += `<div class="tblwrap" style="margin-top:12px"><table><tr><th>週別</th><th>台數</th><th>合計毛利%</th></tr>`;
+  pts.forEach(p=>{ h+=`<tr><td class="name">${esc(p.label)}</td><td>${p.units==null?'–':p.units}</td><td>${fmtPct(p.total)}</td></tr>`; });
+  h += `</table></div>`;
+  el.innerHTML = h;
+}
+function lineChart(vals, labels, unit) {
+  const W=Math.max(520, labels.length*90), H=240, pad=40;
+  const nn = vals.filter(v=>v!=null);
+  if (!nn.length) return '<div class="empty">無資料</div>';
+  let min=Math.min(...nn), max=Math.max(...nn);
+  if (min===max){ min-=1; max+=1; } min=Math.min(min,0); const span=max-min||1;
+  const x=i=> pad + i*( (W-pad*2)/Math.max(1,labels.length-1) );
+  const y=v=> H-pad - ((v-min)/span)*(H-pad*2);
+  let path='', dots='', first=true;
+  vals.forEach((v,i)=>{ if(v==null)return; const px=x(i),py=y(v); path+=(first?'M':'L')+px+' '+py+' '; first=false;
+    dots+=`<circle cx="${px}" cy="${py}" r="4" fill="#eb0a1e"/><text class="lbl" x="${px}" y="${py-9}" text-anchor="middle">${v.toFixed(1)}</text>`; });
+  let grid='', ax='';
+  for(let g=0;g<=4;g++){ const gv=min+span*g/4, gy=y(gv); grid+=`<line class="grid" x1="${pad}" y1="${gy}" x2="${W-pad}" y2="${gy}"/><text class="lbl" x="6" y="${gy+4}">${gv.toFixed(1)}${unit}</text>`; }
+  labels.forEach((l,i)=>{ ax+=`<text class="lbl" x="${x(i)}" y="${H-pad+16}" text-anchor="middle">${esc(l).slice(0,10)}</text>`; });
+  return `<div class="tblwrap"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${grid}<path d="${path}" fill="none" stroke="#eb0a1e" stroke-width="2.5"/>${dots}${ax}</svg></div>`;
+}
+
+/* ======================================================
+   SETTINGS / BACKUP
+   ====================================================== */
+function renderSettings() {
+  document.getElementById('dealerName').value = state.dealer || '';
+  document.getElementById('modelsBox').value = state.models.join('\n');
+  const th = state.thresholds;
+  document.getElementById('thHigh').value = th.high;
+  document.getElementById('thLow').value = th.low;
+  document.getElementById('thStockHi').value = th.stockHi;
+  document.getElementById('thAge').value = th.age;
+  document.getElementById('thDrop').value = th.drop;
+}
+function saveSettings() {
+  state.dealer = document.getElementById('dealerName').value.trim() || '中部';
+  state.models = document.getElementById('modelsBox').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  save(); document.getElementById('dealerLabel').textContent = '經銷商:'+state.dealer;
+  toast('設定已儲存');
+}
+function resetModels(){ document.getElementById('modelsBox').value = DEFAULT_MODELS.join('\n'); }
+function saveThresholds() {
+  state.thresholds = {
+    high: num(document.getElementById('thHigh').value) ?? DEFAULT_TH.high,
+    low: num(document.getElementById('thLow').value) ?? DEFAULT_TH.low,
+    stockHi: num(document.getElementById('thStockHi').value) ?? DEFAULT_TH.stockHi,
+    age: num(document.getElementById('thAge').value) ?? DEFAULT_TH.age,
+    drop: num(document.getElementById('thDrop').value) ?? DEFAULT_TH.drop
+  };
+  save(); toast('門檻已儲存');
+}
+function exportData() {
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download = 'margin-advisor-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  toast('已匯出 JSON');
+}
+function importData(e) {
+  const f = e.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try { const s = JSON.parse(rd.result); state = { ...blankState(), ...s, thresholds:{...DEFAULT_TH,...(s.thresholds||{})} };
+      save(); document.getElementById('dealerLabel').textContent='經銷商:'+state.dealer; toast('已匯入資料'); renderDash();
+    } catch(err){ toast('匯入失敗:檔案格式錯誤'); }
+  };
+  rd.readAsText(f);
+}
+function wipeData() {
+  if (!confirm('確定清空全部資料?建議先匯出備份。')) return;
+  state = blankState(); save(); toast('已清空'); renderSettings(); renderDash();
+}
+
+/* ---------- init ---------- */
+document.getElementById('dealerLabel').textContent = '經銷商:'+(state.dealer||'中部');
+renderDash();
+</script>
+</body>
+</html>
