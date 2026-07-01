@@ -6,113 +6,79 @@
 <title>販促毛利週顧問 · TOYOTA 中部</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
-
   :root {
-    --bg: #0f1220;
-    --bg2: #161a2e;
-    --panel: #1c2138;
-    --panel2: #232a47;
-    --line: #2e3556;
-    --text: #e8ecff;
-    --muted: #9aa3c7;
-    --red: #eb0a1e;
-    --redsoft: #ff5c6b;
-    --green: #34d399;
-    --yellow: #fbbf24;
-    --blue: #60a5fa;
-    --shadow: 0 8px 24px rgba(0,0,0,.35);
+    --bg:#0f1220; --bg2:#161a2e; --panel:#1c2138; --panel2:#232a47; --line:#2e3556;
+    --text:#e8ecff; --muted:#9aa3c7; --red:#eb0a1e; --redsoft:#ff5c6b; --green:#34d399;
+    --yellow:#fbbf24; --blue:#60a5fa; --shadow:0 8px 24px rgba(0,0,0,.35);
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: var(--bg); color: var(--text); font-family: 'Noto Sans TC', system-ui, sans-serif; }
-  body { min-height: 100vh; padding-bottom: 60px; }
-  a { color: var(--blue); }
-
-  header {
-    position: sticky; top: 0; z-index: 20;
-    background: linear-gradient(180deg, #12152a, #0f1220);
-    border-bottom: 1px solid var(--line);
-    padding: 12px 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  }
-  header .brand { font-weight: 900; letter-spacing: .5px; font-size: 18px; }
-  header .brand b { color: var(--red); }
-  header .dealer { color: var(--muted); font-size: 13px; }
-  header .spacer { flex: 1; }
-  nav { display: flex; gap: 6px; flex-wrap: wrap; }
-  nav button {
-    background: var(--panel); color: var(--text); border: 1px solid var(--line);
-    padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500;
-  }
-  nav button.active { background: var(--red); border-color: var(--red); color: #fff; }
-  nav button:hover:not(.active) { background: var(--panel2); }
-
-  main { max-width: 1180px; margin: 0 auto; padding: 18px; }
-  .view { display: none; }
-  .view.active { display: block; }
-
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; box-shadow: var(--shadow); }
-  .card h2 { font-size: 16px; margin-bottom: 4px; }
-  .card .hint { color: var(--muted); font-size: 13px; margin-bottom: 12px; line-height: 1.6; }
-  h3.sec { font-size: 14px; color: var(--muted); margin: 16px 0 8px; font-weight: 700; }
-
-  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-  .row.mb { margin-bottom: 12px; }
-  label.fld { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
-  input, select, textarea {
-    background: var(--bg2); color: var(--text); border: 1px solid var(--line);
-    border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: inherit;
-  }
-  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--blue); }
-  textarea { width: 100%; min-height: 120px; resize: vertical; font-family: ui-monospace, monospace; font-size: 13px; }
-
-  button.btn { background: var(--red); color: #fff; border: none; padding: 9px 16px; border-radius: 9px; cursor: pointer; font-weight: 700; font-size: 14px; }
-  button.btn.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--line); font-weight: 500; }
-  button.btn.small { padding: 6px 11px; font-size: 13px; }
-  button.btn:hover { filter: brightness(1.08); }
-  button.link { background: none; border: none; color: var(--redsoft); cursor: pointer; font-size: 13px; text-decoration: underline; }
-
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: center; }
-  th { background: var(--panel2); color: var(--muted); font-weight: 700; position: sticky; top: 0; }
-  td.name { text-align: left; font-weight: 700; white-space: nowrap; }
-  table input { width: 100%; text-align: center; padding: 5px 4px; background: transparent; border: 1px solid transparent; border-radius: 6px; }
-  table input:focus { background: var(--bg2); border-color: var(--blue); }
-  .tblwrap { overflow-x: auto; border-radius: 10px; }
-
-  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-  .pill.red { background: rgba(235,10,30,.18); color: var(--redsoft); }
-  .pill.yellow { background: rgba(251,191,36,.15); color: var(--yellow); }
-  .pill.green { background: rgba(52,211,153,.15); color: var(--green); }
-  .pill.blue { background: rgba(96,165,250,.15); color: var(--blue); }
-
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-  .kpi { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  .kpi .k { font-size: 12px; color: var(--muted); }
-  .kpi .v { font-size: 24px; font-weight: 900; margin-top: 2px; }
-  .kpi .d { font-size: 12px; margin-top: 3px; }
-  .up { color: var(--green); } .down { color: var(--redsoft); } .flat { color: var(--muted); }
-
-  .advice { border-left: 4px solid var(--line); background: var(--panel2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
-  .advice.red { border-color: var(--red); }
-  .advice.yellow { border-color: var(--yellow); }
-  .advice.green { border-color: var(--green); }
-  .advice .t { font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .advice .b { color: var(--muted); font-size: 13px; line-height: 1.65; }
-  .advice .b b { color: var(--text); }
-
-  .muted { color: var(--muted); }
-  .small { font-size: 12px; }
-  .empty { color: var(--muted); text-align: center; padding: 40px 10px; }
-  .flexgrow { flex: 1; }
-  svg .grid { stroke: var(--line); stroke-width: 1; }
-  svg .lbl { fill: var(--muted); font-size: 11px; }
-  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
-
-  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line); padding: 10px 18px; border-radius: 10px; box-shadow: var(--shadow); z-index: 99; opacity: 0; transition: opacity .25s; pointer-events: none; }
-  .toast.show { opacity: 1; }
-  details { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: var(--panel2); }
-  details summary { cursor: pointer; font-weight: 700; font-size: 14px; }
-  ol.steps { margin: 10px 0 0 20px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { background:var(--bg); color:var(--text); font-family:'Noto Sans TC', system-ui, sans-serif; }
+  body { min-height:100vh; padding-bottom:60px; }
+  a { color:var(--blue); }
+  header { position:sticky; top:0; z-index:20; background:linear-gradient(180deg,#12152a,#0f1220);
+    border-bottom:1px solid var(--line); padding:12px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header .brand { font-weight:900; letter-spacing:.5px; font-size:18px; }
+  header .brand b { color:var(--red); }
+  header .dealer { color:var(--muted); font-size:13px; }
+  header .spacer { flex:1; }
+  nav { display:flex; gap:6px; flex-wrap:wrap; }
+  nav button { background:var(--panel); color:var(--text); border:1px solid var(--line);
+    padding:8px 14px; border-radius:10px; cursor:pointer; font-size:14px; font-weight:500; }
+  nav button.active { background:var(--red); border-color:var(--red); color:#fff; }
+  nav button:hover:not(.active) { background:var(--panel2); }
+  main { max-width:1180px; margin:0 auto; padding:18px; }
+  .view { display:none; } .view.active { display:block; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; box-shadow:var(--shadow); }
+  .card h2 { font-size:16px; margin-bottom:4px; }
+  .card .hint { color:var(--muted); font-size:13px; margin-bottom:12px; line-height:1.6; }
+  h3.sec { font-size:14px; color:var(--muted); margin:16px 0 8px; font-weight:700; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+  .row.mb { margin-bottom:12px; }
+  label.fld { display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--muted); }
+  input, select, textarea { background:var(--bg2); color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:8px 10px; font-size:14px; font-family:inherit; }
+  input:focus, textarea:focus, select:focus { outline:none; border-color:var(--blue); }
+  textarea { width:100%; min-height:90px; resize:vertical; font-family:ui-monospace, monospace; font-size:13px; }
+  button.btn { background:var(--red); color:#fff; border:none; padding:9px 16px; border-radius:9px; cursor:pointer; font-weight:700; font-size:14px; }
+  button.btn.ghost { background:var(--panel2); color:var(--text); border:1px solid var(--line); font-weight:500; }
+  button.btn.small { padding:6px 11px; font-size:13px; }
+  button.btn:hover { filter:brightness(1.08); }
+  button.link { background:none; border:none; color:var(--redsoft); cursor:pointer; font-size:13px; text-decoration:underline; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { border:1px solid var(--line); padding:6px 8px; text-align:center; }
+  th { background:var(--panel2); color:var(--muted); font-weight:700; }
+  td.name { text-align:left; font-weight:700; white-space:nowrap; }
+  table input { width:100%; text-align:center; padding:5px 4px; background:transparent; border:1px solid transparent; border-radius:6px; }
+  table input:focus { background:var(--bg2); border-color:var(--blue); }
+  .tblwrap { overflow-x:auto; border-radius:10px; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:700; }
+  .pill.red { background:rgba(235,10,30,.18); color:var(--redsoft); }
+  .pill.yellow { background:rgba(251,191,36,.15); color:var(--yellow); }
+  .pill.green { background:rgba(52,211,153,.15); color:var(--green); }
+  .pill.blue { background:rgba(96,165,250,.15); color:var(--blue); }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; }
+  .kpi { background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .kpi .k { font-size:12px; color:var(--muted); }
+  .kpi .v { font-size:24px; font-weight:900; margin-top:2px; }
+  .kpi .d { font-size:12px; margin-top:3px; }
+  .up { color:var(--green); } .down { color:var(--redsoft); } .flat { color:var(--muted); }
+  .advice { border-left:4px solid var(--line); background:var(--panel2); border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+  .advice.red { border-color:var(--red); } .advice.yellow { border-color:var(--yellow); } .advice.green { border-color:var(--green); }
+  .advice .t { font-weight:700; margin-bottom:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .advice .b { color:var(--muted); font-size:13px; line-height:1.65; }
+  .advice .b b { color:var(--text); }
+  .muted { color:var(--muted); } .small { font-size:12px; }
+  .empty { color:var(--muted); text-align:center; padding:40px 10px; }
+  .flexgrow { flex:1; }
+  svg .grid { stroke:var(--line); stroke-width:1; }
+  svg .lbl { fill:var(--muted); font-size:11px; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--panel2);
+    border:1px solid var(--line); padding:10px 18px; border-radius:10px; box-shadow:var(--shadow); z-index:99; opacity:0; transition:opacity .25s; pointer-events:none; }
+  .toast.show { opacity:1; }
+  details { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px; background:var(--panel2); }
+  details summary { cursor:pointer; font-weight:700; font-size:14px; }
+  ol.steps { margin:10px 0 0 20px; color:var(--muted); font-size:13px; line-height:1.8; }
+  .blockhd { font-size:15px; font-weight:900; margin-bottom:6px; }
 </style>
 </head>
 <body>
@@ -134,20 +100,16 @@
   <section id="view-dash" class="view active">
     <div class="card">
       <div class="row mb">
-        <label class="fld flexgrow">選擇要檢視的週別
-          <select id="dashWeekSel"></select>
-        </label>
+        <label class="fld flexgrow">選擇要檢視的週別 <select id="dashWeekSel"></select></label>
         <span id="dashStrat" class="pill blue" style="align-self:flex-end"></span>
       </div>
       <div id="dashKpis" class="kpis"></div>
     </div>
-
     <div class="card">
       <h2>本週販促調整建議</h2>
-      <div class="hint">依「毛利率 × 在庫壓力 × 目標達成 × 週對週變化」分析後排序,紅 = 要立刻處理,黃 = 留意,綠 = 可加碼。</div>
+      <div class="hint">三源合一分析:<b>毛利 × 受訂進度 × 在庫充足率</b> + 月計畫。紅 = 立即處理,黃 = 留意,綠 = 加碼/機會。</div>
       <div id="adviceList"></div>
     </div>
-
     <div class="card">
       <h2>本週各車種明細</h2>
       <div class="tblwrap"><table id="dashTable"></table></div>
@@ -158,66 +120,33 @@
   <section id="view-entry" class="view">
     <div class="card">
       <h2>輸入本週數據</h2>
-      <div class="hint">三種輸入方式擇一,資料都會落到下方表格,你可以直接在格子裡修改。存檔後自動保存在本機瀏覽器。</div>
+      <div class="hint">每週三個區塊,來源不同分開輸入。三種方式(貼上 / Excel / 手動)皆可,存檔後保存在本機。</div>
       <div class="row mb">
-        <label class="fld">週別標籤
-          <input id="weekLabel" placeholder="例:2026-06 W1">
-        </label>
-        <label class="fld">資料截止日
-          <input id="weekDate" type="date">
-        </label>
+        <label class="fld">週別標籤 <input id="weekLabel" placeholder="例:2026-06 W1"></label>
+        <label class="fld">資料截止日 <input id="weekDate" type="date"></label>
+        <label class="fld">本月時間進度%(選填,如第3週約75) <input id="weekPace" type="number" step="1" style="width:90px" placeholder="75"></label>
       </div>
 
       <details>
-        <summary>方式 A ｜ 貼上表格(最可靠,建議用這個)</summary>
+        <summary>上傳 Excel(自動對應欄位,可選要匯入哪個區塊)</summary>
         <ol class="steps">
-          <li>把每週出表中「你自己分公司(中部)」那幾欄複製,或把我在對話裡幫你轉好的 CSV 貼進來。</li>
-          <li>每行格式(用逗號或 Tab 分隔):<code>車種, 台數, 車輛毛利%, 配件毛利%, 合計毛利%, 在庫台數(選填), 車齡天(選填)</code></li>
-        </ol>
-        <textarea id="pasteBox" placeholder="RAV4 HV, 465, 6.3, 0.6, 6.8, 40, 55&#10;Y CROSS, 365, 0.6, -0.2, 0.5, 120, 95&#10;TOWN ACE, 143, -1.7, -0.3, -2.0, 30, 40"></textarea>
-        <div class="row" style="margin-top:8px">
-          <button class="btn small" onclick="importPaste()">解析並填入下方表格</button>
-          <span class="muted small">% 只填數字,不用打 %;負值直接打 -1.7</span>
-        </div>
-      </details>
-
-      <details>
-        <summary>方式 B ｜ 上傳圖片自動辨識(免費草稿,務必核對)</summary>
-        <ol class="steps">
-          <li>免費的瀏覽器 OCR 對這種密集表格準確率有限,辨識結果只是<b>草稿</b>,一定要逐格核對。</li>
-          <li>建議把圖片<b>裁切成只剩中部那幾欄</b>再上傳,準確率會高很多。</li>
-          <li>最準的方式:把整張圖丟到我們的對話,我幫你轉成 CSV 再用方式 A 貼上。</li>
+          <li>支援 .xlsx / .xls / .csv。每份報表欄位不同沒關係,系統會<b>自動猜對應</b>,你確認一次即可。</li>
+          <li>先選「匯入到哪個區塊」,再讀取。對好的對應可<b>存成範本</b>下次自動套用。</li>
         </ol>
         <div class="row">
-          <input id="imgInput" type="file" accept="image/*">
-          <button class="btn small ghost" id="ocrBtn" onclick="runOcr()">開始辨識</button>
-          <span id="ocrStatus" class="muted small"></span>
-        </div>
-      </details>
-
-      <details>
-        <summary>方式 D ｜ 上傳 Excel(自動對應欄位,推薦)</summary>
-        <ol class="steps">
-          <li>支援 .xlsx / .xls / .csv。每份報表欄位不同沒關係 — 系統會<b>自動猜欄位對應</b>,你確認一次即可。</li>
-          <li>對好的對應可<b>存成範本</b>,下次同類報表自動套用,不用重設。</li>
-        </ol>
-        <div class="row">
+          <label class="fld small">匯入到 <select id="excelBlockSel"></select></label>
           <input id="excelInput" type="file" accept=".xlsx,.xls,.csv">
-          <label class="fld small">標題列在第幾列
-            <input id="headerRow" type="number" value="1" min="1" style="width:70px">
-          </label>
+          <label class="fld small">標題列在第幾列 <input id="headerRow" type="number" value="1" min="1" style="width:70px"></label>
           <button class="btn small ghost" onclick="importExcel()">讀取 Excel</button>
           <span id="excelStatus" class="muted small"></span>
         </div>
         <div id="mapPanel" style="margin-top:12px"></div>
       </details>
 
-      <h3 class="sec">方式 C ｜ 直接在表格輸入 / 校對</h3>
-      <div class="tblwrap"><table id="entryTable"></table></div>
+      <div id="blocks"></div>
+
       <div class="row" style="margin-top:12px">
-        <button class="btn" onclick="saveWeek()">儲存本週數據</button>
-        <button class="btn ghost small" onclick="addEntryRow()">+ 新增一列車種</button>
-        <button class="btn ghost small" onclick="loadModelsIntoEntry()">帶入車種清單</button>
+        <button class="btn" onclick="saveWeek()">儲存本週三區塊</button>
         <span id="entryMsg" class="muted small"></span>
       </div>
     </div>
@@ -227,12 +156,8 @@
   <section id="view-plan" class="view">
     <div class="card">
       <h2>月度販促案</h2>
-      <div class="hint">月初先設定本月「每台車的角色與目標」。<b>目標毛利%</b>=你希望這台守住的合計毛利;<b>全體(基準)%</b>=出表上「全體毛利」欄同款的數字(拿來當標竿,看你落後多少)。兩欄選填,但填了建議就會給你具體的「該拉到幾 %」。</div>
-      <div class="row mb">
-        <label class="fld">計畫月份
-          <input id="planMonth" placeholder="例:2026-06">
-        </label>
-      </div>
+      <div class="hint">月初設定每台車的角色與目標。<b>目標毛利%</b>=希望守住的合計毛利;<b>全體(基準)%</b>=標竿;<b>月目標台數</b>會被受訂進度分析引用。<b>預計販促條件</b>寫讓利額度/贈品/獎勵。</div>
+      <div class="row mb"><label class="fld">計畫月份 <input id="planMonth" placeholder="例:2026-06"></label></div>
       <div class="tblwrap"><table id="planTable"></table></div>
       <div class="row" style="margin-top:12px">
         <button class="btn" onclick="savePlan()">儲存月度計畫</button>
@@ -246,16 +171,12 @@
   <section id="view-trend" class="view">
     <div class="card">
       <h2>整體合計毛利率 · 週趨勢</h2>
-      <div class="hint">加權平均毛利率(以台數加權)隨週別的變化。守住這條線,才是讓利策略成不成功的總指標。</div>
+      <div class="hint">加權平均毛利率(以台數加權)隨週別變化。守住這條線,是讓利策略成敗的總指標。</div>
       <div id="trendChart"></div>
     </div>
     <div class="card">
       <h2>單一車種趨勢</h2>
-      <div class="row mb">
-        <label class="fld">選擇車種
-          <select id="trendModelSel" onchange="renderModelTrend()"></select>
-        </label>
-      </div>
+      <div class="row mb"><label class="fld">選擇車種 <select id="trendModelSel" onchange="renderModelTrend()"></select></label></div>
       <div id="modelTrend"></div>
     </div>
   </section>
@@ -265,18 +186,14 @@
     <div class="card">
       <h2>基本設定</h2>
       <div class="row mb">
-        <label class="fld">經銷商名稱
-          <input id="dealerName" placeholder="中部">
-        </label>
-        <label class="fld">策略模式(決定建議的排序與讓利力道)
-          <select id="strategySel" style="min-width:180px"></select>
-        </label>
+        <label class="fld">經銷商名稱 <input id="dealerName" placeholder="中部"></label>
+        <label class="fld">策略模式 <select id="strategySel" style="min-width:180px"></select></label>
       </div>
       <div class="hint" id="strategyHint"></div>
       <h3 class="sec">車種主檔(一行一個)</h3>
       <textarea id="modelsBox"></textarea>
       <h3 class="sec">比較分公司(標竿,一行一個)</h3>
-      <div class="hint">要拿來跟你比較毛利的對象。放「全體」就跟全公司平均比;再加其他分公司就能算在八大中的排名、判斷你毛利過低或過高。每週數據會多出這些欄位可輸入(Excel 可一次匯入)。</div>
+      <div class="hint">跟你比較毛利的對象。放「全體」跟全公司平均比;加其他分公司可算八大排名、判斷過低/過高。毛利區塊會多出這些欄位。</div>
       <textarea id="peersBox" style="min-height:80px"></textarea>
       <div class="row" style="margin-top:8px">
         <button class="btn ghost small" onclick="loadEightDealers()">一鍵帶入八大經銷商(排除我方)</button>
@@ -286,41 +203,30 @@
         <button class="btn ghost small" onclick="resetModels()">還原預設車種清單</button>
       </div>
     </div>
-
     <div class="card">
       <h2>分析門檻(進階,可微調)</h2>
-      <div class="hint">這些門檻決定燈號怎麼判。不確定就先用預設值。</div>
+      <div class="hint">決定燈號怎麼判。不確定就用預設值。</div>
       <div class="row mb">
-        <label class="fld">高毛利門檻 % (≥)
-          <input id="thHigh" type="number" step="0.1" style="width:90px">
-        </label>
-        <label class="fld">低毛利門檻 % (≤)
-          <input id="thLow" type="number" step="0.1" style="width:90px">
-        </label>
-        <label class="fld">在庫壓力:去化週數高 (≥)
-          <input id="thStockHi" type="number" step="0.5" style="width:90px">
-        </label>
-        <label class="fld">車齡壓力 天 (≥)
-          <input id="thAge" type="number" step="1" style="width:90px">
-        </label>
-        <label class="fld">毛利週跌幅警示 % (≥)
-          <input id="thDrop" type="number" step="0.1" style="width:90px">
-        </label>
-        <label class="fld">整體目標毛利率 % (要守住)
-          <input id="thTarget" type="number" step="0.1" style="width:110px">
-        </label>
+        <label class="fld">高毛利門檻 % (≥) <input id="thHigh" type="number" step="0.1" style="width:90px"></label>
+        <label class="fld">低毛利門檻 % (≤) <input id="thLow" type="number" step="0.1" style="width:90px"></label>
+        <label class="fld">整體目標毛利率 % <input id="thTarget" type="number" step="0.1" style="width:100px"></label>
+        <label class="fld">毛利週跌幅警示 % (≥) <input id="thDrop" type="number" step="0.1" style="width:90px"></label>
+      </div>
+      <div class="row mb">
+        <label class="fld">充足率偏低門檻 % (＜=缺車) <input id="thAdqLow" type="number" step="1" style="width:110px"></label>
+        <label class="fld">充足率偏高門檻 % (＞=過剩) <input id="thAdqHigh" type="number" step="1" style="width:110px"></label>
+        <label class="fld">去化週數高 (≥) <input id="thStockHi" type="number" step="0.5" style="width:90px"></label>
+        <label class="fld">車齡壓力 天 (≥) <input id="thAge" type="number" step="1" style="width:90px"></label>
       </div>
       <button class="btn small" onclick="saveThresholds()">儲存門檻</button>
     </div>
-
     <div class="card">
       <h2>資料備份 / 還原</h2>
-      <div class="hint">資料存在這台瀏覽器。想換裝置、多人共用或備份,用匯出 JSON;要還原就匯入。</div>
+      <div class="hint">資料存在這台瀏覽器。換裝置/備份用匯出 JSON;還原就匯入。</div>
       <div class="row">
         <button class="btn small" onclick="exportData()">匯出全部資料 (JSON)</button>
         <label class="btn small ghost" style="cursor:pointer">匯入 JSON
-          <input type="file" accept="application/json" style="display:none" onchange="importData(event)">
-        </label>
+          <input type="file" accept="application/json" style="display:none" onchange="importData(event)"></label>
         <button class="btn small ghost" onclick="wipeData()">清空全部資料</button>
       </div>
     </div>
@@ -331,7 +237,8 @@
 
 <script>
 /* ============================================================
-   販促毛利週顧問 — 純前端,資料存 localStorage,可匯出 JSON
+   販促毛利週顧問 v2 — 三源合一(毛利/受訂進度/在庫充足率)
+   純前端,資料存 localStorage,可匯出 JSON
    ============================================================ */
 const LS_KEY = 'margin_advisor_v1';
 const DEFAULT_MODELS = [
@@ -340,40 +247,59 @@ const DEFAULT_MODELS = [
   'L CRUISER','PRIUS PHV','RAV4 HV','RAV4 PHV','SIENNA HV','SUPRA',
   'TOWN ACE','TOWN ACE V','U CRUISER','VIOS','Y CROSS'
 ];
-const DEFAULT_TH = { high: 5, low: 2, stockHi: 8, age: 90, drop: 1.0, targetBlended: 3.0 };
-const DEALERS_8 = ['國都','北都','桃苗','中部','南都','高都','蘭揚','東部']; // TOYOTA 八大經銷商
-const DEFAULT_PEERS = ['全體','國都','北都','桃苗','南都','高都','蘭揚','東部']; // 全體 + 我方(中部)以外七家
+const DEFAULT_TH = { high:5, low:2, stockHi:8, age:90, drop:1.0, targetBlended:3.0, adqLow:80, adqHigh:130 };
+const DEALERS_8 = ['國都','北都','桃苗','中部','南都','高都','蘭揚','東部'];
+const DEFAULT_PEERS = ['全體','國都','北都','桃苗','南都','高都','蘭揚','東部'];
 const PLAN_ROLES = ['衝量(可讓利)','守毛利','清庫存','維持','觀察'];
-const STRATEGIES = {
-  balanced: '① 平衡加權',
-  progress: '② 進度優先',
-  margin:   '③ 毛利優先',
-  profit:   '④ 獲利金額優先'
+const STRATEGIES = { balanced:'① 平衡加權', progress:'② 進度優先', margin:'③ 毛利優先', profit:'④ 獲利金額優先' };
+// 三個區塊的欄位定義(model 另外處理;fields 順序同時作為自動對應的優先序)
+const BLOCKS = {
+  margin: { label:'① 本週毛利', peers:true, paste:'車種, 台數, 車輛%, 配件%, 合計% [, 全體%, 國都%...]',
+    fields:[{key:'units',label:'台數'},{key:'veh',label:'車輛%'},{key:'part',label:'配件%'},{key:'total',label:'合計%'}] },
+  orders: { label:'② 本週受訂進度', peers:false, paste:'車種, 累計受訂, 月目標, 達成率% [, 本週新增]',
+    fields:[{key:'ordered',label:'累計受訂'},{key:'target',label:'月目標'},{key:'rate',label:'達成率%'},{key:'weekAdd',label:'本週新增'}] },
+  stock:  { label:'③ 本週在庫與充足率', peers:false, paste:'車種, 在庫台數, 充足率% [, 車齡天]',
+    fields:[{key:'stock',label:'在庫台'},{key:'adequacy',label:'充足率%'},{key:'age',label:'車齡天'}] }
 };
-// 標準欄位:任何 Excel 都對應到這一套(解決欄位每次不同)
-const CANON = [
-  { key:'model',  label:'車種 ★必要' },
-  { key:'units',  label:'實際台數' },
-  { key:'total',  label:'合計毛利%' },
-  { key:'veh',    label:'車輛毛利%' },
-  { key:'part',   label:'配件毛利%' },
-  { key:'stock',  label:'在庫台數' },
-  { key:'age',    label:'車齡天' },
-  { key:'bench',  label:'全體(基準)毛利%' },
-  { key:'target', label:'月目標台數' }
-];
+const GUESS_RULES = {
+  model:/車種|車系|車型|車款|品名|型號|model/i,
+  units:/交車|掛牌|領牌|銷售台|台數|銷量|數量|units|sales/i,
+  veh:/車輛|車體|新車.*毛利|vehicle/i,
+  part:/配件|精品|用品|accessor/i,
+  total:/合計|總毛利|毛利率|gross|margin|^毛利$/i,
+  ordered:/受訂|接單|訂單|order/i,
+  target:/目標|預算|配額|target|quota/i,
+  rate:/達成|進度|完成率|達成率|達成比|rate/i,
+  weekAdd:/本週|週增|新增受訂|weekly/i,
+  stock:/在庫|庫存|停放|stock|inventory/i,
+  adequacy:/充足|水位|adequa/i,
+  age:/車齡|庫齡|天數|days|age/i
+};
 
 let state = load();
 
 function blankState() {
-  return { dealer: '中部', models: [...DEFAULT_MODELS], thresholds: {...DEFAULT_TH}, plan: { month: '', items: {} }, weeks: [], strategy: 'balanced', mappings: {}, peers: [...DEFAULT_PEERS] };
+  return { dealer:'中部', models:[...DEFAULT_MODELS], thresholds:{...DEFAULT_TH}, plan:{month:'',items:{}},
+    weeks:[], strategy:'balanced', mappings:{}, peers:[...DEFAULT_PEERS] };
+}
+function migrateWeek(w) {
+  if (w.margin) { w.orders=w.orders||[]; w.stock=w.stock||[]; return; }
+  if (w.rows) { // 舊版單表 → 拆成毛利 + 在庫
+    w.margin = w.rows.map(r=>({model:r.model, units:r.units, veh:r.veh, part:r.part, total:r.total, peers:r.peers||{}}));
+    w.stock  = w.rows.filter(r=>r.stock!=null||r.age!=null).map(r=>({model:r.model, stock:r.stock, adequacy:null, age:r.age}));
+    w.orders = []; delete w.rows;
+  } else { w.margin=[]; w.orders=[]; w.stock=[]; }
 }
 function load() {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return blankState();
     const s = JSON.parse(raw);
-    return { ...blankState(), ...s, thresholds: { ...DEFAULT_TH, ...(s.thresholds||{}) } };
+    const st = { ...blankState(), ...s, thresholds:{...DEFAULT_TH, ...(s.thresholds||{})} };
+    const needMig = (st.weeks||[]).some(w=>!w.margin);
+    (st.weeks||[]).forEach(migrateWeek);
+    if (needMig) localStorage.setItem(LS_KEY, JSON.stringify(st));  // 持久化升級後格式
+    return st;
   } catch(e) { return blankState(); }
 }
 function save() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
@@ -383,9 +309,11 @@ function toast(msg) {
   t.textContent = msg; t.classList.add('show');
   clearTimeout(t._to); t._to = setTimeout(()=>t.classList.remove('show'), 2200);
 }
-const num = v => { const n = parseFloat(String(v).replace(/[%,\s]/g,'')); return isNaN(n) ? null : n; };
-const fmtPct = v => v==null ? '–' : (v>0?'':'') + v.toFixed(1) + '%';
-const fmtDelta = v => v==null ? '' : (v>0?'▲':v<0?'▼':'—') + Math.abs(v).toFixed(1);
+const num = v => { const n = parseFloat(String(v==null?'':v).replace(/[%,\s]/g,'')); return isNaN(n)?null:n; };
+const esc = s => String(s==null?'':s).replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const fmtPct = v => v==null ? '–' : v.toFixed(1)+'%';
+const fmtDelta = v => v==null ? '' : (v>0?'▲':v<0?'▼':'—')+Math.abs(v).toFixed(1);
+function peerList(){ return (state.peers && state.peers.length) ? state.peers : []; }
 
 /* ---------- Navigation ---------- */
 document.getElementById('nav').addEventListener('click', e => {
@@ -403,298 +331,247 @@ document.getElementById('nav').addEventListener('click', e => {
 });
 
 /* ======================================================
-   ENTRY (輸入本週數據)
+   ENTRY (三個區塊)
    ====================================================== */
-let entryRows = [];
-
+var E = { margin:[], orders:[], stock:[] };
+function emptyRow(block, model) {
+  const r = { model: model||'' };
+  BLOCKS[block].fields.forEach(f => r[f.key] = '');
+  if (BLOCKS[block].peers) r.peers = {};
+  return r;
+}
 function renderEntry() {
-  if (!document.getElementById('weekLabel').value) {
-    const d = new Date();
-    document.getElementById('weekDate').value = d.toISOString().slice(0,10);
-  }
-  if (entryRows.length === 0) loadModelsIntoEntry();
-  else drawEntryTable();
+  if (!document.getElementById('weekDate').value)
+    document.getElementById('weekDate').value = new Date().toISOString().slice(0,10);
+  // Excel 區塊選單
+  const es = document.getElementById('excelBlockSel');
+  if (es && !es.options.length) es.innerHTML = Object.entries(BLOCKS).map(([k,b])=>`<option value="${k}">${b.label}</option>`).join('');
+  const empty = !E.margin.length && !E.orders.length && !E.stock.length;
+  if (empty) Object.keys(BLOCKS).forEach(b => E[b] = state.models.map(m => emptyRow(b, m)));
+  drawBlocks();
 }
-function peerList() { return (state.peers && state.peers.length) ? state.peers : []; }
-function loadModelsIntoEntry() {
-  entryRows = state.models.map(m => ({ model:m, units:'', veh:'', part:'', total:'', stock:'', age:'', peers:{} }));
-  drawEntryTable();
-}
-function addEntryRow() { entryRows.push({ model:'', units:'', veh:'', part:'', total:'', stock:'', age:'', peers:{} }); drawEntryTable(); }
-function setPeer(i, name, v) { entryRows[i].peers = entryRows[i].peers || {}; entryRows[i].peers[name] = v; }
+function loadModelsBlock(block){ E[block] = state.models.map(m=>emptyRow(block,m)); drawBlock(block); }
+function addRow(block){ E[block].push(emptyRow(block)); drawBlock(block); }
+function delRow(block,i){ E[block].splice(i,1); drawBlock(block); }
+function setCell(block,i,key,v){ E[block][i][key]=v; }
+function setPeerCell(block,i,name,v){ E[block][i].peers = E[block][i].peers||{}; E[block][i].peers[name]=v; }
 
-function drawEntryTable() {
-  const t = document.getElementById('entryTable');
-  const peers = peerList();
-  const peerTh = peers.map(n=>`<th>${esc(n)}<br><span class="small muted">合計%</span></th>`).join('');
-  let h = `<tr><th>車種</th><th>台數</th><th>車輛%</th><th>配件%</th><th>合計%</th><th>在庫台</th><th>車齡天</th>${peerTh}<th></th></tr>`;
-  entryRows.forEach((r,i)=>{
+function drawBlocks(){
+  document.getElementById('blocks').innerHTML = Object.keys(BLOCKS).map(b=>`
+    <div class="card" style="background:var(--panel2)">
+      <div class="blockhd">${BLOCKS[b].label}</div>
+      <details style="background:var(--panel)"><summary>貼上(格式:${esc(BLOCKS[b].paste)})</summary>
+        <textarea id="paste-${b}" placeholder="每行一台車,逗號或 Tab 分隔"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn small" onclick="parsePaste('${b}')">解析並填入</button>
+          <span class="muted small">% 只填數字,負值直接打 -1.7</span>
+        </div>
+      </details>
+      <div class="tblwrap"><table id="grid-${b}"></table></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn ghost small" onclick="addRow('${b}')">+ 新增一列</button>
+        <button class="btn ghost small" onclick="loadModelsBlock('${b}')">帶入車種清單</button>
+        ${b==='margin'?`<input id="imgInput" type="file" accept="image/*" style="max-width:180px"><button class="btn ghost small" onclick="runOcr()">圖片辨識(草稿)</button><span id="ocrStatus" class="muted small"></span>`:''}
+      </div>
+    </div>`).join('');
+  Object.keys(BLOCKS).forEach(drawBlock);
+}
+function drawBlock(block){
+  const t = document.getElementById('grid-'+block); if (!t) return;
+  const fields = BLOCKS[block].fields;
+  const peers = BLOCKS[block].peers ? peerList() : [];
+  const th = `<th>車種</th>` + fields.map(f=>`<th>${f.label}</th>`).join('')
+    + peers.map(n=>`<th>${esc(n)}<br><span class="small muted">合計%</span></th>`).join('') + `<th></th>`;
+  let h = `<tr>${th}</tr>`;
+  E[block].forEach((r,i)=>{
     r.peers = r.peers || {};
-    const peerTd = peers.map(n=>`<td><input value="${esc(r.peers[n]??'')}" data-peer="${esc(n)}" oninput="setPeer(${i}, this.dataset.peer, this.value)"></td>`).join('');
+    const cells = fields.map(f=>`<td><input value="${esc(r[f.key])}" oninput="setCell('${block}',${i},'${f.key}',this.value)"></td>`).join('');
+    const pcells = peers.map(n=>`<td><input value="${esc(r.peers[n]??'')}" data-peer="${esc(n)}" oninput="setPeerCell('${block}',${i},this.dataset.peer,this.value)"></td>`).join('');
     h += `<tr>
-      <td class="name"><input value="${esc(r.model)}" oninput="entryRows[${i}].model=this.value"></td>
-      <td><input value="${esc(r.units)}" oninput="entryRows[${i}].units=this.value"></td>
-      <td><input value="${esc(r.veh)}" oninput="entryRows[${i}].veh=this.value"></td>
-      <td><input value="${esc(r.part)}" oninput="entryRows[${i}].part=this.value"></td>
-      <td><input value="${esc(r.total)}" oninput="entryRows[${i}].total=this.value"></td>
-      <td><input value="${esc(r.stock)}" oninput="entryRows[${i}].stock=this.value"></td>
-      <td><input value="${esc(r.age)}" oninput="entryRows[${i}].age=this.value"></td>
-      ${peerTd}
-      <td><button class="link" onclick="entryRows.splice(${i},1);drawEntryTable()">刪</button></td>
+      <td class="name"><input value="${esc(r.model)}" oninput="setCell('${block}',${i},'model',this.value)"></td>
+      ${cells}${pcells}
+      <td><button class="link" onclick="delRow('${block}',${i})">刪</button></td>
     </tr>`;
   });
   t.innerHTML = h;
 }
-function esc(s){ return String(s==null?'':s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-
-function importPaste() {
-  const raw = document.getElementById('pasteBox').value.trim();
-  if (!raw) { toast('請先貼上資料'); return; }
-  const lines = raw.split(/\r?\n/).filter(l=>l.trim());
-  const parsed = [];
-  for (const line of lines) {
-    const parts = line.split(/\t|,/).map(s=>s.trim());
-    if (parts.length < 2) continue;
-    if (/車種|台數|合計|model/i.test(parts[0]) && num(parts[1])==null) continue; // header
-    const peers = {}; peerList().forEach((n,k)=>{ if (parts[7+k]!=null && parts[7+k]!=='') peers[n]=parts[7+k]; });
-    parsed.push({ model:parts[0], units:parts[1]||'', veh:parts[2]||'', part:parts[3]||'', total:parts[4]||'', stock:parts[5]||'', age:parts[6]||'', peers });
+function parsePaste(block){
+  const raw = (document.getElementById('paste-'+block).value||'').trim();
+  if (!raw){ toast('請先貼上資料'); return; }
+  const fields = BLOCKS[block].fields.map(f=>f.key);
+  const peers = BLOCKS[block].peers ? peerList() : [];
+  const out = [];
+  raw.split(/\r?\n/).filter(l=>l.trim()).forEach(line=>{
+    const p = line.split(/\t|,/).map(s=>s.trim());
+    if (p.length<2) return;
+    if (/車種|台數|合計|受訂|在庫|model/i.test(p[0]) && num(p[1])==null) return; // header
+    const r = { model:p[0] };
+    fields.forEach((k,j)=> r[k] = p[1+j]!=null ? p[1+j] : '');
+    if (peers.length){ r.peers={}; peers.forEach((n,z)=>{ const v=p[1+fields.length+z]; if(v!=null&&v!=='') r.peers[n]=v; }); }
+    out.push(r);
+  });
+  if (!out.length){ toast('沒解析到資料,檢查格式'); return; }
+  E[block] = out; drawBlock(block);
+  toast('解析 '+out.length+' 列,請核對');
+}
+function cleanRow(block, r){
+  if (!String(r.model||'').trim()) return null;
+  const o = { model:String(r.model).trim() };
+  let any = false;
+  BLOCKS[block].fields.forEach(f=>{ const v=num(r[f.key]); o[f.key]=v; if(v!=null) any=true; });
+  if (block==='margin'){
+    if (o.total==null && (o.veh!=null||o.part!=null)) o.total=(o.veh||0)+(o.part||0);
+    o.units = o.units||0;
+    o.peers = {}; if (r.peers) Object.keys(r.peers).forEach(n=>{ const v=num(r.peers[n]); if(v!=null){o.peers[n]=v; any=true;} });
   }
-  if (!parsed.length) { toast('沒解析到資料,檢查格式'); return; }
-  entryRows = parsed; drawEntryTable();
-  toast('解析出 '+parsed.length+' 列,請核對後儲存');
+  if (block==='orders' && o.rate==null && o.ordered!=null && o.target) o.rate = +(o.ordered/o.target*100).toFixed(1);
+  return any ? o : null;
+}
+function saveWeek(){
+  const label = document.getElementById('weekLabel').value.trim();
+  if (!label){ toast('請填週別標籤'); return; }
+  const wk = { label, date:document.getElementById('weekDate').value, pace:document.getElementById('weekPace').value,
+    margin:[], orders:[], stock:[] };
+  let total = 0;
+  Object.keys(BLOCKS).forEach(b=>{ wk[b] = E[b].map(r=>cleanRow(b,r)).filter(Boolean); total += wk[b].length; });
+  if (!total){ toast('三個區塊至少要有一筆資料'); return; }
+  const idx = state.weeks.findIndex(w=>w.label===label);
+  if (idx>=0) state.weeks[idx]=wk; else state.weeks.push(wk);
+  state.weeks.sort((a,b)=> (a.date||'').localeCompare(b.date||'') || a.label.localeCompare(b.label));
+  save();
+  document.getElementById('entryMsg').textContent = `已儲存 ${label}(毛利 ${wk.margin.length} / 受訂 ${wk.orders.length} / 在庫 ${wk.stock.length})`;
+  toast('已儲存 '+label);
 }
 
-/* ---------- Excel 匯入 + 欄位對應(通用架構) ---------- */
-let sheetLoaded = false; var _excelAoa = null;
-function loadSheetJS() {
-  return new Promise((resolve, reject) => {
-    if (sheetLoaded && window.XLSX) return resolve();
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-    s.onload = () => { sheetLoaded = true; resolve(); };
-    s.onerror = () => reject(new Error('無法載入 Excel 函式庫(需要網路)'));
+/* ---------- Excel 匯入(區塊感知) ---------- */
+let sheetLoaded=false; var _excelAoa=null;
+function loadSheetJS(){
+  return new Promise((res,rej)=>{
+    if (sheetLoaded && window.XLSX) return res();
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload=()=>{sheetLoaded=true;res();}; s.onerror=()=>rej(new Error('無法載入 Excel 函式庫(需要網路)'));
     document.head.appendChild(s);
   });
 }
-// 依關鍵字自動猜欄位對應(先具體、後通用,避免搶欄)
-function guessMapping(headers) {
-  const rules = {
-    model:/車種|車系|車型|車款|品名|型號|model/i,
-    bench:/全體|全公司|全區|平均|基準|bench/i,
-    veh:/車輛|車體|新車.*毛利|vehicle/i,
-    part:/配件|精品|用品|accessor/i,
-    total:/合計|總毛利|毛利率|gross|margin|^毛利$/i,
-    units:/台數|銷量|銷售|數量|掛牌|領牌|交車|qty|sales|units/i,
-    target:/目標|預算|配額|target|quota/i,
-    stock:/在庫|庫存|stock|inventory/i,
-    age:/車齡|庫齡|停放|天數|days|age/i
-  };
-  const map = {}, used = new Set();
-  for (const key of ['model','bench','veh','part','total','units','target','stock','age']) {
-    for (const h of headers) {
-      if (used.has(h)) continue;
-      if (rules[key] && rules[key].test(String(h))) { map[key] = h; used.add(h); break; }
-    }
-  }
+function guessMapping(headers, block){
+  const order = ['model', ...BLOCKS[block].fields.map(f=>f.key)];
+  const map={}, used=new Set();
+  order.forEach(key=>{ const re=GUESS_RULES[key]; if(!re) return;
+    for(const hd of headers){ if(used.has(hd)) continue; if(re.test(String(hd))){ map[key]=hd; used.add(hd); break; } } });
   return map;
 }
-// 把原始列 + 對應 → 標準化列
-function applyMapping(rows, map) {
-  return rows.map(row => {
-    const o = {};
-    for (const key in map) o[key] = map[key]!=null && map[key]!=='' ? row[map[key]] : '';
-    return o;
-  }).filter(o => String(o.model||'').trim());
+function applyMapping(rows, map){
+  return rows.map(row=>{ const o={}; for(const k in map) o[k]= map[k]!=null&&map[k]!=='' ? row[map[k]] : ''; return o; })
+    .filter(o=>String(o.model||'').trim());
 }
-async function importExcel() {
+async function importExcel(){
   const f = document.getElementById('excelInput').files[0];
   const st = document.getElementById('excelStatus');
-  if (!f) { toast('請先選擇 Excel'); return; }
-  st.textContent = '讀取中…';
+  if (!f){ toast('請先選擇 Excel'); return; }
+  st.textContent='讀取中…';
   try {
     await loadSheetJS();
     const buf = await f.arrayBuffer();
-    const wb = XLSX.read(buf, { type:'array' });
+    const wb = XLSX.read(buf,{type:'array'});
     const ws = wb.Sheets[wb.SheetNames[0]];
-    _excelAoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', blankrows:false });
-    st.textContent = '已讀取「'+wb.SheetNames[0]+'」,共 '+_excelAoa.length+' 列,請確認欄位對應。';
+    _excelAoa = XLSX.utils.sheet_to_json(ws,{header:1, defval:'', blankrows:false});
+    st.textContent='已讀取「'+wb.SheetNames[0]+'」'+_excelAoa.length+' 列,請確認對應。';
     buildMapUI();
-  } catch(e) { st.textContent = '失敗:'+e.message; }
+  } catch(e){ st.textContent='失敗:'+e.message; }
 }
-// aoa → headers / dataRows(依標題列),再畫對應面板
-function aoaToObjects() {
+function aoaToObjects(){
   if (!_excelAoa) return { headers:[], rows:[] };
-  const hr = Math.max(1, parseInt(document.getElementById('headerRow').value)||1) - 1;
-  const rawHeaders = _excelAoa[hr] || [];
-  const headers = [], idxOf = {};
-  rawHeaders.forEach((h,i) => { const name = String(h).trim(); if (name!=='' && !(name in idxOf)) { headers.push(name); idxOf[name] = i; } });
-  const rows = _excelAoa.slice(hr+1).map(arr => {
-    const o = {}; headers.forEach(name => { o[name] = arr[idxOf[name]]; }); return o;
-  });
+  const hr = Math.max(1, parseInt(document.getElementById('headerRow').value)||1)-1;
+  const raw = _excelAoa[hr]||[]; const headers=[], idxOf={};
+  raw.forEach((h,i)=>{ const n=String(h).trim(); if(n!==''&&!(n in idxOf)){ headers.push(n); idxOf[n]=i; } });
+  const rows = _excelAoa.slice(hr+1).map(arr=>{ const o={}; headers.forEach(n=>o[n]=arr[idxOf[n]]); return o; });
   return { headers, rows };
 }
-function buildMapUI() {
+function buildMapUI(){
+  const block = document.getElementById('excelBlockSel').value || 'margin';
   const { headers } = aoaToObjects();
-  if (!headers.length) { document.getElementById('mapPanel').innerHTML = '<div class="muted small">這一列沒有欄位標題,調整「標題列在第幾列」再試。</div>'; return; }
-  const guess = guessMapping(headers);
+  if (!headers.length){ document.getElementById('mapPanel').innerHTML='<div class="muted small">這一列沒有欄位標題,調整「標題列在第幾列」再試。</div>'; return; }
+  const guess = guessMapping(headers, block);
   const presetOpts = Object.keys(state.mappings).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
-  const opt = sel => `<option value="">(略)</option>` + headers.map(h=>`<option ${sel===h?'selected':''}>${esc(h)}</option>`).join('');
+  const opt = sel => `<option value="">(略)</option>`+headers.map(h=>`<option ${sel===h?'selected':''}>${esc(h)}</option>`).join('');
+  const canon = [{key:'model',label:'車種 ★必要'}, ...BLOCKS[block].fields];
   let h = `<div class="card" style="background:var(--panel2);margin:0">
     <div class="row mb small">
-      <label class="fld">套用已存範本
-        <select id="mapPresetSel" onchange="applyPreset()"><option value="">— 選擇 —</option>${presetOpts}</select>
-      </label>
-      <span class="muted">系統已自動猜好對應,請核對:</span>
+      <label class="fld">套用已存範本 <select id="mapPresetSel" onchange="applyPreset()"><option value="">— 選擇 —</option>${presetOpts}</select></label>
+      <span class="muted">匯入到 <b>${BLOCKS[block].label}</b>,已自動猜對應,請核對:</span>
     </div>
     <div class="tblwrap"><table><tr><th>標準欄位</th><th>對應到 Excel 的哪一欄</th></tr>`;
-  CANON.forEach(c => {
-    h += `<tr><td class="name">${c.label}</td><td><select data-canon="${c.key}">${opt(guess[c.key])}</select></td></tr>`;
-  });
-  // 動態:各比較分公司(標竿)的合計毛利% 欄
-  peerList().forEach(name => {
-    const cand = headers.filter(hd => String(hd).includes(name));
-    const g = cand.find(hd => /合計|毛利/.test(String(hd))) || cand[0] || '';
+  canon.forEach(c=>{ h+=`<tr><td class="name">${c.label}</td><td><select data-canon="${c.key}">${opt(guess[c.key])}</select></td></tr>`; });
+  if (BLOCKS[block].peers) peerList().forEach(name=>{
+    const cand = headers.filter(hd=>String(hd).includes(name));
+    const g = cand.find(hd=>/合計|毛利/.test(String(hd))) || cand[0] || '';
     h += `<tr><td class="name">${esc(name)} 合計%<span class="small muted">(標竿)</span></td><td><select data-canon="peer:${esc(name)}">${opt(g)}</select></td></tr>`;
   });
   h += `</table></div>
     <div class="row" style="margin-top:10px">
-      <button class="btn small" onclick="applyExcelToGrid()">套用到下方表格</button>
+      <button class="btn small" onclick="applyExcelToGrid()">套用到 ${BLOCKS[block].label}</button>
       <input id="mapPresetName" placeholder="範本名稱(例:桃苗毛利表)" style="max-width:200px">
       <button class="btn small ghost" onclick="saveMapPreset()">存成範本</button>
     </div></div>`;
   document.getElementById('mapPanel').innerHTML = h;
 }
-function currentMap() {
-  const map = {};
-  document.querySelectorAll('#mapPanel [data-canon]').forEach(s => { if (s.value) map[s.dataset.canon] = s.value; });
-  return map;
-}
-function applyPreset() {
-  const name = document.getElementById('mapPresetSel').value;
-  const map = state.mappings[name]; if (!map) return;
-  document.querySelectorAll('#mapPanel [data-canon]').forEach(s => { s.value = map[s.dataset.canon] || ''; });
-  toast('已套用範本:'+name);
-}
-function saveMapPreset() {
-  const name = (document.getElementById('mapPresetName').value||'').trim();
-  if (!name) { toast('請先填範本名稱'); return; }
-  state.mappings[name] = currentMap(); save();
-  toast('已存範本:'+name); buildMapUI();
-}
-function applyExcelToGrid() {
+function currentMap(){ const m={}; document.querySelectorAll('#mapPanel [data-canon]').forEach(s=>{ if(s.value) m[s.dataset.canon]=s.value; }); return m; }
+function applyPreset(){ const n=document.getElementById('mapPresetSel').value; const m=state.mappings[n]; if(!m) return;
+  document.querySelectorAll('#mapPanel [data-canon]').forEach(s=>{ s.value=m[s.dataset.canon]||''; }); toast('已套用範本:'+n); }
+function saveMapPreset(){ const n=(document.getElementById('mapPresetName').value||'').trim(); if(!n){toast('請先填範本名稱');return;}
+  state.mappings[n]=currentMap(); save(); toast('已存範本:'+n); buildMapUI(); }
+function applyExcelToGrid(){
+  const block = document.getElementById('excelBlockSel').value || 'margin';
   const { rows } = aoaToObjects();
   const map = currentMap();
-  if (!map.model) { toast('請先指定「車種」對應哪一欄'); return; }
+  if (!map.model){ toast('請先指定「車種」對應哪一欄'); return; }
   const std = applyMapping(rows, map);
-  if (!std.length) { toast('對應後沒有資料列'); return; }
-  entryRows = std.map(o => {
-    const peers = {};
-    Object.keys(o).forEach(k => { if (k.startsWith('peer:') && o[k]!=='' && o[k]!=null) peers[k.slice(5)] = o[k]; });
-    return {
-      model:String(o.model).trim(), units:o.units??'', veh:o.veh??'', part:o.part??'',
-      total:o.total??'', stock:o.stock??'', age:o.age??'', peers
-    };
+  if (!std.length){ toast('對應後沒有資料列'); return; }
+  E[block] = std.map(o=>{
+    const r = emptyRow(block, String(o.model).trim());
+    BLOCKS[block].fields.forEach(f=>{ if(o[f.key]!=null&&o[f.key]!=='') r[f.key]=o[f.key]; });
+    if (BLOCKS[block].peers){ r.peers={}; Object.keys(o).forEach(k=>{ if(k.startsWith('peer:')&&o[k]!==''&&o[k]!=null) r.peers[k.slice(5)]=o[k]; }); }
+    return r;
   });
-  drawEntryTable();
-  // 若 Excel 有帶「全體(基準)」或「月目標」,順手寫進月度計畫
-  let routed = 0;
-  std.forEach(o => {
-    const m = String(o.model).trim(); if (!m) return;
-    const b = num(o.bench), tg = num(o.target);
-    if (b!=null || tg!=null) {
-      state.plan.items[m] = state.plan.items[m] || {};
-      if (b!=null) state.plan.items[m].bench = String(b);
-      if (tg!=null) state.plan.items[m].target = String(tg);
-      routed++;
-    }
-  });
-  if (routed) save();
-  toast('已帶入 '+entryRows.length+' 列'+(routed?`,並更新 ${routed} 筆基準/目標到月計畫`:'')+',請核對後儲存');
+  drawBlock(block);
+  toast('已帶入 '+E[block].length+' 列到 '+BLOCKS[block].label+',請核對後儲存');
 }
-
-function saveWeek() {
-  const label = document.getElementById('weekLabel').value.trim();
-  const date = document.getElementById('weekDate').value;
-  if (!label) { toast('請填週別標籤'); return; }
-  const rows = entryRows
-    .filter(r => r.model.trim() && num(r.units)!=null)
-    .map(r => {
-      const peers = {};
-      if (r.peers) Object.keys(r.peers).forEach(n => { const v = num(r.peers[n]); if (v!=null) peers[n] = v; });
-      return {
-        model: r.model.trim(), units: num(r.units)||0,
-        veh: num(r.veh), part: num(r.part),
-        total: num(r.total) != null ? num(r.total) : (num(r.veh)||0)+(num(r.part)||0),
-        stock: num(r.stock), age: num(r.age), peers
-      };
+/* ---------- OCR(圖片→毛利區塊草稿) ---------- */
+let tesseractLoaded=false;
+function loadTesseract(){ return new Promise((res,rej)=>{ if(tesseractLoaded&&window.Tesseract)return res();
+  const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+  s.onload=()=>{tesseractLoaded=true;res();}; s.onerror=()=>rej(new Error('無法載入 OCR(需要網路)')); document.head.appendChild(s); }); }
+async function runOcr(){
+  const f=document.getElementById('imgInput').files[0]; const st=document.getElementById('ocrStatus');
+  if(!f){toast('請先選圖片');return;} st.textContent='載入 OCR…';
+  try{ await loadTesseract(); st.textContent='辨識中…';
+    const {data}=await Tesseract.recognize(f,'eng',{logger:m=>{ if(m.status==='recognizing text') st.textContent='辨識 '+Math.round(m.progress*100)+'%'; }});
+    const out=[];
+    (data.text||'').split(/\n/).map(l=>l.trim()).filter(Boolean).forEach(line=>{
+      const nm=line.match(/^[A-Za-z][A-Za-z0-9 .]+/); const ns=line.match(/-?\d+\.?\d*/g);
+      if(nm&&ns&&ns.length>=2){ const r=emptyRow('margin',nm[0].trim()); r.units=ns[0]||''; r.veh=ns[1]||''; r.part=ns[2]||''; r.total=ns[3]||''; out.push(r); }
     });
-  if (!rows.length) { toast('至少要有一列有車種+台數'); return; }
-  const idx = state.weeks.findIndex(w => w.label === label);
-  const wk = { label, date, rows };
-  if (idx >= 0) state.weeks[idx] = wk; else state.weeks.push(wk);
-  state.weeks.sort((a,b)=> (a.date||'').localeCompare(b.date||'') || a.label.localeCompare(b.label));
-  save();
-  document.getElementById('entryMsg').textContent = '已儲存 '+label+'（'+rows.length+' 車種）';
-  toast('已儲存 '+label);
-}
-
-/* ---------- OCR (Tesseract, best-effort) ---------- */
-let tesseractLoaded = false;
-function loadTesseract() {
-  return new Promise((resolve, reject) => {
-    if (tesseractLoaded && window.Tesseract) return resolve();
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    s.onload = () => { tesseractLoaded = true; resolve(); };
-    s.onerror = () => reject(new Error('無法載入 OCR 函式庫(需要網路)'));
-    document.head.appendChild(s);
-  });
-}
-async function runOcr() {
-  const f = document.getElementById('imgInput').files[0];
-  const st = document.getElementById('ocrStatus');
-  if (!f) { toast('請先選擇圖片'); return; }
-  st.textContent = '載入 OCR 中…';
-  try {
-    await loadTesseract();
-    st.textContent = '辨識中(可能要 10~30 秒)…';
-    const { data } = await Tesseract.recognize(f, 'eng', { logger: m => {
-      if (m.status==='recognizing text') st.textContent = '辨識中 '+Math.round(m.progress*100)+'%';
-    }});
-    const lines = (data.text||'').split(/\n/).map(l=>l.trim()).filter(Boolean);
-    const parsed = [];
-    for (const line of lines) {
-      const mName = line.match(/^[A-Za-z][A-Za-z0-9 .]+/);
-      const nums = line.match(/-?\d+\.?\d*/g);
-      if (mName && nums && nums.length >= 2) {
-        parsed.push({ model:mName[0].trim(), units:nums[0]||'', veh:nums[1]||'', part:nums[2]||'', total:nums[3]||'', stock:'', age:'' });
-      }
-    }
-    if (parsed.length) {
-      entryRows = parsed; drawEntryTable();
-      st.textContent = '辨識完成,抓到 '+parsed.length+' 列 — 請務必逐格核對!';
-    } else {
-      st.textContent = '沒抓到可用資料,建議改用貼上或把圖給 Claude 轉。';
-    }
-  } catch(e) { st.textContent = '失敗:'+e.message; }
+    if(out.length){ E.margin=out; drawBlock('margin'); st.textContent='抓到 '+out.length+' 列 — 務必逐格核對!'; }
+    else st.textContent='沒抓到可用資料,建議改用貼上或把圖給 Claude 轉。';
+  }catch(e){ st.textContent='失敗:'+e.message; }
 }
 
 /* ======================================================
-   PLAN (月度販促案)
+   PLAN
    ====================================================== */
-function renderPlan() {
-  document.getElementById('planMonth').value = state.plan.month || '';
-  if (Object.keys(state.plan.items).length === 0) loadModelsIntoPlan();
-  else drawPlanTable(state.models);
+function renderPlan(){
+  document.getElementById('planMonth').value = state.plan.month||'';
+  drawPlanTable(state.models);
 }
-function loadModelsIntoPlan() { drawPlanTable(state.models); }
-function drawPlanTable(models) {
-  const t = document.getElementById('planTable');
-  let h = `<tr><th>車種</th><th>角色</th><th>本月目標台數</th><th>目標毛利%</th><th>全體(基準)%</th><th>備註 / 販促手法</th></tr>`;
-  models.forEach(m => {
-    const it = state.plan.items[m] || {};
-    const opts = PLAN_ROLES.map(r=>`<option ${it.role===r?'selected':''}>${r}</option>`).join('');
-    h += `<tr>
+function loadModelsIntoPlan(){ drawPlanTable(state.models); }
+function drawPlanTable(models){
+  const t=document.getElementById('planTable');
+  let h=`<tr><th>車種</th><th>角色</th><th>月目標台數</th><th>目標毛利%</th><th>全體(基準)%</th><th>預計販促條件</th></tr>`;
+  models.forEach(m=>{
+    const it=state.plan.items[m]||{};
+    const opts=PLAN_ROLES.map(r=>`<option ${it.role===r?'selected':''}>${r}</option>`).join('');
+    h+=`<tr>
       <td class="name">${esc(m)}</td>
       <td><select data-m="${esc(m)}" data-f="role"><option value=""></option>${opts}</select></td>
       <td><input data-m="${esc(m)}" data-f="target" value="${esc(it.target||'')}" style="text-align:center"></td>
@@ -703,354 +580,318 @@ function drawPlanTable(models) {
       <td><input data-m="${esc(m)}" data-f="note" value="${esc(it.note||'')}" style="text-align:left"></td>
     </tr>`;
   });
-  t.innerHTML = h;
+  t.innerHTML=h;
 }
-function savePlan() {
-  state.plan.month = document.getElementById('planMonth').value.trim();
-  const items = {};
-  document.querySelectorAll('#planTable [data-m]').forEach(el => {
-    const m = el.dataset.m, f = el.dataset.f;
-    items[m] = items[m] || {};
-    items[m][f] = el.value;
-  });
-  // drop empty
-  Object.keys(items).forEach(m => {
-    const it = items[m];
-    if (!it.role && !it.target && !it.note && !it.tmargin && !it.bench) delete items[m];
-  });
-  state.plan.items = items; save();
-  document.getElementById('planMsg').textContent = '已儲存月度計畫';
-  toast('月度計畫已儲存');
+function savePlan(){
+  state.plan.month=document.getElementById('planMonth').value.trim();
+  const items={};
+  document.querySelectorAll('#planTable [data-m]').forEach(el=>{ const m=el.dataset.m,f=el.dataset.f; items[m]=items[m]||{}; items[m][f]=el.value; });
+  Object.keys(items).forEach(m=>{ const it=items[m]; if(!it.role&&!it.target&&!it.note&&!it.tmargin&&!it.bench) delete items[m]; });
+  state.plan.items=items; save();
+  document.getElementById('planMsg').textContent='已儲存月度計畫'; toast('月度計畫已儲存');
 }
 
 /* ======================================================
-   ANALYSIS ENGINE
+   ANALYSIS ENGINE(三源合一)
    ====================================================== */
-function blended(rows) {
-  let u = 0, w = 0;
-  rows.forEach(r => { if (r.total!=null) { u += r.units; w += r.units * r.total; } });
-  return u ? w/u : null;
-}
-function weekByLabel(label){ return state.weeks.find(w=>w.label===label); }
-function prevWeek(label){
-  const i = state.weeks.findIndex(w=>w.label===label);
-  return i>0 ? state.weeks[i-1] : null;
-}
+function blended(marginRows){ let u=0,w=0; (marginRows||[]).forEach(r=>{ if(r.total!=null){ u+=r.units; w+=r.units*r.total; } }); return u? w/u : null; }
+function weekByLabel(l){ return state.weeks.find(w=>w.label===l); }
+function prevWeek(l){ const i=state.weeks.findIndex(w=>w.label===l); return i>0? state.weeks[i-1] : null; }
+function sevRank(s){ return s==='red'?3:s==='yellow'?2:1; }
 
-// 分析單一週,回傳 { kpi, advices, rows(enriched) }
-function analyze(label) {
-  const wk = weekByLabel(label); if (!wk) return null;
-  const th = state.thresholds;
-  const prev = prevWeek(label);
-  const prevMap = {}; if (prev) prev.rows.forEach(r=>prevMap[r.model]=r);
+function analyze(label){
+  const wk = weekByLabel(label); if(!wk) return null;
+  const th = state.thresholds; const prev = prevWeek(label);
+  const byModel = arr => { const o={}; (arr||[]).forEach(r=>o[r.model]=r); return o; };
+  const M=byModel(wk.margin), O=byModel(wk.orders), S=byModel(wk.stock), PM=prev?byModel(prev.margin):{};
+  const pace = num(wk.pace);
+  const models = [...new Set([...(wk.margin||[]),...(wk.orders||[]),...(wk.stock||[])].map(r=>r.model))];
 
-  const enriched = wk.rows.map(r => {
-    const p = prevMap[r.model];
-    const dTotal = (p && p.total!=null && r.total!=null) ? r.total - p.total : null;
-    const dUnits = (p) ? r.units - p.units : null;
-    // 去化週數
-    const dos = (r.stock!=null && r.units>0) ? r.stock / r.units : null;
-    // 分類
-    let marginTier = 'mid';
-    if (r.total!=null) { if (r.total < 0) marginTier='neg'; else if (r.total <= th.low) marginTier='low'; else if (r.total >= th.high) marginTier='high'; }
-    let stockTier = 'ok';
-    if ((dos!=null && dos >= th.stockHi) || (r.age!=null && r.age >= th.age)) stockTier='high';
-    const plan = state.plan.items[r.model] || {};
-    const target = num(plan.target);
-    const tmargin = num(plan.tmargin);
-    // 同業標竿:優先用本週輸入的 peers,'全體' 沒填則退回月計畫 bench
-    const peers = r.peers || {};
-    const overall = num(peers['全體']) != null ? num(peers['全體']) : num(plan.bench);
-    const competitors = Object.keys(peers)
-      .filter(n => n !== '全體' && num(peers[n]) != null)
-      .map(n => ({ name:n, v:num(peers[n]) }));
-    let best = null, rank = null, fieldAvg = null;
-    if (competitors.length) {
-      best = competitors.reduce((a,b)=> b.v>a.v ? b : a);
-      const all = competitors.map(c=>c.v).concat(r.total!=null ? [r.total] : []);
-      fieldAvg = all.reduce((s,v)=>s+v,0)/all.length;
-      if (r.total!=null) rank = competitors.filter(c=>c.v > r.total).length + 1; // 1 = 最高
-    }
-    const fieldRef = overall!=null ? overall : fieldAvg;  // 判斷過低/過高的基準
-    const bench = overall;   // 相容舊規則命名
-    return { ...r, dTotal, dUnits, dos, marginTier, stockTier, plan, target, tmargin, bench, overall, competitors, best, rank, fieldAvg, fieldRef, peerCount: competitors.length + 1 };
+  const enriched = models.map(model=>{
+    const m=M[model]||{}, o=O[model]||{}, s=S[model]||{}, plan=state.plan.items[model]||{};
+    const total = m.total!=null?m.total:null, units=m.units||0, veh=m.veh!=null?m.veh:null, part=m.part!=null?m.part:null;
+    const p=PM[model]; const dTotal=(p&&p.total!=null&&total!=null)?total-p.total:null;
+    let marginTier='mid'; if(total!=null){ if(total<0)marginTier='neg'; else if(total<=th.low)marginTier='low'; else if(total>=th.high)marginTier='high'; }
+    // 標竿
+    const peers=m.peers||{}; const overall=num(peers['全體'])!=null?num(peers['全體']):num(plan.bench);
+    const competitors=Object.keys(peers).filter(n=>n!=='全體'&&num(peers[n])!=null).map(n=>({name:n,v:num(peers[n])}));
+    let best=null,rank=null,fieldAvg=null;
+    if(competitors.length){ best=competitors.reduce((a,b)=>b.v>a.v?b:a);
+      const all=competitors.map(c=>c.v).concat(total!=null?[total]:[]); fieldAvg=all.reduce((x,y)=>x+y,0)/all.length;
+      if(total!=null) rank=competitors.filter(c=>c.v>total).length+1; }
+    const fieldRef = overall!=null?overall:fieldAvg;
+    // 受訂進度
+    const target = num(o.target)!=null?num(o.target):num(plan.target);
+    const ordered = num(o.ordered); let rate=num(o.rate); if(rate==null&&ordered!=null&&target) rate=ordered/target*100;
+    const behind = rate!=null ? (pace!=null ? rate < pace-5 : rate < 90) : null;
+    const ahead  = rate!=null ? (pace!=null ? rate > pace+5 : rate >= 100) : null;
+    // 在庫充足率
+    const stock=num(s.stock), adq=num(s.adequacy), age=num(s.age);
+    const dos=(stock!=null&&units>0)?stock/units:null;
+    const shortage = adq!=null && adq < th.adqLow;
+    const excess   = adq!=null && adq > th.adqHigh;
+    let stockTier='ok';
+    if (excess) stockTier='excess'; else if (shortage) stockTier='short';
+    else if ((dos!=null&&dos>=th.stockHi)||(age!=null&&age>=th.age)) stockTier='high';
+    return { model,total,units,veh,part,dTotal,marginTier, peers,overall,competitors,best,rank,fieldAvg,fieldRef,peerCount:competitors.length+1,
+      target,ordered,rate,behind,ahead, stock,adq,age,dos,shortage,excess,stockTier, plan };
   });
 
   // KPI
-  const bl = blended(wk.rows);
-  const blPrev = prev ? blended(prev.rows) : null;
-  const totalUnits = wk.rows.reduce((s,r)=>s+r.units,0);
-  const prevUnits = prev ? prev.rows.reduce((s,r)=>s+r.units,0) : null;
-  const kpi = {
-    blended: bl, dBlended: (bl!=null&&blPrev!=null)? bl-blPrev : null,
-    units: totalUnits, dUnits: prevUnits!=null? totalUnits-prevUnits : null,
-    models: wk.rows.length, prevLabel: prev?prev.label:null
-  };
+  const bl=blended(wk.margin), blPrev=prev?blended(prev.margin):null;
+  const totalUnits=enriched.reduce((s,r)=>s+(r.units||0),0);
+  const prevUnits=prev?(prev.margin||[]).reduce((s,r)=>s+(r.units||0),0):null;
+  const rates=enriched.filter(r=>r.rate!=null).map(r=>r.rate);
+  const avgRate=rates.length?rates.reduce((a,b)=>a+b,0)/rates.length:null;
+  const T=th.targetBlended??3.0;
+  const kpi={ blended:bl, dBlended:(bl!=null&&blPrev!=null)?bl-blPrev:null, units:totalUnits,
+    dUnits:prevUnits!=null?totalUnits-prevUnits:null, avgRate, models:enriched.length, prevLabel:prev?prev.label:null, T };
 
-  // 產生建議
-  const adv = [];
-  const T = state.thresholds.targetBlended ?? 3.0;       // 整體目標毛利率
-  const strat = state.strategy || 'balanced';
-  const letFactor = strat==='margin' ? 0.5 : strat==='progress' ? 1.3 : 1;  // 讓利力道:毛利優先縮小、進度優先放大
-  const body3 = (why, rec, how) => `<b>原因</b>:${why}<br><b>建議毛利</b>:${rec}<br><b>處理方式</b>:${how}`;
-  // 讓利空間:在其他車種不變、維持整體 ≥ T 下,本車種還可讓的百分點
-  const roomPts = r => {
-    if (!(r.units>0) || r.total==null || bl==null) return null;
-    const slack = bl - T; if (slack <= 0) return 0;
-    return slack * totalUnits / r.units;
-  };
+  // 建議
+  const strat=state.strategy||'balanced';
+  const letFactor = strat==='margin'?0.5 : strat==='progress'?1.3 : 1;
+  const body3=(why,rec,how)=>`<b>原因</b>:${why}<br><b>建議毛利</b>:${rec}<br><b>處理方式</b>:${how}`;
+  const roomPts=r=>{ if(!(r.units>0)||r.total==null||bl==null) return null; const slack=bl-T; if(slack<=0) return 0; return slack*totalUnits/r.units; };
+  const adv=[];
 
-  enriched.forEach(r => {
-    const roleTag = r.plan.role ? `<span class="pill blue">計畫:${r.plan.role}</span>` : '';
-    const impact = r.units;
-    const dosTxt = r.dos!=null ? r.dos.toFixed(1)+' 週' : '在庫未填';
-    const ageTxt = r.age!=null ? `、車齡 ${r.age} 天` : '';
+  enriched.forEach(r=>{
+    const roleTag = r.plan.role?`<span class="pill blue">計畫:${r.plan.role}</span>`:'';
+    const dosTxt = r.dos!=null?r.dos.toFixed(1)+' 週':(r.stock!=null?r.stock+' 台':'在庫未填');
+    const adqTxt = r.adq!=null?`充足率 ${r.adq.toFixed(0)}%`:'充足率未填';
+    const posTxt = r.rank!=null?`,八大排第 ${r.rank}`:'';
+    const bestTxt = r.best?`(最佳 ${r.best.name} ${fmtPct(r.best.v)})`:'';
+    const refLbl = (r.competitors&&r.competitors.length)?'同業':'全體';
+    const hasCar = !r.shortage;
 
-    // ---- 主分類建議(每台只落一種) ----
-    if (r.marginTier==='neg') {
-      const rec = r.bench!=null
-        ? `短期至少<b>打平到 0%</b>(現 ${fmtPct(r.total)}),月底對齊全體同款 <b>${fmtPct(r.bench)}</b>。`
-        : `短期至少<b>拉回打平 0%</b>(現 ${fmtPct(r.total)},等於每台淨賠)。`;
-      const how = r.stockTier==='high'
-        ? `既賠錢又壓庫(去化 ${dosTxt}${ageTxt}):限量出清、每台<b>強制綁配件包</b>把配件從 ${fmtPct(r.part)} 拉到 <b>+1.5% 以上</b>補車輛端,設「清 N 台就收價」。`
-        : `庫存不高,問題在成交價被殺:<b>稽核放款/成交底價、收回現場議價權限</b>,並把配件從 ${fmtPct(r.part)} 拉起來補。`;
-      adv.push({ sev:'red', impact, model:r.model, tags:[roleTag],
+    // 1) 毛利為負
+    if (r.marginTier==='neg'){
+      adv.push({ sev:'red', impact:r.units, model:r.model, tags:[roleTag],
         title:`${r.model}｜毛利為負 ${fmtPct(r.total)}`,
-        body: body3(`本週 ${r.units} 台,合計毛利 <b>${fmtPct(r.total)}</b>(車輛 ${fmtPct(r.veh)}、配件 ${fmtPct(r.part)}),賣一台賠一台。`, rec, how) });
-    } else if (r.marginTier==='low' && r.stockTier==='high') {
-      const rm = roomPts(r);
-      const floor = rm!=null ? r.total - rm : null;                 // 單動這台的極限
-      const suggest = (rm!=null && rm>0.2) ? r.total - Math.min(rm/2*letFactor, r.total) : null; // 只用一半、不轉負
-      const rec = (rm!=null && rm>0.2)
-        ? `建議讓到約 <b>${fmtPct(suggest)}</b>(現 ${fmtPct(r.total)})。整體目前 ${fmtPct(bl)}、目標 ${fmtPct(T)};單動這台最多讓到 ${fmtPct(floor)} 就會觸及目標,別過線。`
-        : `<b>幾乎沒有讓利空間</b>(整體 ${fmtPct(bl)} 已貼近目標 ${fmtPct(T)}):不要再降車價,改用配件/贈品或分期方案去化。`;
-      adv.push({ sev:'red', impact, model:r.model, tags:[roleTag],
-        title:`${r.model}｜低毛利 ${fmtPct(r.total)} + 庫存壓力`,
-        body: body3(`毛利 <b>${fmtPct(r.total)}</b> 偏低,去化 ${dosTxt}${ageTxt},且 ${r.units} 台量大、會拖累整體。`, rec,
-          `限量促銷 + <b>綁配件把配件毛利拉到 ≥ +1%</b>;設每檔讓利上限與停損台數,避免整批毛利被拖垮。`) });
-    } else if (r.marginTier==='high' && r.target!=null && r.units < r.target/4*0.9) {
-      const need = Math.round(r.target/4);
-      adv.push({ sev:'green', impact, model:r.model, tags:[roleTag],
-        title:`${r.model}｜高毛利但進度落後`,
-        body: body3(`毛利 <b>${fmtPct(r.total)}</b> 高於整體平均(${fmtPct(bl)}),但本週僅 ${r.units} 台、月目標 ${r.target}(週均需約 ${need})。`,
-          `<b>維持 ${fmtPct(r.total)},不要降價</b> — 這台每多賣一台都在拉高整體毛利。`,
-          `資源集中衝量:加碼業務獎金、優先排產/調車、廣宣主打;用「量」補進度而非降價。`) });
-    } else if (r.marginTier==='high' && r.stockTier==='high') {
-      const rm = roomPts(r);
-      const cut = rm!=null ? Math.min(rm/2*letFactor, 1) : null;     // 高利車小讓即可,示意上限 1%
-      const rec = (cut!=null && cut>0.1)
-        ? `可<b>小幅讓利約 ${cut.toFixed(1)}%</b>(降到約 ${fmtPct(r.total-cut)})加速去化,毛利仍健康。`
-        : `維持 ${fmtPct(r.total)},以配件/贈品去化即可。`;
-      adv.push({ sev:'yellow', impact, model:r.model, tags:[roleTag],
-        title:`${r.model}｜高毛利 ${fmtPct(r.total)} + 庫存偏高`,
-        body: body3(`毛利 <b>${fmtPct(r.total)}</b> 健康,但去化 ${dosTxt}${ageTxt}偏高。`, rec,
-          `高利車有本錢小讓,快速周轉換現金,對整體影響小(每讓 1% 整體僅約 -${((r.units/totalUnits)||0).toFixed(2)}%)。`) });
+        body: body3(`本週 ${r.units} 台,合計 <b>${fmtPct(r.total)}</b>(車輛 ${fmtPct(r.veh)}、配件 ${fmtPct(r.part)}),賣一台賠一台。`,
+          r.overall!=null?`短期打平到 <b>0%</b>,月底對齊${refLbl} <b>${fmtPct(r.fieldRef)}</b>。`:`短期至少<b>拉回打平 0%</b>。`,
+          (r.excess||r.stockTier==='high')?`又壓庫(${adqTxt}/${dosTxt}):限量出清+強制綁配件把配件從 ${fmtPct(r.part)} 拉到 +1.5% 以上;設「清 N 台就收價」。`
+            :`稽核放款/成交底價、收回現場議價權限,配件補毛利。`) });
     }
 
-    // ---- 附加訊號(可與上面並存) ----
-    if (r.dTotal!=null && r.dTotal <= -state.thresholds.drop) {
-      const prevV = r.total - r.dTotal;
-      adv.push({ sev:'yellow', impact, model:r.model, tags:[roleTag],
-        title:`${r.model}｜毛利週跌 ${Math.abs(r.dTotal).toFixed(1)}%`,
-        body: body3(`合計毛利從上週 <b>${fmtPct(prevV)}</b> 掉到 <b>${fmtPct(r.total)}</b>(-${Math.abs(r.dTotal).toFixed(1)}%)。`,
-          `若非策略性讓利,<b>收回到上週的 ${fmtPct(prevV)}</b>。`,
-          `調成交價紀錄找出被殺價的批次;若是競品促銷,優先用配件回應而非直接降車價。`) });
+    // 2) 進度落後的三種組合(核心)
+    if (r.behind){
+      if (r.shortage){
+        adv.push({ sev:'red', impact:r.units*1.1, model:r.model, tags:[roleTag],
+          title:`${r.model}｜進度落後 + 缺車`,
+          body: body3(`達成率 <b>${r.rate.toFixed(0)}%</b> 落後,但 <b>${adqTxt} 偏低=缺車</b>;沒車再促也交不出。`,
+            `<b>先別讓利</b>(讓了也沒車交),維持 ${fmtPct(r.total)}。`,
+            `這是<b>供給問題不是價格問題</b>:催交、跨區調車、優先排產;把有限的車留給高毛利/高意願客。`) });
+      } else if (r.marginTier==='neg') {
+        /* 已在規則1處理 */
+      } else if (r.marginTier==='high' || (r.fieldRef!=null && r.total-r.fieldRef>=1)) {
+        const to = r.fieldRef!=null ? Math.max(r.fieldRef+0.5, r.total-Math.min((roomPts(r)||0)/2*letFactor, r.total))
+                                    : r.total-Math.min((roomPts(r)||0)/2*letFactor, r.total);
+        adv.push({ sev:'green', impact:r.units, model:r.model, tags:[roleTag],
+          title:`${r.model}｜進度落後但有車、毛利有空間 → 讓利衝量`,
+          body: body3(`達成率 <b>${r.rate.toFixed(0)}%</b> 落後,${adqTxt}(有車),毛利 <b>${fmtPct(r.total)}</b>${r.fieldRef!=null?` 高於${refLbl} ${fmtPct(r.fieldRef)}${bestTxt}`:''}。`,
+            `<b>讓利到約 ${fmtPct(to)}</b>(仍不輸${refLbl}),把過高毛利換成台數。`,
+            `這台是這週衝進度的主力:加大讓利/獎勵、綁配件守住底線,盯成交數回升。`) });
+      } else {
+        adv.push({ sev:'yellow', impact:r.units, model:r.model, tags:[roleTag],
+          title:`${r.model}｜進度落後,但車夠、毛利也不高`,
+          body: body3(`達成率 <b>${r.rate.toFixed(0)}%</b> 落後,${adqTxt}(有車),毛利 <b>${fmtPct(r.total)}</b> 已不高。`,
+            `<b>別再破毛利</b> — 再讓也未必換到量,維持 ${fmtPct(r.total)}。`,
+            `不是價格問題:查<b>來客/成交率/銷售動能</b>、話術與名單,用非價格手段(試乘、活動)拉買氣。`) });
+      }
     }
-    // 同業標竿:過低 / 過高 判斷(訂販促的考量之一)
-    const posTxt = r.rank!=null ? `,在 ${r.peerCount} 家中排第 ${r.rank}` : '';
-    const bestTxt = r.best ? `(最佳 ${r.best.name} ${fmtPct(r.best.v)})` : '';
-    const refLbl = r.competitors && r.competitors.length ? '同業' : '全體';
-    if (r.fieldRef!=null && r.total!=null && (r.fieldRef - r.total) >= 1 && r.marginTier!=='neg') {
-      const gap = r.fieldRef - r.total, half = r.total + gap/2;
-      adv.push({ sev:'yellow', impact, model:r.model, tags:[roleTag],
+
+    // 3) 進度超前 + 毛利偏低 → 收價
+    if (r.ahead && (r.marginTier==='low'||r.marginTier==='mid')){
+      adv.push({ sev:'green', impact:r.units*0.6, model:r.model, tags:[roleTag],
+        title:`${r.model}｜進度超前,可回收毛利`,
+        body: body3(`達成率 <b>${r.rate.toFixed(0)}%</b> 超前,毛利只有 <b>${fmtPct(r.total)}</b>。`,
+          `<b>逐步收價 0.5~1%</b>(往 ${fmtPct(r.total+0.75)}),把賺回來。`,
+          `賣得動就不必讓這麼多:分批收價,盯台數沒明顯掉就續收。`) });
+    }
+
+    // 4) 在庫過剩(充足率過高)
+    if (r.excess && r.marginTier!=='neg'){
+      adv.push({ sev:'yellow', impact:r.units, model:r.model, tags:[roleTag],
+        title:`${r.model}｜庫存過剩(${adqTxt})`,
+        body: body3(`${adqTxt} 偏高、${dosTxt},壓資金。`,
+          r.marginTier==='high'?`高毛利有本錢,<b>小幅讓利 0.5~1%</b> 加速去化。`:`毛利不高,<b>別硬降車價</b>,改綁配件/贈品去化。`,
+          `設定「清 N 台就收」;優先出清車齡高的車。`) });
+    }
+    // 4b) 缺車但進度沒落後 → 提醒
+    else if (r.shortage && !r.behind){
+      adv.push({ sev:'yellow', impact:r.units*0.6, model:r.model, tags:[roleTag],
+        title:`${r.model}｜在庫偏低(${adqTxt})`,
+        body: body3(`${adqTxt} 偏低,雖然進度還行,但<b>可售車不足</b>。`,
+          `不需讓利。`,
+          `提前備車/調車,避免下週想衝也沒車;熱門車別亂讓,留給高毛利客。`) });
+    }
+
+    // 5) 標竿:過低 / 過高
+    if (r.fieldRef!=null && r.total!=null && (r.fieldRef-r.total)>=1 && r.marginTier!=='neg' && !r.behind){
+      const gap=r.fieldRef-r.total, half=r.total+gap/2;
+      adv.push({ sev:'yellow', impact:r.units, model:r.model, tags:[roleTag],
         title:`${r.model}｜毛利過低,落後${refLbl} ${gap.toFixed(1)}%`,
-        body: body3(`${refLbl}同款做到 <b>${fmtPct(r.fieldRef)}</b>${bestTxt},你只有 <b>${fmtPct(r.total)}</b>,落後 ${gap.toFixed(1)}%${posTxt} — 多半是<b>定價/折讓紀律</b>問題,不是市場問題。`,
-          `本週先拉回約 <b>${fmtPct(half)}</b>(縮小一半差距),月底逼近 ${fmtPct(r.fieldRef)}。`,
-          `統一折讓上限、稽核成交底價;量大不敢硬收就改綁配件、分批調。`) });
-    } else if (r.fieldRef!=null && r.total!=null && (r.total - r.fieldRef) >= 1.5 && r.marginTier!=='neg') {
-      const over = r.total - r.fieldRef;
-      const behind = (r.target!=null && r.units < r.target/4*0.9);
-      adv.push({ sev:'yellow', impact, model:r.model, tags:[roleTag],
-        title:`${r.model}｜毛利明顯高於${refLbl} ${over.toFixed(1)}%`,
-        body: body3(`你 <b>${fmtPct(r.total)}</b> 高於${refLbl} ${fmtPct(r.fieldRef)}${bestTxt} 達 ${over.toFixed(1)}%${posTxt}。定價偏高,代表<b>你有讓利本錢</b>,但也可能正在流失成交/市占。`,
-          behind
-            ? `這台<b>可讓利到約 ${fmtPct(r.fieldRef+0.5)}</b>(仍不輸${refLbl})來衝量,把過高的毛利換成台數。`
-            : `進度若已達標就<b>維持 ${fmtPct(r.total)}</b> 賺價差;要搶市占才動用這個讓利空間。`,
-          `用「進度」決定:落後就拿這台的高毛利當讓利本錢衝量;進度 OK 就守價。`) });
-    } else if (r.tmargin!=null && r.total!=null && r.total < r.tmargin - 0.2 && r.marginTier!=='neg') {
-      adv.push({ sev:'yellow', impact:impact*0.9, model:r.model, tags:[roleTag],
-        title:`${r.model}｜低於你設的目標毛利`,
-        body: body3(`月計畫目標毛利 <b>${fmtPct(r.tmargin)}</b>,本週只有 <b>${fmtPct(r.total)}</b>(差 ${(r.tmargin-r.total).toFixed(1)}%)。`,
-          `拉回到目標 <b>${fmtPct(r.tmargin)}</b>。`,
-          `依角色調整:守毛利就收價;衝量就確認台數有沒有換到,沒換到要檢討讓利效益。`) });
+        body: body3(`${refLbl}做到 <b>${fmtPct(r.fieldRef)}</b>${bestTxt},你只有 <b>${fmtPct(r.total)}</b>${posTxt} — 多半是<b>定價/折讓紀律</b>問題。`,
+          `本週拉回約 <b>${fmtPct(half)}</b>(縮小一半差距),月底逼近 ${fmtPct(r.fieldRef)}。`,
+          `統一折讓上限、稽核成交底價;量大不敢硬收就綁配件、分批調。`) });
+    } else if (r.fieldRef!=null && r.total!=null && (r.total-r.fieldRef)>=1.5 && r.marginTier!=='neg' && !r.behind){
+      const over=r.total-r.fieldRef;
+      adv.push({ sev:'yellow', impact:r.units, model:r.model, tags:[roleTag],
+        title:`${r.model}｜毛利高於${refLbl} ${over.toFixed(1)}%`,
+        body: body3(`你 <b>${fmtPct(r.total)}</b> 高於${refLbl} ${fmtPct(r.fieldRef)}${bestTxt}${posTxt}。定價偏高,<b>有讓利本錢</b>,但也可能在流失成交。`,
+          `進度已達標就<b>維持 ${fmtPct(r.total)}</b> 賺價差;要搶市占才動用讓利空間到約 ${fmtPct(r.fieldRef+0.5)}。`,
+          `用進度決定:這台目前${r.rate!=null?`達成 ${r.rate.toFixed(0)}%`:'進度未填'},夠了就守價。`) });
     }
-    if (r.part!=null && r.part < 0 && r.marginTier!=='neg') {
-      adv.push({ sev:'yellow', impact:impact*0.5, model:r.model, tags:[roleTag],
+
+    // 6) 週對週毛利下滑
+    if (r.dTotal!=null && r.dTotal<=-th.drop){
+      const prevV=r.total-r.dTotal;
+      adv.push({ sev:'yellow', impact:r.units, model:r.model, tags:[roleTag],
+        title:`${r.model}｜毛利週跌 ${Math.abs(r.dTotal).toFixed(1)}%`,
+        body: body3(`合計毛利從上週 <b>${fmtPct(prevV)}</b> 掉到 <b>${fmtPct(r.total)}</b>。`,
+          `若非策略性讓利,<b>收回到上週的 ${fmtPct(prevV)}</b>。`,
+          `查被殺價的批次;競品促銷就用配件回應,別直接降車價。`) });
+    }
+    // 7) 配件為負
+    if (r.part!=null && r.part<0 && r.marginTier!=='neg'){
+      adv.push({ sev:'yellow', impact:r.units*0.5, model:r.model, tags:[roleTag],
         title:`${r.model}｜配件毛利為負 ${fmtPct(r.part)}`,
-        body: body3(`配件端 <b>${fmtPct(r.part)}</b> 在賠,車輛賺的又被配件吐回去。`,
-          `配件毛利至少拉回 <b>0%</b>,目標 <b>+1~2%</b>。`,
-          `檢討配件進價與贈品成本 — 配件是讓利後補毛利的主要工具,不能自己先破。`) });
+        body: body3(`配件 <b>${fmtPct(r.part)}</b> 在賠,車輛賺的又被吐回去。`,
+          `配件拉回 <b>0%</b>,目標 +1~2%。`,
+          `檢討配件進價/贈品成本 — 配件是讓利後補毛利的主要工具。`) });
     }
-    if (r.plan.role==='守毛利' && r.dTotal!=null && r.dTotal < -0.5) {
-      const prevV = r.total - r.dTotal;
-      adv.push({ sev:'red', impact, model:r.model, tags:[roleTag],
+    // 8) 計畫「守毛利」卻下滑
+    if (r.plan.role==='守毛利' && r.dTotal!=null && r.dTotal<-0.5){
+      const prevV=r.total-r.dTotal;
+      adv.push({ sev:'red', impact:r.units, model:r.model, tags:[roleTag],
         title:`${r.model}｜偏離計畫:「守毛利」卻下滑`,
-        body: body3(`月計畫要守毛利,卻從 ${fmtPct(prevV)} 跌到 ${fmtPct(r.total)}(-${Math.abs(r.dTotal).toFixed(1)}%),方向相反。`,
-          `立刻<b>收回到 ${fmtPct(prevV)} 或以上</b>。`,
-          `暫停這台讓利、回收現場議價空間。`) });
-    }
-    if (r.plan.role==='衝量(可讓利)' && r.target!=null && r.units >= r.target/4) {
-      adv.push({ sev:'green', impact:impact*0.4, model:r.model, tags:[roleTag],
-        title:`${r.model}｜衝量已達週均目標`,
-        body: body3(`計畫衝量,本週 ${r.units} 台已達週均目標(${Math.round(r.target/4)})。`,
-          `可<b>逐步收回讓利 0.5~1%</b>(往 ${fmtPct(r.total+0.75)} 靠),把毛利賺回來。`,
-          `分批試探收價,盯台數有沒有明顯掉;沒掉就續收。`) });
+        body: body3(`月計畫要守毛利,卻從 ${fmtPct(prevV)} 跌到 ${fmtPct(r.total)},方向相反。`,
+          `立刻收回到 <b>${fmtPct(prevV)} 以上</b>。`,`暫停讓利、回收現場議價空間。`) });
     }
   });
 
-  // 整體毛利總指標
-  if (kpi.dBlended!=null && kpi.dBlended <= -0.3) {
+  // 整體指標
+  if (kpi.dBlended!=null && kpi.dBlended<=-0.3){
     adv.unshift({ sev:'red', impact:1e9, model:'__overall__', tags:[],
       title:`整體合計毛利率下滑 ${Math.abs(kpi.dBlended).toFixed(1)}%`,
-      body: body3(`整體從 ${fmtPct(kpi.blended-kpi.dBlended)} 掉到 <b>${fmtPct(kpi.blended)}</b>(目標 ${fmtPct(T)}),多半是量大的低毛利車種被讓太多。`,
-        `本週把整體<b>拉回 ${fmtPct(T)} 以上</b>。`,
-        `先處理下面紅燈車種、確認每筆讓利都有配件補回;高毛利車加碼衝量拉抬平均。`) });
-  } else if (kpi.blended!=null && kpi.blended < T) {
+      body: body3(`整體從 ${fmtPct(kpi.blended-kpi.dBlended)} 掉到 <b>${fmtPct(kpi.blended)}</b>(目標 ${fmtPct(T)})。`,
+        `本週把整體<b>拉回 ${fmtPct(T)} 以上</b>。`,`先處理紅燈車種、確認讓利有配件補回;高毛利車加碼衝量拉抬平均。`) });
+  } else if (kpi.blended!=null && kpi.blended<T){
     adv.unshift({ sev:'yellow', impact:1e9, model:'__overall__', tags:[],
       title:`整體毛利 ${fmtPct(kpi.blended)} 低於目標 ${fmtPct(T)}`,
-      body: body3(`目前加權毛利 <b>${fmtPct(kpi.blended)}</b>,離目標 ${fmtPct(T)} 還差 ${(T-kpi.blended).toFixed(1)}%。`,
-        `本週目標:整體<b>回到 ${fmtPct(T)}</b>。`,
-        `優先拉高「量大又低利」的車種(看下方明細台數最多、毛利最低那幾台),它們對整體影響最大。`) });
+      body: body3(`目前加權毛利 <b>${fmtPct(kpi.blended)}</b>,差目標 ${(T-kpi.blended).toFixed(1)}%。`,
+        `本週目標:整體回到 ${fmtPct(T)}。`,`優先拉高「量大又低利」的車種,對整體影響最大。`) });
   }
 
-  // 依策略模式決定排序權重(嚴重度永遠優先,整體警示永遠最上)
-  const enMap = {}; enriched.forEach(r => enMap[r.model] = r);
-  const stratKey = a => {
-    if (a.model==='__overall__') return 1e12;
-    const r = enMap[a.model] || {}; const units = r.units||a.impact||0; const marg = Math.abs(r.total||0);
-    if (strat==='progress') return /落後|進度|衝量|達標/.test(a.title) ? units*3 : units;
-    if (strat==='margin')   return /毛利|負|守毛利|下滑|配件|落後|過低|過高/.test(a.title) ? units*3 : units;
-    if (strat==='profit')   return units * Math.max(marg, 0.3);
-    return units;
-  };
+  const enMap={}; enriched.forEach(r=>enMap[r.model]=r);
+  const stratKey=a=>{ if(a.model==='__overall__') return 1e12; const r=enMap[a.model]||{}; const u=r.units||a.impact||0; const mg=Math.abs(r.total||0);
+    if(strat==='progress') return /落後|進度|衝量|缺車/.test(a.title)?u*3:u;
+    if(strat==='margin')   return /毛利|負|守毛利|下滑|配件|落後|過低|高於/.test(a.title)?u*3:u;
+    if(strat==='profit')   return u*Math.max(mg,0.3);
+    return u; };
   adv.sort((a,b)=> sevRank(b.sev)-sevRank(a.sev) || stratKey(b)-stratKey(a));
-  return { kpi, advices: adv, rows: enriched };
+  return { kpi, advices:adv, rows:enriched };
 }
-function sevRank(s){ return s==='red'?3:s==='yellow'?2:1; }
 
 /* ======================================================
    DASHBOARD
    ====================================================== */
-function renderDash() {
-  const sel = document.getElementById('dashWeekSel');
-  if (!state.weeks.length) {
-    sel.innerHTML=''; document.getElementById('dashKpis').innerHTML='';
-    document.getElementById('adviceList').innerHTML = '<div class="empty">還沒有資料。先到「輸入本週數據」建立第一週。</div>';
-    document.getElementById('dashTable').innerHTML=''; return;
-  }
-  const cur = sel.value || state.weeks[state.weeks.length-1].label;
-  sel.innerHTML = state.weeks.map(w=>`<option ${w.label===cur?'selected':''}>${esc(w.label)}</option>`).join('');
-  drawDash(sel.value || cur);
-  sel.onchange = () => drawDash(sel.value);
+function renderDash(){
+  const sel=document.getElementById('dashWeekSel');
+  if(!state.weeks.length){ sel.innerHTML=''; document.getElementById('dashKpis').innerHTML='';
+    document.getElementById('adviceList').innerHTML='<div class="empty">還沒有資料。先到「輸入本週數據」建立第一週。</div>';
+    document.getElementById('dashTable').innerHTML=''; document.getElementById('dashStrat').textContent=''; return; }
+  const cur=sel.value||state.weeks[state.weeks.length-1].label;
+  sel.innerHTML=state.weeks.map(w=>`<option ${w.label===cur?'selected':''}>${esc(w.label)}</option>`).join('');
+  drawDash(sel.value||cur);
+  sel.onchange=()=>drawDash(sel.value);
 }
-function drawDash(label) {
-  const a = analyze(label); if (!a) return;
-  const { kpi, advices, rows } = a;
-  document.getElementById('dashStrat').textContent = '策略:' + (STRATEGIES[state.strategy]||'① 平衡加權');
-  // KPI
-  const dCls = v => v==null?'flat':v>0?'up':v<0?'down':'flat';
-  document.getElementById('dashKpis').innerHTML = `
+function drawDash(label){
+  const a=analyze(label); if(!a) return;
+  const {kpi,advices,rows}=a;
+  document.getElementById('dashStrat').textContent='策略:'+(STRATEGIES[state.strategy]||'① 平衡加權');
+  const dCls=v=>v==null?'flat':v>0?'up':v<0?'down':'flat';
+  document.getElementById('dashKpis').innerHTML=`
     <div class="kpi"><div class="k">整體合計毛利率(加權)</div><div class="v">${fmtPct(kpi.blended)}</div>
-      <div class="d ${dCls(kpi.dBlended)}">${kpi.prevLabel? '週變化 '+fmtDelta(kpi.dBlended)+'%' : '無前一週可比'}</div></div>
-    <div class="kpi"><div class="k">總台數</div><div class="v">${kpi.units}</div>
+      <div class="d ${dCls(kpi.dBlended)}">${kpi.prevLabel?'週變化 '+fmtDelta(kpi.dBlended)+'%':'無前一週可比'} · 目標 ${fmtPct(kpi.T)}</div></div>
+    <div class="kpi"><div class="k">交車台數</div><div class="v">${kpi.units}</div>
       <div class="d ${dCls(kpi.dUnits)}">${kpi.dUnits!=null?'週變化 '+fmtDelta(kpi.dUnits)+' 台':'—'}</div></div>
-    <div class="kpi"><div class="k">車種數</div><div class="v">${kpi.models}</div><div class="d flat">本週有數據</div></div>
+    <div class="kpi"><div class="k">平均受訂達成率</div><div class="v">${kpi.avgRate!=null?kpi.avgRate.toFixed(0)+'%':'–'}</div><div class="d flat">有填受訂的車種平均</div></div>
     <div class="kpi"><div class="k">需處理項目</div><div class="v">${advices.filter(x=>x.sev==='red').length}<span class="small muted"> 紅</span></div>
-      <div class="d flat">${advices.filter(x=>x.sev==='yellow').length} 黃 · ${advices.filter(x=>x.sev==='green').length} 綠</div></div>`;
-  // advices
-  const al = document.getElementById('adviceList');
-  al.innerHTML = advices.length ? advices.map(x=>`
-    <div class="advice ${x.sev}">
-      <div class="t"><span class="pill ${x.sev}">${x.sev==='red'?'●立即':x.sev==='yellow'?'●留意':'●加碼'}</span> ${esc(x.title)} ${x.tags.join(' ')}</div>
-      <div class="b">${x.body}</div>
-    </div>`).join('') : '<div class="empty">本週沒有觸發任何規則,狀況穩定 👍</div>';
-  // table
+      <div class="d flat">${advices.filter(x=>x.sev==='yellow').length} 黃 · ${advices.filter(x=>x.sev==='green').length} 綠/機會</div></div>`;
+  document.getElementById('adviceList').innerHTML = advices.length ? advices.map(x=>`
+    <div class="advice ${x.sev}"><div class="t"><span class="pill ${x.sev}">${x.sev==='red'?'●立即':x.sev==='yellow'?'●留意':'●機會'}</span> ${esc(x.title)} ${x.tags.join(' ')}</div>
+      <div class="b">${x.body}</div></div>`).join('') : '<div class="empty">本週沒有觸發任何規則,狀況穩定 👍</div>';
   drawDashTable(rows);
 }
-function drawDashTable(rows) {
-  const t = document.getElementById('dashTable');
-  let h = `<tr><th>車種</th><th>台數</th><th>車輛%</th><th>配件%</th><th>合計%</th><th>週變化</th><th>vs 標竿</th><th>在庫</th><th>去化週</th><th>燈號</th></tr>`;
-  rows.sort((a,b)=> b.units-a.units).forEach(r=>{
+function drawDashTable(rows){
+  const t=document.getElementById('dashTable');
+  let h=`<tr><th>車種</th><th>台數</th><th>合計%</th><th>週變化</th><th>vs 標竿</th><th>受訂達成</th><th>在庫</th><th>充足率</th><th>燈號</th></tr>`;
+  rows.slice().sort((a,b)=>b.units-a.units).forEach(r=>{
     const light = r.marginTier==='neg'?'<span class="pill red">虧損</span>'
-      : (r.marginTier==='low'&&r.stockTier==='high')?'<span class="pill red">低利壓庫</span>'
-      : r.marginTier==='high'?'<span class="pill green">高利</span>'
-      : r.stockTier==='high'?'<span class="pill yellow">壓庫</span>':'<span class="muted small">—</span>';
-    const dcls = r.dTotal==null?'flat':r.dTotal>0?'up':r.dTotal<0?'down':'flat';
-    // vs 標竿:與同業/全體差距 + 排名
-    let vsBench = '<span class="muted small">–</span>';
-    if (r.fieldRef!=null && r.total!=null) {
-      const diff = r.total - r.fieldRef;
-      const cls = diff>=1.5?'up':diff<=-1?'down':'flat';
-      const rk = r.rank!=null ? ` <span class="small muted">#${r.rank}/${r.peerCount}</span>` : '';
-      vsBench = `<span class="${cls}">${diff>0?'+':''}${diff.toFixed(1)}%</span>${rk}`;
-    }
-    h += `<tr>
+      : (r.behind&&r.shortage)?'<span class="pill red">落後缺車</span>'
+      : (r.marginTier==='low'&&r.excess)?'<span class="pill red">低利過剩</span>'
+      : r.behind?'<span class="pill yellow">進度落後</span>'
+      : r.excess?'<span class="pill yellow">庫存過剩</span>'
+      : r.shortage?'<span class="pill yellow">缺車</span>'
+      : r.marginTier==='high'?'<span class="pill green">高利</span>':'<span class="muted small">—</span>';
+    const dcls=r.dTotal==null?'flat':r.dTotal>0?'up':r.dTotal<0?'down':'flat';
+    let vs='<span class="muted small">–</span>';
+    if(r.fieldRef!=null&&r.total!=null){ const d=r.total-r.fieldRef; const c=d>=1.5?'up':d<=-1?'down':'flat';
+      vs=`<span class="${c}">${d>0?'+':''}${d.toFixed(1)}%</span>${r.rank!=null?` <span class="small muted">#${r.rank}/${r.peerCount}</span>`:''}`; }
+    const rateTxt = r.rate!=null?`<span class="${r.behind?'down':r.ahead?'up':'flat'}">${r.rate.toFixed(0)}%</span>`:'–';
+    const adqTxt = r.adq!=null?`<span class="${r.shortage?'down':r.excess?'up':'flat'}">${r.adq.toFixed(0)}%</span>`:'–';
+    h+=`<tr>
       <td class="name">${esc(r.model)}</td>
       <td>${r.units}</td>
-      <td>${fmtPct(r.veh)}</td>
-      <td>${fmtPct(r.part)}</td>
       <td><b>${fmtPct(r.total)}</b></td>
       <td class="${dcls}">${r.dTotal==null?'–':fmtDelta(r.dTotal)}</td>
-      <td>${vsBench}</td>
+      <td>${vs}</td>
+      <td>${rateTxt}</td>
       <td>${r.stock==null?'–':r.stock}${r.age!=null?`<br><span class="small muted">${r.age}天</span>`:''}</td>
-      <td>${r.dos==null?'–':r.dos.toFixed(1)}</td>
+      <td>${adqTxt}</td>
       <td>${light}</td>
     </tr>`;
   });
-  t.innerHTML = h;
+  t.innerHTML=h;
 }
 
 /* ======================================================
    TREND
    ====================================================== */
-function renderTrend() {
+function renderTrend(){
   drawBlendedChart();
-  const sel = document.getElementById('trendModelSel');
-  sel.innerHTML = state.models.map(m=>`<option>${esc(m)}</option>`).join('');
+  const sel=document.getElementById('trendModelSel');
+  sel.innerHTML=state.models.map(m=>`<option>${esc(m)}</option>`).join('');
   renderModelTrend();
 }
-function drawBlendedChart() {
-  const el = document.getElementById('trendChart');
-  if (state.weeks.length < 1) { el.innerHTML='<div class="empty">還沒有資料</div>'; return; }
-  const pts = state.weeks.map(w=>({ label:w.label, v:blended(w.rows) })).filter(p=>p.v!=null);
-  if (!pts.length){ el.innerHTML='<div class="empty">沒有可畫的毛利資料</div>'; return; }
-  el.innerHTML = lineChart(pts.map(p=>p.v), pts.map(p=>p.label), '%');
+function drawBlendedChart(){
+  const el=document.getElementById('trendChart');
+  if(state.weeks.length<1){ el.innerHTML='<div class="empty">還沒有資料</div>'; return; }
+  const pts=state.weeks.map(w=>({label:w.label,v:blended(w.margin)})).filter(p=>p.v!=null);
+  if(!pts.length){ el.innerHTML='<div class="empty">沒有可畫的毛利資料</div>'; return; }
+  el.innerHTML=lineChart(pts.map(p=>p.v),pts.map(p=>p.label),'%');
 }
-function renderModelTrend() {
-  const m = document.getElementById('trendModelSel').value;
-  const el = document.getElementById('modelTrend');
-  const pts = state.weeks.map(w=>{ const r=w.rows.find(x=>x.model===m); return { label:w.label, total:r?r.total:null, units:r?r.units:null }; });
-  const have = pts.filter(p=>p.total!=null);
-  if (have.length<1){ el.innerHTML='<div class="empty">此車種尚無資料</div>'; return; }
-  let h = lineChart(pts.map(p=>p.total==null?null:p.total), pts.map(p=>p.label), '%');
-  h += `<div class="tblwrap" style="margin-top:12px"><table><tr><th>週別</th><th>台數</th><th>合計毛利%</th></tr>`;
+function renderModelTrend(){
+  const m=document.getElementById('trendModelSel').value;
+  const el=document.getElementById('modelTrend');
+  const pts=state.weeks.map(w=>{ const r=(w.margin||[]).find(x=>x.model===m); return {label:w.label,total:r?r.total:null,units:r?r.units:null}; });
+  if(pts.filter(p=>p.total!=null).length<1){ el.innerHTML='<div class="empty">此車種尚無資料</div>'; return; }
+  let h=lineChart(pts.map(p=>p.total==null?null:p.total),pts.map(p=>p.label),'%');
+  h+=`<div class="tblwrap" style="margin-top:12px"><table><tr><th>週別</th><th>台數</th><th>合計毛利%</th></tr>`;
   pts.forEach(p=>{ h+=`<tr><td class="name">${esc(p.label)}</td><td>${p.units==null?'–':p.units}</td><td>${fmtPct(p.total)}</td></tr>`; });
-  h += `</table></div>`;
-  el.innerHTML = h;
+  h+=`</table></div>`; el.innerHTML=h;
 }
-function lineChart(vals, labels, unit) {
-  const W=Math.max(520, labels.length*90), H=240, pad=40;
-  const nn = vals.filter(v=>v!=null);
-  if (!nn.length) return '<div class="empty">無資料</div>';
-  let min=Math.min(...nn), max=Math.max(...nn);
-  if (min===max){ min-=1; max+=1; } min=Math.min(min,0); const span=max-min||1;
-  const x=i=> pad + i*( (W-pad*2)/Math.max(1,labels.length-1) );
-  const y=v=> H-pad - ((v-min)/span)*(H-pad*2);
-  let path='', dots='', first=true;
+function lineChart(vals,labels,unit){
+  const W=Math.max(520,labels.length*90),H=240,pad=40;
+  const nn=vals.filter(v=>v!=null); if(!nn.length) return '<div class="empty">無資料</div>';
+  let min=Math.min(...nn),max=Math.max(...nn); if(min===max){min-=1;max+=1;} min=Math.min(min,0); const span=max-min||1;
+  const x=i=>pad+i*((W-pad*2)/Math.max(1,labels.length-1)); const y=v=>H-pad-((v-min)/span)*(H-pad*2);
+  let path='',dots='',first=true;
   vals.forEach((v,i)=>{ if(v==null)return; const px=x(i),py=y(v); path+=(first?'M':'L')+px+' '+py+' '; first=false;
     dots+=`<circle cx="${px}" cy="${py}" r="4" fill="#eb0a1e"/><text class="lbl" x="${px}" y="${py-9}" text-anchor="middle">${v.toFixed(1)}</text>`; });
-  let grid='', ax='';
-  for(let g=0;g<=4;g++){ const gv=min+span*g/4, gy=y(gv); grid+=`<line class="grid" x1="${pad}" y1="${gy}" x2="${W-pad}" y2="${gy}"/><text class="lbl" x="6" y="${gy+4}">${gv.toFixed(1)}${unit}</text>`; }
+  let grid='',ax='';
+  for(let g=0;g<=4;g++){ const gv=min+span*g/4,gy=y(gv); grid+=`<line class="grid" x1="${pad}" y1="${gy}" x2="${W-pad}" y2="${gy}"/><text class="lbl" x="6" y="${gy+4}">${gv.toFixed(1)}${unit}</text>`; }
   labels.forEach((l,i)=>{ ax+=`<text class="lbl" x="${x(i)}" y="${H-pad+16}" text-anchor="middle">${esc(l).slice(0,10)}</text>`; });
   return `<div class="tblwrap"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${grid}<path d="${path}" fill="none" stroke="#eb0a1e" stroke-width="2.5"/>${dots}${ax}</svg></div>`;
 }
@@ -1058,77 +899,69 @@ function lineChart(vals, labels, unit) {
 /* ======================================================
    SETTINGS / BACKUP
    ====================================================== */
-const STRATEGY_HINTS = {
-  balanced: '① 平衡加權:進度與毛利並重,在「不落後且毛利不破底」間找平衡。最穩,適合常態。',
-  progress: '② 進度優先:以台數/達成為主,建議會把落後車種排前、讓利力道放大(×1.3)。適合衝刺月、清庫存。',
-  margin:   '③ 毛利優先:守毛利為主,建議把毛利下滑/低利車排前、讓利力道縮小(×0.5)。適合守獲利。',
-  profit:   '④ 獲利金額優先:以「毛利率×台數=毛利金額」排序,優先處理高貢獻車種。最貼近總獲利。'
+const STRATEGY_HINTS={
+  balanced:'① 平衡加權:進度與毛利並重。最穩,適合常態。',
+  progress:'② 進度優先:落後車種排前、讓利力道 ×1.3。適合衝刺月、清庫存。',
+  margin:'③ 毛利優先:毛利相關排前、讓利力道 ×0.5。適合守獲利。',
+  profit:'④ 獲利金額優先:以毛利率×台數排序,優先高貢獻車種。'
 };
-function renderSettings() {
-  document.getElementById('dealerName').value = state.dealer || '';
-  document.getElementById('modelsBox').value = state.models.join('\n');
-  document.getElementById('peersBox').value = (state.peers||[]).join('\n');
-  const ssel = document.getElementById('strategySel');
-  ssel.innerHTML = Object.entries(STRATEGIES).map(([k,v])=>`<option value="${k}" ${state.strategy===k?'selected':''}>${v}</option>`).join('');
-  const hint = () => document.getElementById('strategyHint').textContent = STRATEGY_HINTS[ssel.value] || '';
-  ssel.onchange = () => { state.strategy = ssel.value; save(); hint(); toast('策略已切換:'+STRATEGIES[ssel.value]); };
+function renderSettings(){
+  document.getElementById('dealerName').value=state.dealer||'';
+  document.getElementById('modelsBox').value=state.models.join('\n');
+  document.getElementById('peersBox').value=(state.peers||[]).join('\n');
+  const ssel=document.getElementById('strategySel');
+  ssel.innerHTML=Object.entries(STRATEGIES).map(([k,v])=>`<option value="${k}" ${state.strategy===k?'selected':''}>${v}</option>`).join('');
+  const hint=()=>document.getElementById('strategyHint').textContent=STRATEGY_HINTS[ssel.value]||'';
+  ssel.onchange=()=>{ state.strategy=ssel.value; save(); hint(); toast('策略已切換:'+STRATEGIES[ssel.value]); };
   hint();
-  const th = state.thresholds;
-  document.getElementById('thHigh').value = th.high;
-  document.getElementById('thLow').value = th.low;
-  document.getElementById('thStockHi').value = th.stockHi;
-  document.getElementById('thAge').value = th.age;
-  document.getElementById('thDrop').value = th.drop;
-  document.getElementById('thTarget').value = th.targetBlended;
+  const th=state.thresholds;
+  document.getElementById('thHigh').value=th.high; document.getElementById('thLow').value=th.low;
+  document.getElementById('thTarget').value=th.targetBlended; document.getElementById('thDrop').value=th.drop;
+  document.getElementById('thAdqLow').value=th.adqLow; document.getElementById('thAdqHigh').value=th.adqHigh;
+  document.getElementById('thStockHi').value=th.stockHi; document.getElementById('thAge').value=th.age;
 }
-function saveSettings() {
-  state.dealer = document.getElementById('dealerName').value.trim() || '中部';
-  state.models = document.getElementById('modelsBox').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  state.peers = document.getElementById('peersBox').value.split(/[\r\n,]/).map(s=>s.trim()).filter(Boolean);
-  save(); document.getElementById('dealerLabel').textContent = '經銷商:'+state.dealer;
-  toast('設定已儲存');
+function saveSettings(){
+  state.dealer=document.getElementById('dealerName').value.trim()||'中部';
+  state.models=document.getElementById('modelsBox').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  state.peers=document.getElementById('peersBox').value.split(/[\r\n,]/).map(s=>s.trim()).filter(Boolean);
+  save(); document.getElementById('dealerLabel').textContent='經銷商:'+state.dealer; toast('設定已儲存');
 }
-function resetModels(){ document.getElementById('modelsBox').value = DEFAULT_MODELS.join('\n'); }
+function resetModels(){ document.getElementById('modelsBox').value=DEFAULT_MODELS.join('\n'); }
 function loadEightDealers(){
-  const me = (document.getElementById('dealerName').value || state.dealer || '中部').trim();
-  const list = ['全體', ...DEALERS_8.filter(d => d !== me)];
-  document.getElementById('peersBox').value = list.join('\n');
-  toast('已帶入八大(排除 '+me+'),記得按「儲存設定」');
+  const me=(document.getElementById('dealerName').value||state.dealer||'中部').trim();
+  document.getElementById('peersBox').value=['全體',...DEALERS_8.filter(d=>d!==me)].join('\n');
+  toast('已帶入八大(排除 '+me+'),記得按儲存設定');
 }
-function saveThresholds() {
-  state.thresholds = {
-    high: num(document.getElementById('thHigh').value) ?? DEFAULT_TH.high,
-    low: num(document.getElementById('thLow').value) ?? DEFAULT_TH.low,
-    stockHi: num(document.getElementById('thStockHi').value) ?? DEFAULT_TH.stockHi,
-    age: num(document.getElementById('thAge').value) ?? DEFAULT_TH.age,
-    drop: num(document.getElementById('thDrop').value) ?? DEFAULT_TH.drop,
-    targetBlended: num(document.getElementById('thTarget').value) ?? DEFAULT_TH.targetBlended
+function saveThresholds(){
+  state.thresholds={
+    high:num(document.getElementById('thHigh').value)??DEFAULT_TH.high,
+    low:num(document.getElementById('thLow').value)??DEFAULT_TH.low,
+    targetBlended:num(document.getElementById('thTarget').value)??DEFAULT_TH.targetBlended,
+    drop:num(document.getElementById('thDrop').value)??DEFAULT_TH.drop,
+    adqLow:num(document.getElementById('thAdqLow').value)??DEFAULT_TH.adqLow,
+    adqHigh:num(document.getElementById('thAdqHigh').value)??DEFAULT_TH.adqHigh,
+    stockHi:num(document.getElementById('thStockHi').value)??DEFAULT_TH.stockHi,
+    age:num(document.getElementById('thAge').value)??DEFAULT_TH.age
   };
   save(); toast('門檻已儲存');
 }
-function exportData() {
-  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
-  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download = 'margin-advisor-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
-  toast('已匯出 JSON');
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='margin-advisor-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); toast('已匯出 JSON');
 }
-function importData(e) {
-  const f = e.target.files[0]; if(!f) return;
-  const rd = new FileReader();
-  rd.onload = () => {
-    try { const s = JSON.parse(rd.result); state = { ...blankState(), ...s, thresholds:{...DEFAULT_TH,...(s.thresholds||{})} };
-      save(); document.getElementById('dealerLabel').textContent='經銷商:'+state.dealer; toast('已匯入資料'); renderDash();
-    } catch(err){ toast('匯入失敗:檔案格式錯誤'); }
-  };
+function importData(e){
+  const f=e.target.files[0]; if(!f) return; const rd=new FileReader();
+  rd.onload=()=>{ try{ const s=JSON.parse(rd.result); state={...blankState(),...s,thresholds:{...DEFAULT_TH,...(s.thresholds||{})}};
+    (state.weeks||[]).forEach(migrateWeek); save();
+    document.getElementById('dealerLabel').textContent='經銷商:'+state.dealer; toast('已匯入資料'); renderDash();
+  }catch(err){ toast('匯入失敗:格式錯誤'); } };
   rd.readAsText(f);
 }
-function wipeData() {
-  if (!confirm('確定清空全部資料?建議先匯出備份。')) return;
-  state = blankState(); save(); toast('已清空'); renderSettings(); renderDash();
-}
+function wipeData(){ if(!confirm('確定清空全部資料?建議先匯出備份。')) return; state=blankState(); save(); toast('已清空'); renderSettings(); renderDash(); }
 
 /* ---------- init ---------- */
-document.getElementById('dealerLabel').textContent = '經銷商:'+(state.dealer||'中部');
+document.getElementById('dealerLabel').textContent='經銷商:'+(state.dealer||'中部');
 renderDash();
 </script>
 </body>
