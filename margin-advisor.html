@@ -275,6 +275,9 @@
       <div class="hint" id="strategyHint"></div>
       <h3 class="sec">車種主檔(一行一個)</h3>
       <textarea id="modelsBox"></textarea>
+      <h3 class="sec">比較分公司(標竿,一行一個)</h3>
+      <div class="hint">要拿來跟你(中部)比較毛利的對象。放「全體」就跟全公司平均比;再加其他分公司(如 高都、國都)就能算排名、判斷你毛利過低或過高。每週數據會多出這些欄位可輸入。</div>
+      <textarea id="peersBox" style="min-height:80px"></textarea>
       <div class="row" style="margin-top:10px">
         <button class="btn" onclick="saveSettings()">儲存設定</button>
         <button class="btn ghost small" onclick="resetModels()">還原預設車種清單</button>
@@ -335,6 +338,7 @@ const DEFAULT_MODELS = [
   'TOWN ACE','TOWN ACE V','U CRUISER','VIOS','Y CROSS'
 ];
 const DEFAULT_TH = { high: 5, low: 2, stockHi: 8, age: 90, drop: 1.0, targetBlended: 3.0 };
+const DEFAULT_PEERS = ['全體'];   // 比較用的分公司(標竿),使用者可增減
 const PLAN_ROLES = ['衝量(可讓利)','守毛利','清庫存','維持','觀察'];
 const STRATEGIES = {
   balanced: '① 平衡加權',
@@ -358,7 +362,7 @@ const CANON = [
 let state = load();
 
 function blankState() {
-  return { dealer: '中部', models: [...DEFAULT_MODELS], thresholds: {...DEFAULT_TH}, plan: { month: '', items: {} }, weeks: [], strategy: 'balanced', mappings: {} };
+  return { dealer: '中部', models: [...DEFAULT_MODELS], thresholds: {...DEFAULT_TH}, plan: { month: '', items: {} }, weeks: [], strategy: 'balanced', mappings: {}, peers: [...DEFAULT_PEERS] };
 }
 function load() {
   try {
@@ -407,16 +411,22 @@ function renderEntry() {
   if (entryRows.length === 0) loadModelsIntoEntry();
   else drawEntryTable();
 }
+function peerList() { return (state.peers && state.peers.length) ? state.peers : []; }
 function loadModelsIntoEntry() {
-  entryRows = state.models.map(m => ({ model:m, units:'', veh:'', part:'', total:'', stock:'', age:'' }));
+  entryRows = state.models.map(m => ({ model:m, units:'', veh:'', part:'', total:'', stock:'', age:'', peers:{} }));
   drawEntryTable();
 }
-function addEntryRow() { entryRows.push({ model:'', units:'', veh:'', part:'', total:'', stock:'', age:'' }); drawEntryTable(); }
+function addEntryRow() { entryRows.push({ model:'', units:'', veh:'', part:'', total:'', stock:'', age:'', peers:{} }); drawEntryTable(); }
+function setPeer(i, name, v) { entryRows[i].peers = entryRows[i].peers || {}; entryRows[i].peers[name] = v; }
 
 function drawEntryTable() {
   const t = document.getElementById('entryTable');
-  let h = `<tr><th>車種</th><th>台數</th><th>車輛%</th><th>配件%</th><th>合計%</th><th>在庫台</th><th>車齡天</th><th></th></tr>`;
+  const peers = peerList();
+  const peerTh = peers.map(n=>`<th>${esc(n)}<br><span class="small muted">合計%</span></th>`).join('');
+  let h = `<tr><th>車種</th><th>台數</th><th>車輛%</th><th>配件%</th><th>合計%</th><th>在庫台</th><th>車齡天</th>${peerTh}<th></th></tr>`;
   entryRows.forEach((r,i)=>{
+    r.peers = r.peers || {};
+    const peerTd = peers.map(n=>`<td><input value="${esc(r.peers[n]??'')}" data-peer="${esc(n)}" oninput="setPeer(${i}, this.dataset.peer, this.value)"></td>`).join('');
     h += `<tr>
       <td class="name"><input value="${esc(r.model)}" oninput="entryRows[${i}].model=this.value"></td>
       <td><input value="${esc(r.units)}" oninput="entryRows[${i}].units=this.value"></td>
@@ -425,6 +435,7 @@ function drawEntryTable() {
       <td><input value="${esc(r.total)}" oninput="entryRows[${i}].total=this.value"></td>
       <td><input value="${esc(r.stock)}" oninput="entryRows[${i}].stock=this.value"></td>
       <td><input value="${esc(r.age)}" oninput="entryRows[${i}].age=this.value"></td>
+      ${peerTd}
       <td><button class="link" onclick="entryRows.splice(${i},1);drawEntryTable()">刪</button></td>
     </tr>`;
   });
@@ -441,7 +452,8 @@ function importPaste() {
     const parts = line.split(/\t|,/).map(s=>s.trim());
     if (parts.length < 2) continue;
     if (/車種|台數|合計|model/i.test(parts[0]) && num(parts[1])==null) continue; // header
-    parsed.push({ model:parts[0], units:parts[1]||'', veh:parts[2]||'', part:parts[3]||'', total:parts[4]||'', stock:parts[5]||'', age:parts[6]||'' });
+    const peers = {}; peerList().forEach((n,k)=>{ if (parts[7+k]!=null && parts[7+k]!=='') peers[n]=parts[7+k]; });
+    parsed.push({ model:parts[0], units:parts[1]||'', veh:parts[2]||'', part:parts[3]||'', total:parts[4]||'', stock:parts[5]||'', age:parts[6]||'', peers });
   }
   if (!parsed.length) { toast('沒解析到資料,檢查格式'); return; }
   entryRows = parsed; drawEntryTable();
@@ -534,6 +546,12 @@ function buildMapUI() {
   CANON.forEach(c => {
     h += `<tr><td class="name">${c.label}</td><td><select data-canon="${c.key}">${opt(guess[c.key])}</select></td></tr>`;
   });
+  // 動態:各比較分公司(標竿)的合計毛利% 欄
+  peerList().forEach(name => {
+    const cand = headers.filter(hd => String(hd).includes(name));
+    const g = cand.find(hd => /合計|毛利/.test(String(hd))) || cand[0] || '';
+    h += `<tr><td class="name">${esc(name)} 合計%<span class="small muted">(標竿)</span></td><td><select data-canon="peer:${esc(name)}">${opt(g)}</select></td></tr>`;
+  });
   h += `</table></div>
     <div class="row" style="margin-top:10px">
       <button class="btn small" onclick="applyExcelToGrid()">套用到下方表格</button>
@@ -565,10 +583,14 @@ function applyExcelToGrid() {
   if (!map.model) { toast('請先指定「車種」對應哪一欄'); return; }
   const std = applyMapping(rows, map);
   if (!std.length) { toast('對應後沒有資料列'); return; }
-  entryRows = std.map(o => ({
-    model:String(o.model).trim(), units:o.units??'', veh:o.veh??'', part:o.part??'',
-    total:o.total??'', stock:o.stock??'', age:o.age??''
-  }));
+  entryRows = std.map(o => {
+    const peers = {};
+    Object.keys(o).forEach(k => { if (k.startsWith('peer:') && o[k]!=='' && o[k]!=null) peers[k.slice(5)] = o[k]; });
+    return {
+      model:String(o.model).trim(), units:o.units??'', veh:o.veh??'', part:o.part??'',
+      total:o.total??'', stock:o.stock??'', age:o.age??'', peers
+    };
+  });
   drawEntryTable();
   // 若 Excel 有帶「全體(基準)」或「月目標」,順手寫進月度計畫
   let routed = 0;
@@ -592,12 +614,16 @@ function saveWeek() {
   if (!label) { toast('請填週別標籤'); return; }
   const rows = entryRows
     .filter(r => r.model.trim() && num(r.units)!=null)
-    .map(r => ({
-      model: r.model.trim(), units: num(r.units)||0,
-      veh: num(r.veh), part: num(r.part),
-      total: num(r.total) != null ? num(r.total) : (num(r.veh)||0)+(num(r.part)||0),
-      stock: num(r.stock), age: num(r.age)
-    }));
+    .map(r => {
+      const peers = {};
+      if (r.peers) Object.keys(r.peers).forEach(n => { const v = num(r.peers[n]); if (v!=null) peers[n] = v; });
+      return {
+        model: r.model.trim(), units: num(r.units)||0,
+        veh: num(r.veh), part: num(r.part),
+        total: num(r.total) != null ? num(r.total) : (num(r.veh)||0)+(num(r.part)||0),
+        stock: num(r.stock), age: num(r.age), peers
+      };
+    });
   if (!rows.length) { toast('至少要有一列有車種+台數'); return; }
   const idx = state.weeks.findIndex(w => w.label === label);
   const wk = { label, date, rows };
@@ -728,8 +754,22 @@ function analyze(label) {
     const plan = state.plan.items[r.model] || {};
     const target = num(plan.target);
     const tmargin = num(plan.tmargin);
-    const bench = num(plan.bench);
-    return { ...r, dTotal, dUnits, dos, marginTier, stockTier, plan, target, tmargin, bench };
+    // 同業標竿:優先用本週輸入的 peers,'全體' 沒填則退回月計畫 bench
+    const peers = r.peers || {};
+    const overall = num(peers['全體']) != null ? num(peers['全體']) : num(plan.bench);
+    const competitors = Object.keys(peers)
+      .filter(n => n !== '全體' && num(peers[n]) != null)
+      .map(n => ({ name:n, v:num(peers[n]) }));
+    let best = null, rank = null, fieldAvg = null;
+    if (competitors.length) {
+      best = competitors.reduce((a,b)=> b.v>a.v ? b : a);
+      const all = competitors.map(c=>c.v).concat(r.total!=null ? [r.total] : []);
+      fieldAvg = all.reduce((s,v)=>s+v,0)/all.length;
+      if (r.total!=null) rank = competitors.filter(c=>c.v > r.total).length + 1; // 1 = 最高
+    }
+    const fieldRef = overall!=null ? overall : fieldAvg;  // 判斷過低/過高的基準
+    const bench = overall;   // 相容舊規則命名
+    return { ...r, dTotal, dUnits, dos, marginTier, stockTier, plan, target, tmargin, bench, overall, competitors, best, rank, fieldAvg, fieldRef, peerCount: competitors.length + 1 };
   });
 
   // KPI
@@ -812,13 +852,27 @@ function analyze(label) {
           `若非策略性讓利,<b>收回到上週的 ${fmtPct(prevV)}</b>。`,
           `調成交價紀錄找出被殺價的批次;若是競品促銷,優先用配件回應而非直接降車價。`) });
     }
-    if (r.bench!=null && r.total!=null && (r.bench - r.total) >= 1 && r.marginTier!=='neg') {
-      const gap = r.bench - r.total, half = r.total + gap/2;
+    // 同業標竿:過低 / 過高 判斷(訂販促的考量之一)
+    const posTxt = r.rank!=null ? `,在 ${r.peerCount} 家中排第 ${r.rank}` : '';
+    const bestTxt = r.best ? `(最佳 ${r.best.name} ${fmtPct(r.best.v)})` : '';
+    const refLbl = r.competitors && r.competitors.length ? '同業' : '全體';
+    if (r.fieldRef!=null && r.total!=null && (r.fieldRef - r.total) >= 1 && r.marginTier!=='neg') {
+      const gap = r.fieldRef - r.total, half = r.total + gap/2;
       adv.push({ sev:'yellow', impact, model:r.model, tags:[roleTag],
-        title:`${r.model}｜落後全體 ${gap.toFixed(1)}%`,
-        body: body3(`全體同款做到 <b>${fmtPct(r.bench)}</b>,你只有 <b>${fmtPct(r.total)}</b>,落後 ${gap.toFixed(1)}% — 這是<b>定價/折讓紀律</b>問題,不是市場問題。`,
-          `本週先拉回約 <b>${fmtPct(half)}</b>(縮小一半差距),月底逼近全體 ${fmtPct(r.bench)}。`,
+        title:`${r.model}｜毛利過低,落後${refLbl} ${gap.toFixed(1)}%`,
+        body: body3(`${refLbl}同款做到 <b>${fmtPct(r.fieldRef)}</b>${bestTxt},你只有 <b>${fmtPct(r.total)}</b>,落後 ${gap.toFixed(1)}%${posTxt} — 多半是<b>定價/折讓紀律</b>問題,不是市場問題。`,
+          `本週先拉回約 <b>${fmtPct(half)}</b>(縮小一半差距),月底逼近 ${fmtPct(r.fieldRef)}。`,
           `統一折讓上限、稽核成交底價;量大不敢硬收就改綁配件、分批調。`) });
+    } else if (r.fieldRef!=null && r.total!=null && (r.total - r.fieldRef) >= 1.5 && r.marginTier!=='neg') {
+      const over = r.total - r.fieldRef;
+      const behind = (r.target!=null && r.units < r.target/4*0.9);
+      adv.push({ sev:'yellow', impact, model:r.model, tags:[roleTag],
+        title:`${r.model}｜毛利明顯高於${refLbl} ${over.toFixed(1)}%`,
+        body: body3(`你 <b>${fmtPct(r.total)}</b> 高於${refLbl} ${fmtPct(r.fieldRef)}${bestTxt} 達 ${over.toFixed(1)}%${posTxt}。定價偏高,代表<b>你有讓利本錢</b>,但也可能正在流失成交/市占。`,
+          behind
+            ? `這台<b>可讓利到約 ${fmtPct(r.fieldRef+0.5)}</b>(仍不輸${refLbl})來衝量,把過高的毛利換成台數。`
+            : `進度若已達標就<b>維持 ${fmtPct(r.total)}</b> 賺價差;要搶市占才動用這個讓利空間。`,
+          `用「進度」決定:落後就拿這台的高毛利當讓利本錢衝量;進度 OK 就守價。`) });
     } else if (r.tmargin!=null && r.total!=null && r.total < r.tmargin - 0.2 && r.marginTier!=='neg') {
       adv.push({ sev:'yellow', impact:impact*0.9, model:r.model, tags:[roleTag],
         title:`${r.model}｜低於你設的目標毛利`,
@@ -871,7 +925,7 @@ function analyze(label) {
     if (a.model==='__overall__') return 1e12;
     const r = enMap[a.model] || {}; const units = r.units||a.impact||0; const marg = Math.abs(r.total||0);
     if (strat==='progress') return /落後|進度|衝量|達標/.test(a.title) ? units*3 : units;
-    if (strat==='margin')   return /毛利|負|守毛利|下滑|配件|落後全體/.test(a.title) ? units*3 : units;
+    if (strat==='margin')   return /毛利|負|守毛利|下滑|配件|落後|過低|過高/.test(a.title) ? units*3 : units;
     if (strat==='profit')   return units * Math.max(marg, 0.3);
     return units;
   };
@@ -921,13 +975,21 @@ function drawDash(label) {
 }
 function drawDashTable(rows) {
   const t = document.getElementById('dashTable');
-  let h = `<tr><th>車種</th><th>台數</th><th>車輛%</th><th>配件%</th><th>合計%</th><th>週變化</th><th>在庫</th><th>去化週</th><th>燈號</th></tr>`;
+  let h = `<tr><th>車種</th><th>台數</th><th>車輛%</th><th>配件%</th><th>合計%</th><th>週變化</th><th>vs 標竿</th><th>在庫</th><th>去化週</th><th>燈號</th></tr>`;
   rows.sort((a,b)=> b.units-a.units).forEach(r=>{
     const light = r.marginTier==='neg'?'<span class="pill red">虧損</span>'
       : (r.marginTier==='low'&&r.stockTier==='high')?'<span class="pill red">低利壓庫</span>'
       : r.marginTier==='high'?'<span class="pill green">高利</span>'
       : r.stockTier==='high'?'<span class="pill yellow">壓庫</span>':'<span class="muted small">—</span>';
     const dcls = r.dTotal==null?'flat':r.dTotal>0?'up':r.dTotal<0?'down':'flat';
+    // vs 標竿:與同業/全體差距 + 排名
+    let vsBench = '<span class="muted small">–</span>';
+    if (r.fieldRef!=null && r.total!=null) {
+      const diff = r.total - r.fieldRef;
+      const cls = diff>=1.5?'up':diff<=-1?'down':'flat';
+      const rk = r.rank!=null ? ` <span class="small muted">#${r.rank}/${r.peerCount}</span>` : '';
+      vsBench = `<span class="${cls}">${diff>0?'+':''}${diff.toFixed(1)}%</span>${rk}`;
+    }
     h += `<tr>
       <td class="name">${esc(r.model)}</td>
       <td>${r.units}</td>
@@ -935,6 +997,7 @@ function drawDashTable(rows) {
       <td>${fmtPct(r.part)}</td>
       <td><b>${fmtPct(r.total)}</b></td>
       <td class="${dcls}">${r.dTotal==null?'–':fmtDelta(r.dTotal)}</td>
+      <td>${vsBench}</td>
       <td>${r.stock==null?'–':r.stock}${r.age!=null?`<br><span class="small muted">${r.age}天</span>`:''}</td>
       <td>${r.dos==null?'–':r.dos.toFixed(1)}</td>
       <td>${light}</td>
@@ -1000,6 +1063,7 @@ const STRATEGY_HINTS = {
 function renderSettings() {
   document.getElementById('dealerName').value = state.dealer || '';
   document.getElementById('modelsBox').value = state.models.join('\n');
+  document.getElementById('peersBox').value = (state.peers||[]).join('\n');
   const ssel = document.getElementById('strategySel');
   ssel.innerHTML = Object.entries(STRATEGIES).map(([k,v])=>`<option value="${k}" ${state.strategy===k?'selected':''}>${v}</option>`).join('');
   const hint = () => document.getElementById('strategyHint').textContent = STRATEGY_HINTS[ssel.value] || '';
@@ -1016,6 +1080,7 @@ function renderSettings() {
 function saveSettings() {
   state.dealer = document.getElementById('dealerName').value.trim() || '中部';
   state.models = document.getElementById('modelsBox').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  state.peers = document.getElementById('peersBox').value.split(/[\r\n,]/).map(s=>s.trim()).filter(Boolean);
   save(); document.getElementById('dealerLabel').textContent = '經銷商:'+state.dealer;
   toast('設定已儲存');
 }
