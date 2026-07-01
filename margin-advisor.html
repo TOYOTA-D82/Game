@@ -209,7 +209,7 @@
   <section id="view-plan" class="view">
     <div class="card">
       <h2>月度販促案</h2>
-      <div class="hint">月初先設定本月「每台車的角色與目標」。之後每週分析會拿實際表現跟這個計畫比對,告訴你哪裡偏離、要不要調整。</div>
+      <div class="hint">月初先設定本月「每台車的角色與目標」。<b>目標毛利%</b>=你希望這台守住的合計毛利;<b>全體(基準)%</b>=出表上「全體毛利」欄同款的數字(拿來當標竿,看你落後多少)。兩欄選填,但填了建議就會給你具體的「該拉到幾 %」。</div>
       <div class="row mb">
         <label class="fld">計畫月份
           <input id="planMonth" placeholder="例:2026-06">
@@ -278,6 +278,9 @@
         <label class="fld">毛利週跌幅警示 % (≥)
           <input id="thDrop" type="number" step="0.1" style="width:90px">
         </label>
+        <label class="fld">整體目標毛利率 % (要守住)
+          <input id="thTarget" type="number" step="0.1" style="width:110px">
+        </label>
       </div>
       <button class="btn small" onclick="saveThresholds()">儲存門檻</button>
     </div>
@@ -309,7 +312,7 @@ const DEFAULT_MODELS = [
   'L CRUISER','PRIUS PHV','RAV4 HV','RAV4 PHV','SIENNA HV','SUPRA',
   'TOWN ACE','TOWN ACE V','U CRUISER','VIOS','Y CROSS'
 ];
-const DEFAULT_TH = { high: 5, low: 2, stockHi: 8, age: 90, drop: 1.0 };
+const DEFAULT_TH = { high: 5, low: 2, stockHi: 8, age: 90, drop: 1.0, targetBlended: 3.0 };
 const PLAN_ROLES = ['衝量(可讓利)','守毛利','清庫存','維持','觀察'];
 
 let state = load();
@@ -479,7 +482,7 @@ function renderPlan() {
 function loadModelsIntoPlan() { drawPlanTable(state.models); }
 function drawPlanTable(models) {
   const t = document.getElementById('planTable');
-  let h = `<tr><th>車種</th><th>角色</th><th>本月目標台數</th><th>備註 / 販促手法</th></tr>`;
+  let h = `<tr><th>車種</th><th>角色</th><th>本月目標台數</th><th>目標毛利%</th><th>全體(基準)%</th><th>備註 / 販促手法</th></tr>`;
   models.forEach(m => {
     const it = state.plan.items[m] || {};
     const opts = PLAN_ROLES.map(r=>`<option ${it.role===r?'selected':''}>${r}</option>`).join('');
@@ -487,6 +490,8 @@ function drawPlanTable(models) {
       <td class="name">${esc(m)}</td>
       <td><select data-m="${esc(m)}" data-f="role"><option value=""></option>${opts}</select></td>
       <td><input data-m="${esc(m)}" data-f="target" value="${esc(it.target||'')}" style="text-align:center"></td>
+      <td><input data-m="${esc(m)}" data-f="tmargin" value="${esc(it.tmargin||'')}" style="text-align:center" placeholder="選填"></td>
+      <td><input data-m="${esc(m)}" data-f="bench" value="${esc(it.bench||'')}" style="text-align:center" placeholder="選填"></td>
       <td><input data-m="${esc(m)}" data-f="note" value="${esc(it.note||'')}" style="text-align:left"></td>
     </tr>`;
   });
@@ -503,7 +508,7 @@ function savePlan() {
   // drop empty
   Object.keys(items).forEach(m => {
     const it = items[m];
-    if (!it.role && !it.target && !it.note) delete items[m];
+    if (!it.role && !it.target && !it.note && !it.tmargin && !it.bench) delete items[m];
   });
   state.plan.items = items; save();
   document.getElementById('planMsg').textContent = '已儲存月度計畫';
@@ -544,7 +549,9 @@ function analyze(label) {
     if ((dos!=null && dos >= th.stockHi) || (r.age!=null && r.age >= th.age)) stockTier='high';
     const plan = state.plan.items[r.model] || {};
     const target = num(plan.target);
-    return { ...r, dTotal, dUnits, dos, marginTier, stockTier, plan, target };
+    const tmargin = num(plan.tmargin);
+    const bench = num(plan.bench);
+    return { ...r, dTotal, dUnits, dos, marginTier, stockTier, plan, target, tmargin, bench };
   });
 
   // KPI
@@ -560,77 +567,122 @@ function analyze(label) {
 
   // 產生建議
   const adv = [];
+  const T = state.thresholds.targetBlended ?? 3.0;       // 整體目標毛利率
+  const body3 = (why, rec, how) => `<b>原因</b>:${why}<br><b>建議毛利</b>:${rec}<br><b>處理方式</b>:${how}`;
+  // 讓利空間:在其他車種不變、維持整體 ≥ T 下,本車種還可讓的百分點
+  const roomPts = r => {
+    if (!(r.units>0) || r.total==null || bl==null) return null;
+    const slack = bl - T; if (slack <= 0) return 0;
+    return slack * totalUnits / r.units;
+  };
+
   enriched.forEach(r => {
     const roleTag = r.plan.role ? `<span class="pill blue">計畫:${r.plan.role}</span>` : '';
-    const impact = r.units; // 排序用
-    // 規則
+    const impact = r.units;
+    const dosTxt = r.dos!=null ? r.dos.toFixed(1)+' 週' : '在庫未填';
+    const ageTxt = r.age!=null ? `、車齡 ${r.age} 天` : '';
+
+    // ---- 主分類建議(每台只落一種) ----
     if (r.marginTier==='neg') {
-      adv.push({ sev:'red', impact, model:r.model,
-        title:`${r.model}｜毛利為負 (${fmtPct(r.total)})`,
-        tags:[roleTag],
-        body: r.stockTier==='high'
-          ? `這台<b>在賠錢又壓庫</b>(去化約 ${r.dos?r.dos.toFixed(1):'?'} 週)。建議設<b>停損檔數限量出清</b>,並強制<b>綁配件包</b>把車輛端損失補回來;不要再單純降車價。`
-          : `賣一台賠一台,但庫存正常。<b>先別再讓利</b>,查是不是被迫殺價;檢討成交紀律、把<b>配件率</b>拉起來(目前配件 ${fmtPct(r.part)})。`
-      });
+      const rec = r.bench!=null
+        ? `短期至少<b>打平到 0%</b>(現 ${fmtPct(r.total)}),月底對齊全體同款 <b>${fmtPct(r.bench)}</b>。`
+        : `短期至少<b>拉回打平 0%</b>(現 ${fmtPct(r.total)},等於每台淨賠)。`;
+      const how = r.stockTier==='high'
+        ? `既賠錢又壓庫(去化 ${dosTxt}${ageTxt}):限量出清、每台<b>強制綁配件包</b>把配件從 ${fmtPct(r.part)} 拉到 <b>+1.5% 以上</b>補車輛端,設「清 N 台就收價」。`
+        : `庫存不高,問題在成交價被殺:<b>稽核放款/成交底價、收回現場議價權限</b>,並把配件從 ${fmtPct(r.part)} 拉起來補。`;
+      adv.push({ sev:'red', impact, model:r.model, tags:[roleTag],
+        title:`${r.model}｜毛利為負 ${fmtPct(r.total)}`,
+        body: body3(`本週 ${r.units} 台,合計毛利 <b>${fmtPct(r.total)}</b>(車輛 ${fmtPct(r.veh)}、配件 ${fmtPct(r.part)}),賣一台賠一台。`, rec, how) });
     } else if (r.marginTier==='low' && r.stockTier==='high') {
-      adv.push({ sev:'red', impact, model:r.model,
-        title:`${r.model}｜低毛利 (${fmtPct(r.total)}) + 庫存壓力`,
-        tags:[roleTag],
-        body:`去化約 ${r.dos?r.dos.toFixed(1):'?'} 週${r.age!=null?`、車齡 ${r.age} 天`:''}。可做<b>限量讓利清庫</b>,但務必<b>綁配件</b>守住整體毛利,並設每檔讓利上限,避免整批毛利被拖垮。`
-      });
+      const rm = roomPts(r);
+      const floor = rm!=null ? r.total - rm : null;                 // 單動這台的極限
+      const suggest = (rm!=null && rm>0.2) ? r.total - Math.min(rm/2, r.total) : null; // 只用一半、不轉負
+      const rec = (rm!=null && rm>0.2)
+        ? `建議讓到約 <b>${fmtPct(suggest)}</b>(現 ${fmtPct(r.total)})。整體目前 ${fmtPct(bl)}、目標 ${fmtPct(T)};單動這台最多讓到 ${fmtPct(floor)} 就會觸及目標,別過線。`
+        : `<b>幾乎沒有讓利空間</b>(整體 ${fmtPct(bl)} 已貼近目標 ${fmtPct(T)}):不要再降車價,改用配件/贈品或分期方案去化。`;
+      adv.push({ sev:'red', impact, model:r.model, tags:[roleTag],
+        title:`${r.model}｜低毛利 ${fmtPct(r.total)} + 庫存壓力`,
+        body: body3(`毛利 <b>${fmtPct(r.total)}</b> 偏低,去化 ${dosTxt}${ageTxt},且 ${r.units} 台量大、會拖累整體。`, rec,
+          `限量促銷 + <b>綁配件把配件毛利拉到 ≥ +1%</b>;設每檔讓利上限與停損台數,避免整批毛利被拖垮。`) });
     } else if (r.marginTier==='high' && r.target!=null && r.units < r.target/4*0.9) {
-      adv.push({ sev:'green', impact, model:r.model,
+      const need = Math.round(r.target/4);
+      adv.push({ sev:'green', impact, model:r.model, tags:[roleTag],
         title:`${r.model}｜高毛利但進度落後`,
-        tags:[roleTag],
-        body:`毛利 ${fmtPct(r.total)} 很好,本週 ${r.units} 台、月目標 ${r.target}(週均需約 ${Math.round(r.target/4)})。<b>加碼廣宣/業務獎金衝量,不要降價</b> — 這台多賣直接拉高整體毛利。`
-      });
+        body: body3(`毛利 <b>${fmtPct(r.total)}</b> 高於整體平均(${fmtPct(bl)}),但本週僅 ${r.units} 台、月目標 ${r.target}(週均需約 ${need})。`,
+          `<b>維持 ${fmtPct(r.total)},不要降價</b> — 這台每多賣一台都在拉高整體毛利。`,
+          `資源集中衝量:加碼業務獎金、優先排產/調車、廣宣主打;用「量」補進度而非降價。`) });
     } else if (r.marginTier==='high' && r.stockTier==='high') {
-      adv.push({ sev:'yellow', impact, model:r.model,
-        title:`${r.model}｜高毛利 + 庫存偏高`,
-        tags:[roleTag],
-        body:`毛利 ${fmtPct(r.total)},有去化空間。可用<b>小幅讓利</b>就能加速出清,對整體毛利影響小。`
-      });
+      const rm = roomPts(r);
+      const cut = rm!=null ? Math.min(rm/2, 1) : null;               // 高利車小讓即可,示意上限 1%
+      const rec = (cut!=null && cut>0.1)
+        ? `可<b>小幅讓利約 ${cut.toFixed(1)}%</b>(降到約 ${fmtPct(r.total-cut)})加速去化,毛利仍健康。`
+        : `維持 ${fmtPct(r.total)},以配件/贈品去化即可。`;
+      adv.push({ sev:'yellow', impact, model:r.model, tags:[roleTag],
+        title:`${r.model}｜高毛利 ${fmtPct(r.total)} + 庫存偏高`,
+        body: body3(`毛利 <b>${fmtPct(r.total)}</b> 健康,但去化 ${dosTxt}${ageTxt}偏高。`, rec,
+          `高利車有本錢小讓,快速周轉換現金,對整體影響小(每讓 1% 整體僅約 -${((r.units/totalUnits)||0).toFixed(2)}%)。`) });
     }
-    // 週對週跌幅
+
+    // ---- 附加訊號(可與上面並存) ----
     if (r.dTotal!=null && r.dTotal <= -state.thresholds.drop) {
-      adv.push({ sev:'yellow', impact, model:r.model,
+      const prevV = r.total - r.dTotal;
+      adv.push({ sev:'yellow', impact, model:r.model, tags:[roleTag],
         title:`${r.model}｜毛利週跌 ${Math.abs(r.dTotal).toFixed(1)}%`,
-        tags:[roleTag],
-        body:`合計毛利從上週 ${fmtPct(r.total - r.dTotal)} 掉到 ${fmtPct(r.total)}。若非策略性讓利,檢查是不是<b>成交價鬆動</b>或競品促銷,收緊定價紀律。`
-      });
+        body: body3(`合計毛利從上週 <b>${fmtPct(prevV)}</b> 掉到 <b>${fmtPct(r.total)}</b>(-${Math.abs(r.dTotal).toFixed(1)}%)。`,
+          `若非策略性讓利,<b>收回到上週的 ${fmtPct(prevV)}</b>。`,
+          `調成交價紀錄找出被殺價的批次;若是競品促銷,優先用配件回應而非直接降車價。`) });
     }
-    // 配件為負
+    if (r.bench!=null && r.total!=null && (r.bench - r.total) >= 1 && r.marginTier!=='neg') {
+      const gap = r.bench - r.total, half = r.total + gap/2;
+      adv.push({ sev:'yellow', impact, model:r.model, tags:[roleTag],
+        title:`${r.model}｜落後全體 ${gap.toFixed(1)}%`,
+        body: body3(`全體同款做到 <b>${fmtPct(r.bench)}</b>,你只有 <b>${fmtPct(r.total)}</b>,落後 ${gap.toFixed(1)}% — 這是<b>定價/折讓紀律</b>問題,不是市場問題。`,
+          `本週先拉回約 <b>${fmtPct(half)}</b>(縮小一半差距),月底逼近全體 ${fmtPct(r.bench)}。`,
+          `統一折讓上限、稽核成交底價;量大不敢硬收就改綁配件、分批調。`) });
+    } else if (r.tmargin!=null && r.total!=null && r.total < r.tmargin - 0.2 && r.marginTier!=='neg') {
+      adv.push({ sev:'yellow', impact:impact*0.9, model:r.model, tags:[roleTag],
+        title:`${r.model}｜低於你設的目標毛利`,
+        body: body3(`月計畫目標毛利 <b>${fmtPct(r.tmargin)}</b>,本週只有 <b>${fmtPct(r.total)}</b>(差 ${(r.tmargin-r.total).toFixed(1)}%)。`,
+          `拉回到目標 <b>${fmtPct(r.tmargin)}</b>。`,
+          `依角色調整:守毛利就收價;衝量就確認台數有沒有換到,沒換到要檢討讓利效益。`) });
+    }
     if (r.part!=null && r.part < 0 && r.marginTier!=='neg') {
-      adv.push({ sev:'yellow', impact:impact*0.5, model:r.model,
-        title:`${r.model}｜配件毛利為負 (${fmtPct(r.part)})`,
-        tags:[roleTag],
-        body:`配件端在賠。先修配件方案(成本/折讓),配件是<b>讓利後補毛利的主要工具</b>,不能自己先破。`
-      });
+      adv.push({ sev:'yellow', impact:impact*0.5, model:r.model, tags:[roleTag],
+        title:`${r.model}｜配件毛利為負 ${fmtPct(r.part)}`,
+        body: body3(`配件端 <b>${fmtPct(r.part)}</b> 在賠,車輛賺的又被配件吐回去。`,
+          `配件毛利至少拉回 <b>0%</b>,目標 <b>+1~2%</b>。`,
+          `檢討配件進價與贈品成本 — 配件是讓利後補毛利的主要工具,不能自己先破。`) });
     }
-    // 計畫偏離:計畫守毛利但掉了
     if (r.plan.role==='守毛利' && r.dTotal!=null && r.dTotal < -0.5) {
-      adv.push({ sev:'red', impact, model:r.model,
-        title:`${r.model}｜偏離計畫:訂為「守毛利」卻下滑`,
-        tags:[roleTag],
-        body:`月計畫要守毛利,但本週跌了 ${Math.abs(r.dTotal).toFixed(1)}%。與計畫方向相反,建議本週立刻收價。`
-      });
+      const prevV = r.total - r.dTotal;
+      adv.push({ sev:'red', impact, model:r.model, tags:[roleTag],
+        title:`${r.model}｜偏離計畫:「守毛利」卻下滑`,
+        body: body3(`月計畫要守毛利,卻從 ${fmtPct(prevV)} 跌到 ${fmtPct(r.total)}(-${Math.abs(r.dTotal).toFixed(1)}%),方向相反。`,
+          `立刻<b>收回到 ${fmtPct(prevV)} 或以上</b>。`,
+          `暫停這台讓利、回收現場議價空間。`) });
     }
     if (r.plan.role==='衝量(可讓利)' && r.target!=null && r.units >= r.target/4) {
-      adv.push({ sev:'green', impact:impact*0.4, model:r.model,
-        title:`${r.model}｜衝量達標`,
-        tags:[roleTag],
-        body:`計畫衝量,本週 ${r.units} 台已達週均目標。可評估<b>逐步收回讓利</b>,把毛利賺回來。`
-      });
+      adv.push({ sev:'green', impact:impact*0.4, model:r.model, tags:[roleTag],
+        title:`${r.model}｜衝量已達週均目標`,
+        body: body3(`計畫衝量,本週 ${r.units} 台已達週均目標(${Math.round(r.target/4)})。`,
+          `可<b>逐步收回讓利 0.5~1%</b>(往 ${fmtPct(r.total+0.75)} 靠),把毛利賺回來。`,
+          `分批試探收價,盯台數有沒有明顯掉;沒掉就續收。`) });
     }
   });
 
-  // 整體毛利下滑總警示
+  // 整體毛利總指標
   if (kpi.dBlended!=null && kpi.dBlended <= -0.3) {
-    adv.unshift({ sev:'red', impact:1e9, model:'__overall__',
+    adv.unshift({ sev:'red', impact:1e9, model:'__overall__', tags:[],
       title:`整體合計毛利率下滑 ${Math.abs(kpi.dBlended).toFixed(1)}%`,
-      tags:[],
-      body:`從 ${fmtPct(kpi.blended-kpi.dBlended)} 掉到 <b>${fmtPct(kpi.blended)}</b>。多半是<b>量大的低毛利車種</b>被讓太多或殺價。優先看下面紅燈項目、並確認讓利有沒有被配件補回。`
-    });
+      body: body3(`整體從 ${fmtPct(kpi.blended-kpi.dBlended)} 掉到 <b>${fmtPct(kpi.blended)}</b>(目標 ${fmtPct(T)}),多半是量大的低毛利車種被讓太多。`,
+        `本週把整體<b>拉回 ${fmtPct(T)} 以上</b>。`,
+        `先處理下面紅燈車種、確認每筆讓利都有配件補回;高毛利車加碼衝量拉抬平均。`) });
+  } else if (kpi.blended!=null && kpi.blended < T) {
+    adv.unshift({ sev:'yellow', impact:1e9, model:'__overall__', tags:[],
+      title:`整體毛利 ${fmtPct(kpi.blended)} 低於目標 ${fmtPct(T)}`,
+      body: body3(`目前加權毛利 <b>${fmtPct(kpi.blended)}</b>,離目標 ${fmtPct(T)} 還差 ${(T-kpi.blended).toFixed(1)}%。`,
+        `本週目標:整體<b>回到 ${fmtPct(T)}</b>。`,
+        `優先拉高「量大又低利」的車種(看下方明細台數最多、毛利最低那幾台),它們對整體影響最大。`) });
   }
 
   adv.sort((a,b)=> sevRank(b.sev)-sevRank(a.sev) || b.impact-a.impact);
@@ -757,6 +809,7 @@ function renderSettings() {
   document.getElementById('thStockHi').value = th.stockHi;
   document.getElementById('thAge').value = th.age;
   document.getElementById('thDrop').value = th.drop;
+  document.getElementById('thTarget').value = th.targetBlended;
 }
 function saveSettings() {
   state.dealer = document.getElementById('dealerName').value.trim() || '中部';
@@ -771,7 +824,8 @@ function saveThresholds() {
     low: num(document.getElementById('thLow').value) ?? DEFAULT_TH.low,
     stockHi: num(document.getElementById('thStockHi').value) ?? DEFAULT_TH.stockHi,
     age: num(document.getElementById('thAge').value) ?? DEFAULT_TH.age,
-    drop: num(document.getElementById('thDrop').value) ?? DEFAULT_TH.drop
+    drop: num(document.getElementById('thDrop').value) ?? DEFAULT_TH.drop,
+    targetBlended: num(document.getElementById('thTarget').value) ?? DEFAULT_TH.targetBlended
   };
   save(); toast('門檻已儲存');
 }
