@@ -276,8 +276,11 @@
       <h3 class="sec">車種主檔(一行一個)</h3>
       <textarea id="modelsBox"></textarea>
       <h3 class="sec">比較分公司(標竿,一行一個)</h3>
-      <div class="hint">要拿來跟你(中部)比較毛利的對象。放「全體」就跟全公司平均比;再加其他分公司(如 高都、國都)就能算排名、判斷你毛利過低或過高。每週數據會多出這些欄位可輸入。</div>
+      <div class="hint">要拿來跟你比較毛利的對象。放「全體」就跟全公司平均比;再加其他分公司就能算在八大中的排名、判斷你毛利過低或過高。每週數據會多出這些欄位可輸入(Excel 可一次匯入)。</div>
       <textarea id="peersBox" style="min-height:80px"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost small" onclick="loadEightDealers()">一鍵帶入八大經銷商(排除我方)</button>
+      </div>
       <div class="row" style="margin-top:10px">
         <button class="btn" onclick="saveSettings()">儲存設定</button>
         <button class="btn ghost small" onclick="resetModels()">還原預設車種清單</button>
@@ -338,7 +341,8 @@ const DEFAULT_MODELS = [
   'TOWN ACE','TOWN ACE V','U CRUISER','VIOS','Y CROSS'
 ];
 const DEFAULT_TH = { high: 5, low: 2, stockHi: 8, age: 90, drop: 1.0, targetBlended: 3.0 };
-const DEFAULT_PEERS = ['全體'];   // 比較用的分公司(標竿),使用者可增減
+const DEALERS_8 = ['國都','北都','桃苗','中部','南都','高都','蘭揚','東部']; // TOYOTA 八大經銷商
+const DEFAULT_PEERS = ['全體','國都','北都','桃苗','南都','高都','蘭揚','東部']; // 全體 + 我方(中部)以外七家
 const PLAN_ROLES = ['衝量(可讓利)','守毛利','清庫存','維持','觀察'];
 const STRATEGIES = {
   balanced: '① 平衡加權',
@@ -1085,6 +1089,12 @@ function saveSettings() {
   toast('設定已儲存');
 }
 function resetModels(){ document.getElementById('modelsBox').value = DEFAULT_MODELS.join('\n'); }
+function loadEightDealers(){
+  const me = (document.getElementById('dealerName').value || state.dealer || '中部').trim();
+  const list = ['全體', ...DEALERS_8.filter(d => d !== me)];
+  document.getElementById('peersBox').value = list.join('\n');
+  toast('已帶入八大(排除 '+me+'),記得按「儲存設定」');
+}
 function saveThresholds() {
   state.thresholds = {
     high: num(document.getElementById('thHigh').value) ?? DEFAULT_TH.high,
