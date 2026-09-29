@@ -31,6 +31,7 @@
   }
 
   function faceEl(c, extra) {
+    if (window.chibiPortraitURL) return `<img class="face" alt="${c.name}" src="${window.chibiPortraitURL(c)}" style="${extra || ''}">`;
     return `<div class="face" style="background:${c.color};${extra || ''}">${c.name[0]}</div>`;
   }
   function cardHtml(c, opts = {}) {
@@ -202,7 +203,7 @@
 
   function shoot(x, y, vx, dmg, team, opt = {}) {
     g.shots.push({ x, y, vx, vy: opt.vy || 0, dmg, team, life: opt.life || 1.4, pierce: !!opt.pierce,
-      w: opt.w || 22, h: opt.h || 10, color: opt.color || '#ddd', hit: new Set() });
+      w: opt.w || 22, h: opt.h || 10, color: opt.color || '#ddd', theme: opt.theme || null, hit: new Set() });
   }
 
   function useSkill() {
@@ -210,17 +211,20 @@
     if (m.cd > 0 || g.over) return;
     m.cd = sk.cd;
     const dmg = m.atk * sk.mult, f = p.face;
-    if (sk.type === 'rush') { p.dashT = 0.25; p.dashHit = new Set(); p.inv = Math.max(p.inv, 0.3); p.vx = f * 900; }
-    else if (sk.type === 'fire') shoot(p.x + f * 30, p.y - 40, f * 520, dmg, 'p', { w: 60, h: 40, pierce: true, color: '#ff7a2a', life: 1.2 });
+    const th = window.FX ? window.FX.theme(c) : null;
+    const addFx = (max, dur) => g.fx.push({ x: p.x, y: p.y - 30, age: 0, dur, max, face: f, theme: th, color: c.color });
+    text(p.x, p.y - 100, sk.name, '#fff');
+    if (sk.type === 'rush') { p.dashT = 0.25; p.dashHit = new Set(); p.inv = Math.max(p.inv, 0.3); p.vx = f * 900; p.theme = th; }
+    else if (sk.type === 'fire') shoot(p.x + f * 30, p.y - 40, f * 520, dmg, 'p', { w: 60, h: 40, pierce: true, color: '#ff7a2a', life: 1.2, theme: th });
     else if (sk.type === 'burst') {
-      g.fx.push({ x: p.x, y: p.y - 30, r: 0, max: 150, t: 0.4, color: c.color });
+      addFx(150, 0.5);
       g.enemies.forEach(e => { if (Math.abs(e.x - p.x) < 150 + e.w / 2 && Math.abs(e.y - p.y) < 90) hitEnemy(e, dmg, e.x > p.x ? 1 : -1); });
     } else if (sk.type === 'barrage') {
-      for (let i = -2; i <= 2; i++) shoot(p.x + f * 20, p.y - 40, f * 620, dmg, 'p', { vy: i * 60, color: '#cfd8ff', w: 18, h: 6, life: 0.9 });
+      for (let i = -2; i <= 2; i++) shoot(p.x + f * 20, p.y - 40, f * 620, dmg, 'p', { vy: i * 60, color: '#cfd8ff', w: 18, h: 10, life: 0.9, theme: th });
     } else if (sk.type === 'heal') {
       const heal = Math.round(m.maxhp * 0.3);
       g.members.forEach(x => { if (x.hp > 0) x.hp = Math.min(x.maxhp, x.hp + heal); });
-      g.fx.push({ x: p.x, y: p.y - 30, r: 0, max: 120, t: 0.5, color: '#6fe08a' });
+      addFx(120, 0.7);
       text(p.x, p.y - 90, `全隊 +${heal}`, '#6fe08a');
     }
   }
@@ -324,8 +328,8 @@
     g.cam = Math.max(0, Math.min(WORLD - W, g.p.x - 330));
     g.texts.forEach(t => { t.t -= dt; t.y -= 30 * dt; });
     g.texts = g.texts.filter(t => t.t > 0);
-    g.fx.forEach(f => { f.t -= dt; f.r = f.max * (1 - f.t / 0.5); });
-    g.fx = g.fx.filter(f => f.t > 0);
+    g.fx.forEach(f => { f.age += dt; });
+    g.fx = g.fx.filter(f => f.age < f.dur);
     for (const k in pressed) pressed[k] = false;
   }
 
@@ -393,12 +397,20 @@
     // 玩家
     const p = g.p, m = active();
     const blink = p.inv > 0 && Math.floor(T * 20) % 2 === 0;
-    drawNinja(p.x, p.y, p.face, m.c, { walk: Math.abs(p.vx) > 40 && p.onG, atk: p.atkT, flash: blink });
+    const dashing = p.dashT > 0 && window.FX && p.theme;
+    if (dashing) window.FX.dash(ctx, p.x, p.y, p.face, p.theme, p.dashT / 0.25, T, bx => drawNinja(bx, p.y, p.face, m.c, { atk: 1 }));
+    drawNinja(p.x, p.y, p.face, m.c, { walk: Math.abs(p.vx) > 40 && p.onG, atk: dashing ? 1 : p.atkT, flash: blink });
     ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(m.c.name, p.x, p.y - 84);
-    // 飛行物
-    for (const s of g.shots) { ctx.fillStyle = s.color; ctx.beginPath(); ctx.ellipse(s.x, s.y, s.w / 2, s.h / 2, 0, 0, 7); ctx.fill(); }
-    for (const f of g.fx) { ctx.strokeStyle = f.color; ctx.globalAlpha = Math.max(0, f.t * 2); ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
+    // 飛行物與技能特效
+    for (const s of g.shots) {
+      if (window.FX && s.theme) window.FX.shot(ctx, s, T);
+      else { ctx.fillStyle = s.color; ctx.beginPath(); ctx.ellipse(s.x, s.y, s.w / 2, s.h / 2, 0, 0, 7); ctx.fill(); }
+    }
+    for (const f of g.fx) {
+      if (window.FX && f.theme) window.FX.burst(ctx, f, T);
+      else { ctx.strokeStyle = f.color; ctx.globalAlpha = Math.max(0, 1 - f.age / f.dur); ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(f.x, f.y, f.max * f.age / f.dur, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
+    }
     ctx.font = 'bold 18px sans-serif';
     for (const t of g.texts) { ctx.fillStyle = t.color; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(t.s, t.x, t.y); ctx.fillText(t.s, t.x, t.y); }
     ctx.restore();
@@ -411,8 +423,9 @@
       const x = 12 + i * 178, y = 12, on = i === g.idx;
       ctx.fillStyle = on ? '#000c' : '#0008'; ctx.fillRect(x, y, 170, 50);
       if (on) { ctx.strokeStyle = '#ff8a1f'; ctx.lineWidth = 2; ctx.strokeRect(x, y, 170, 50); }
-      ctx.fillStyle = m.c.color; ctx.beginPath(); ctx.arc(x + 25, y + 25, 18, 0, 7); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.fillText(m.c.name[0], x + 17, y + 31);
+      if (window.chibiPortrait) ctx.drawImage(window.chibiPortrait(m.c), x + 5, y + 5, 40, 40);
+      else { ctx.fillStyle = m.c.color; ctx.beginPath(); ctx.arc(x + 25, y + 25, 18, 0, 7); ctx.fill(); }
+      if (m.hp <= 0) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.beginPath(); ctx.arc(x + 25, y + 25, 20, 0, 7); ctx.fill(); }
       ctx.font = '12px sans-serif'; ctx.fillText(`[${i + 1}] ${m.c.name}`, x + 50, y + 16);
       ctx.fillStyle = '#333'; ctx.fillRect(x + 50, y + 22, 110, 8);
       ctx.fillStyle = m.hp > 0 ? '#5ad07a' : '#555'; ctx.fillRect(x + 50, y + 22, 110 * m.hp / m.maxhp, 8);
