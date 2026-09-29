@@ -357,6 +357,7 @@
     if (o.flash) ctx.globalAlpha = 0.5;
     const walk = o.walk ? Math.sin(T * 16) * 5 : 0, s = o.scale || 1;
     ctx.scale(s, s);
+    if (window.drawChibi) { window.drawChibi(ctx, c, o, T); ctx.restore(); return; }
     ctx.fillStyle = '#20232f';
     ctx.fillRect(-10 + walk, -22, 9, 22); ctx.fillRect(1 - walk, -22, 9, 22);
     ctx.fillStyle = c.color; ctx.fillRect(-14, -48, 28, 28);
