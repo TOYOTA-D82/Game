@@ -3,22 +3,26 @@
   const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
   const R = window.ROSTER, byId = Object.fromEntries(R.map(c => [c.id, c]));
   const $ = id => document.getElementById(id);
-  const SAVE_KEY = 'ninja-game-save-v1';
+  const SAVE_KEY = 'ninja-game-save-v2';
 
   // ---------- 存檔 ----------
   function defaultSave() {
-    return { owned: { naruto: 1, sasuke: 1, sakura: 1 }, coins: 300, team: ['naruto', 'sasuke', 'sakura'], stage: 1, maxStage: 1 };
+    const owned = {}; R.forEach(c => owned[c.id] = 1); // 全角色開通
+    return { owned, coins: 5000, team: ['naruto', 'sasuke', 'sakura'], stage: 1, maxStage: 99, lv: {}, xp: {} };
   }
   function loadSave() {
     try {
       const s = JSON.parse(localStorage.getItem(SAVE_KEY));
-      if (s && s.owned && s.team) return s;
+      if (s && s.owned && s.team) { s.lv = s.lv || {}; s.xp = s.xp || {}; return s; }
     } catch (e) {}
     return defaultSave();
   }
   let save = loadSave();
   function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
-  const mult = id => 1 + 0.1 * ((save.owned[id] || 1) - 1);
+  const mult = id => 1 + 0.1 * ((save.owned[id] || 1) - 1);           // 抽卡重複強化
+  const lvOf = id => (save.lv && save.lv[id]) || 1;
+  const lvMult = id => 1 + 0.06 * (lvOf(id) - 1);                     // 等級強化
+  const xpNeed = lv => lv * 100;
 
   // ---------- 畫面切換 ----------
   const screens = ['menu', 'gacha', 'coll', 'help', 'result'];
@@ -41,7 +45,7 @@
       ${opts.tag ? `<span class="tag">${opts.tag}</span>` : ''}
       ${opts.locked ? '<div class="face" style="background:#333">?</div>' : faceEl(c)}
       <b>${opts.locked ? '???' : c.name}</b><br>
-      <span class="r${c.rarity}">${stars}</span>${lv > 1 && !opts.locked ? ` <span class="sub">Lv${lv}</span>` : ''}
+      <span class="r${c.rarity}">${stars}</span>${!opts.locked ? ` <span class="sub">Lv${lvOf(c.id)}${lv > 1 ? '+' + (lv - 1) : ''}</span>` : ''}
       ${opts.locked ? '' : `<div class="sub">${c.skill.name}</div>`}
     </div>`;
   }
@@ -105,7 +109,8 @@
   const keys = {}, pressed = {};
   const MAP = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right',
     ArrowUp: 'jump', w: 'jump', W: 'jump', ' ': 'jump', j: 'atk', J: 'atk', z: 'atk', Z: 'atk',
-    k: 'skill', K: 'skill', x: 'skill', X: 'skill', '1': 's1', '2': 's2', '3': 's3' };
+    k: 'skill', K: 'skill', x: 'skill', X: 'skill', l: 'dodge', L: 'dodge', c: 'dodge', C: 'dodge', Shift: 'dodge',
+    '1': 's1', '2': 's2', '3': 's3' };
   addEventListener('keydown', e => {
     const k = MAP[e.key]; if (!k) return;
     if (playing) e.preventDefault();
@@ -128,15 +133,16 @@
 
   function startStage(n) {
     const members = save.team.map(id => {
-      const c = byId[id], m = mult(id);
+      const c = byId[id], m = mult(id) * lvMult(id);
       const maxhp = Math.round(c.hp * m);
       return { c, hp: maxhp, maxhp, atk: c.atk * m, cd: 0 };
     });
     g = {
       stage: n, members, idx: 0,
-      p: { x: 120, y: GROUND, vx: 0, vy: 0, face: 1, onG: true, atkT: 0, atkCd: 0, inv: 0, dashT: 0, dashHit: null },
+      p: { x: 120, y: GROUND, vx: 0, vy: 0, face: 1, onG: true, atkT: 0, atkCd: 0, inv: 0, dashT: 0, dashHit: null,
+        combo: 0, comboT: 0, rollT: 0, rollCd: 0, theme: null },
       enemies: [], shots: [], texts: [], fx: [],
-      earned: 0, nextSpawn: 600, bossSpawned: false, boss: null, cam: 0, over: false,
+      earned: 0, kills: 0, nextSpawn: 600, bossSpawned: false, boss: null, cam: 0, over: false,
     };
     playing = true; last = performance.now();
     show(null);
@@ -148,11 +154,22 @@
     const bonus = win ? 100 + g.stage * 20 : 0;
     const total = g.earned + bonus;
     save.coins += total;
+    // 經驗與升級（無論勝敗都給，勝利加倍）
+    const gain = Math.round((15 + g.stage * 8) * (win ? 2 : 1));
+    const ups = [];
+    g.members.forEach(mm => {
+      const id = mm.c.id;
+      save.xp[id] = (save.xp[id] || 0) + gain;
+      let lv = save.lv[id] || 1, n = 0;
+      while (save.xp[id] >= xpNeed(lv)) { save.xp[id] -= xpNeed(lv); lv++; n++; }
+      if (n) { save.lv[id] = lv; ups.push(`${mm.c.name} Lv${lv}`); }
+    });
     if (win && g.stage >= save.maxStage) save.maxStage = g.stage + 1;
     if (win) save.stage = Math.min(save.maxStage, g.stage + 1);
     persist();
     $('res-title').textContent = win ? `第 ${g.stage} 關 通關！` : '全隊倒下了…';
-    $('res-text').textContent = `獲得查克拉幣 ${total}（擊敗 ${g.earned}${win ? ` + 通關獎勵 ${bonus}` : ''}）`;
+    $('res-text').innerHTML = `獲得查克拉幣 ${total}（擊敗 ${g.kills} 人${win ? ` + 通關獎勵 ${bonus}` : ''}）<br>` +
+      `全隊 +${gain} 經驗${ups.length ? `　<span style="color:#ffd35c">升級！${ups.join('、')}</span>` : ''}`;
     $('r-next').textContent = win ? '下一關' : '再挑戰一次';
     $('r-next').onclick = () => startStage(save.stage);
     show('result');
@@ -182,7 +199,7 @@
     e.hp -= dmg; e.hurt = 0.15; e.x += kx * 10;
     text(e.x, e.y - e.h - 6, Math.round(dmg), '#ffd35c');
     if (e.hp <= 0) {
-      g.earned += e.reward;
+      g.earned += e.reward; g.kills++;
       text(e.x, e.y - e.h - 22, `+${e.reward}`, '#ffc93c');
       if (e === g.boss) { g.over = true; setTimeout(() => finish(true), 1200); }
     }
@@ -191,7 +208,8 @@
   function hurtPlayer(d, fromX) {
     const p = g.p; if (p.inv > 0 || g.over) return;
     const m = active();
-    m.hp -= d; p.inv = 0.8; p.vy = -280; p.vx = (p.x < fromX ? -1 : 1) * 220;
+    m.hp -= d; p.inv = 0.9; p.vy = -180; p.vx = (p.x < fromX ? -1 : 1) * 150;
+    p.combo = 0; p.comboT = 0;
     text(p.x, p.y - 80, Math.round(d), '#ff6b6b');
     if (m.hp <= 0) {
       m.hp = 0;
@@ -231,10 +249,14 @@
 
   function updatePlayer(dt) {
     const p = g.p, m = active(), c = m.c;
+    p.atkCd -= dt; p.atkT -= dt; p.inv -= dt; m.cd -= dt; p.rollCd -= dt;
+    if (p.comboT > 0) { p.comboT -= dt; if (p.comboT <= 0) p.combo = 0; }
     for (let i = 1; i <= 3; i++) {
-      if (pressed['s' + i] && g.members[i - 1] && g.members[i - 1].hp > 0 && g.idx !== i - 1) { g.idx = i - 1; p.inv = Math.max(p.inv, 0.3); }
+      if (pressed['s' + i] && g.members[i - 1] && g.members[i - 1].hp > 0 && g.idx !== i - 1) { g.idx = i - 1; p.inv = Math.max(p.inv, 0.4); }
     }
     const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+
+    // 技能突進（rush 技能用）
     if (p.dashT > 0) {
       p.dashT -= dt;
       const dmg = m.atk * c.skill.mult;
@@ -242,31 +264,64 @@
         if (!p.dashHit.has(e) && overlap(p.x - 20, p.y - 64, 40, 64, e.x - e.w / 2, e.y - e.h, e.w, e.h)) { p.dashHit.add(e); hitEnemy(e, dmg, p.face); }
       });
       if (p.dashT <= 0) p.vx = 0;
-    } else {
-      if (dir) { p.face = dir; p.vx = dir * c.spd; }
-      else p.vx *= 0.8;
-      if (pressed.jump && p.onG) { p.vy = -640; p.onG = false; }
+      p.vy += 1800 * dt; p.x = clampX(p.x + p.vx * dt); p.y = Math.min(GROUND, p.y + p.vy * dt);
+      if (p.y >= GROUND) { p.y = GROUND; p.vy = 0; p.onG = true; }
+      return;
     }
+
+    // 翻滾閃避：無敵幀，直接躲傷害
+    if (pressed.dodge && p.rollCd <= 0 && p.rollT <= 0) {
+      p.rollT = 0.42; p.rollCd = 1.0; p.inv = Math.max(p.inv, 0.5);
+      p.face = dir || p.face; p.vx = p.face * 640; p.combo = 0;
+    }
+    if (p.rollT > 0) {
+      p.rollT -= dt; p.vx *= 0.9;
+      p.vy += 1800 * dt; p.x = clampX(p.x + p.vx * dt); p.y = Math.min(GROUND, p.y + p.vy * dt);
+      if (p.y >= GROUND) { p.y = GROUND; p.vy = 0; p.onG = true; }
+      return;
+    }
+
+    // 移動與跳躍
+    if (dir) { p.face = dir; p.vx = dir * c.spd; }
+    else p.vx *= 0.8;
+    if (pressed.jump && p.onG) { p.vy = -640; p.onG = false; }
     if (pressed.skill) useSkill();
-    p.atkCd -= dt; p.atkT -= dt; p.inv -= dt; m.cd -= dt;
-    if (keys.atk && p.atkCd <= 0 && p.dashT <= 0) {
-      p.atkCd = 0.32; p.atkT = 0.15;
-      const x0 = p.face > 0 ? p.x + 6 : p.x - 6 - 74;
+
+    // 普攻連段：三段，第三段擊飛
+    if (keys.atk && p.atkCd <= 0) {
+      p.combo = (p.combo % 3) + 1; p.comboT = 0.7; p.atkT = 0.16;
+      const hard = p.combo === 3;
+      p.atkCd = hard ? 0.5 : 0.24;
+      const reach = hard ? 96 : 76, dmg = m.atk * (hard ? 1.9 : 1);
+      const x0 = p.face > 0 ? p.x + 6 : p.x - 6 - reach;
+      let hit = false;
       g.enemies.forEach(e => {
-        if (overlap(x0, p.y - 70, 74, 70, e.x - e.w / 2, e.y - e.h, e.w, e.h)) hitEnemy(e, m.atk, p.face);
+        if (e.hp > 0 && overlap(x0, p.y - 74, reach, 74, e.x - e.w / 2, e.y - e.h, e.w, e.h)) {
+          hitEnemy(e, dmg, p.face * (hard ? 3 : 1)); if (hard) { e.vy = -320; e.air = 0.5; } hit = true;
+        }
       });
+      if (hard && hit) p.vx = p.face * 220;
+      g.fx.push({ slash: 1, x: p.x + p.face * (reach * 0.5), y: p.y - 38, face: p.face, age: 0, dur: 0.16, max: reach, hard });
     }
+
     p.vy += 1800 * dt;
-    p.x = Math.max(20, Math.min(WORLD - 20, p.x + p.vx * dt));
+    p.x = clampX(p.x + p.vx * dt);
     p.y += p.vy * dt;
     if (p.y >= GROUND) { p.y = GROUND; p.vy = 0; p.onG = true; }
   }
+  const clampX = x => Math.max(20, Math.min(WORLD - 20, x));
 
   function updateEnemies(dt) {
     const p = g.p;
     for (const e of g.enemies) {
       if (e.hp <= 0) continue;
-      e.hurt -= dt; e.cd -= dt;
+      e.hurt -= dt;
+      if (e.air > 0) { // 被擊飛，落地前無法行動
+        e.air -= dt; e.vy = (e.vy || 0) + 1800 * dt; e.y += e.vy * dt;
+        if (e.y >= GROUND) { e.y = GROUND; e.vy = 0; e.air = 0; }
+        continue;
+      }
+      e.cd -= dt;
       const dx = p.x - e.x, dist = Math.abs(dx);
       e.face = dx >= 0 ? 1 : -1;
       if (e.windup > 0) {
@@ -280,7 +335,7 @@
         if (e.cd <= 0 && dist < 520) { e.cd = 2; shoot(e.x, e.y - 36, e.face * 340, e.dmg, 'e', { color: '#8a8a8a', w: 16, h: 5, life: 2 }); }
       } else {
         if (dist > e.range) e.x += e.face * e.spd * dt;
-        else if (e.cd <= 0) { e.cd = e.type === 'boss' ? 1.4 : 1.2; e.windup = 0.3; }
+        else if (e.cd <= 0) { e.cd = e.type === 'boss' ? 1.7 : 1.5; e.windup = e.type === 'boss' ? 0.55 : 0.5; }
         if (e.type === 'boss' && e.cd <= 0 && dist > 200) {
           e.cd = 2.2;
           for (let i = -1; i <= 1; i++) shoot(e.x, e.y - 60, e.face * 380, e.dmg * 0.7, 'e', { vy: i * 50, color: '#c22', w: 20, h: 8, life: 2 });
@@ -392,6 +447,11 @@
         const bw = e.type === 'boss' ? 90 : 40, by = e.y - e.h - 22;
         ctx.fillStyle = '#000a'; ctx.fillRect(e.x - bw / 2, by, bw, 5);
         ctx.fillStyle = '#e04a4a'; ctx.fillRect(e.x - bw / 2, by, bw * Math.max(0, e.hp / e.maxhp), 5);
+        if (e.windup > 0) { // 出手預警
+          ctx.fillStyle = Math.floor(T * 12) % 2 ? '#ff3b3b' : '#ffd35c';
+          ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+          ctx.fillText('!', e.x, e.y - e.h - 26);
+        }
       }
     }
     // 玩家
@@ -408,7 +468,12 @@
       else { ctx.fillStyle = s.color; ctx.beginPath(); ctx.ellipse(s.x, s.y, s.w / 2, s.h / 2, 0, 0, 7); ctx.fill(); }
     }
     for (const f of g.fx) {
-      if (window.FX && f.theme) window.FX.burst(ctx, f, T);
+      if (f.slash) {
+        const k = f.age / f.dur;
+        ctx.strokeStyle = f.hard ? '#ffd35c' : '#ffffff'; ctx.globalAlpha = Math.max(0, 1 - k); ctx.lineWidth = f.hard ? 7 : 4;
+        ctx.beginPath(); ctx.arc(f.x - f.face * 20, f.y, f.max * 0.7, f.face > 0 ? -1.1 : Math.PI - 1.1, f.face > 0 ? 1.1 : Math.PI + 1.1); ctx.stroke();
+        ctx.globalAlpha = 1;
+      } else if (window.FX && f.theme) window.FX.burst(ctx, f, T);
       else { ctx.strokeStyle = f.color; ctx.globalAlpha = Math.max(0, 1 - f.age / f.dur); ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(f.x, f.y, f.max * f.age / f.dur, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
     }
     ctx.font = 'bold 18px sans-serif';
@@ -426,7 +491,8 @@
       if (window.chibiPortrait) ctx.drawImage(window.chibiPortrait(m.c), x + 5, y + 5, 40, 40);
       else { ctx.fillStyle = m.c.color; ctx.beginPath(); ctx.arc(x + 25, y + 25, 18, 0, 7); ctx.fill(); }
       if (m.hp <= 0) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.beginPath(); ctx.arc(x + 25, y + 25, 20, 0, 7); ctx.fill(); }
-      ctx.font = '12px sans-serif'; ctx.fillText(`[${i + 1}] ${m.c.name}`, x + 50, y + 16);
+      ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.fillText(`[${i + 1}] ${m.c.name}`, x + 50, y + 16);
+      ctx.fillStyle = '#ffd35c'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right'; ctx.fillText(`Lv${lvOf(m.c.id)}`, x + 165, y + 16); ctx.textAlign = 'left';
       ctx.fillStyle = '#333'; ctx.fillRect(x + 50, y + 22, 110, 8);
       ctx.fillStyle = m.hp > 0 ? '#5ad07a' : '#555'; ctx.fillRect(x + 50, y + 22, 110 * m.hp / m.maxhp, 8);
       ctx.fillStyle = '#333'; ctx.fillRect(x + 50, y + 34, 110, 6);
@@ -436,6 +502,16 @@
     ctx.fillStyle = '#ffc93c'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'right';
     ctx.fillText(`本關 +${g.earned}`, W - 14, 30);
     ctx.fillStyle = '#fff'; ctx.font = '13px sans-serif'; ctx.fillText(`第 ${g.stage} 關`, W - 14, 50);
+    // 連段數
+    if (g.p.combo > 1 && g.p.comboT > 0) {
+      ctx.textAlign = 'center'; ctx.fillStyle = '#ffd35c'; ctx.font = 'bold 30px sans-serif';
+      ctx.fillText(`${g.p.combo} 連段`, W / 2, 96);
+    }
+    // 閃避冷卻
+    ctx.textAlign = 'left';
+    const rr = g.p.rollCd <= 0;
+    ctx.fillStyle = rr ? '#7ad0ff' : '#345'; ctx.font = '12px sans-serif';
+    ctx.fillText(rr ? '閃避 就緒 (L)' : '閃避 冷卻中', 14, H - 30);
     // 進度條
     ctx.fillStyle = '#0008'; ctx.fillRect(W / 2 - 150, H - 20, 300, 8);
     ctx.fillStyle = '#ff8a1f'; ctx.fillRect(W / 2 - 150, H - 20, 300 * g.p.x / WORLD, 8);
