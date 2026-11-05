@@ -1,5 +1,5 @@
 --!strict
--- Rounds, teams, chains, checkpoints, falls and items.
+-- Worlds, levels, teams, chains, checkpoints, falls and items.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -8,7 +8,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
 local Config = require(Shared.Config)
-local TowerLayout = require(Shared.TowerLayout)
+local Themes = require(Shared.Themes)
 local Data = require(script.Parent.Data)
 local Net = require(script.Parent.Net)
 local Progress = require(script.Parent.Progress)
@@ -29,11 +29,11 @@ type Team = {
 	graceUntil: number, -- skip fall checks right after a teleport
 	unsafeSince: number?, -- when the last teammate stopped standing on something
 	burning: boolean, -- lava fire is running along the chain
+	level: World.Level,
 }
 
-local tower: World.Tower = nil :: any
 local lobby: World.Lobby = nil :: any
-local roundEndsAt = 0
+local levels: { [string]: World.Level } = {}
 local teams: { [string]: Team } = {}
 local teamOf: { [Player]: Team } = {}
 local nextTeamId = 0
@@ -67,9 +67,16 @@ local function teleport(player: Player, cf: CFrame)
 	end
 end
 
-local function toLobby(player: Player)
-	local offset = Vector3.new(math.random(-4, 4), 0, math.random(-4, 4))
-	teleport(player, World.LobbySpawn + offset)
+-- Where a player is: "main", "solo" or "team" (hub), and which sky to show.
+local function setZone(player: Player, zone: string, theme: string)
+	player:SetAttribute("Zone", zone)
+	player:SetAttribute("Theme", theme)
+end
+
+local function toHub(player: Player, world: string)
+	local offset = Vector3.new(math.random(-4, 4), 0, math.random(-2, 2))
+	teleport(player, World.hubSpawn(world) + offset)
+	setZone(player, world, world)
 end
 
 ----------------------------------------------------------------------
@@ -81,6 +88,7 @@ local function publish(team: Team)
 		table.insert(ids, tostring(m.UserId))
 		m:SetAttribute("TeamId", team.id)
 		m:SetAttribute("Section", team.checkpoint)
+		m:SetAttribute("Level", team.level.theme.id)
 	end
 	local f = team.folder
 	f:SetAttribute("Mode", team.mode)
@@ -90,12 +98,14 @@ local function publish(team: Team)
 	local mode = Config.Modes[team.mode]
 	f:SetAttribute("Length", mode.chainLength or 0)
 	f:SetAttribute("Radius", mode.zoneRadius or 0)
+	f:SetAttribute("Level", team.level.theme.id)
+	f:SetAttribute("Sections", team.level.winIndex)
 end
 
 local function teleportTeam(team: Team, index: number)
 	team.graceUntil = now() + 1.5
 	for slot, m in team.members do
-		teleport(m, World.checkpointCFrame(tower, index, slot))
+		teleport(m, World.checkpointCFrame(team.level, index, slot))
 	end
 end
 
@@ -105,7 +115,7 @@ local function toastTeam(team: Team, key: string, args: { any }?, good: boolean?
 	end
 end
 
-local function formTeam(players: { Player }, mode: string)
+local function formTeam(players: { Player }, mode: string, level: World.Level)
 	local members = {}
 	for _, p in players do
 		if p.Parent == Players and not teamOf[p] and rootOf(p) then
@@ -133,17 +143,19 @@ local function formTeam(players: { Player }, mode: string)
 		finished = false,
 		graceUntil = 0,
 		burning = false,
+		level = level,
 	}
 	teams[team.id] = team
 	for _, m in members do
 		teamOf[m] = team
+		setZone(m, level.theme.world, level.theme.id)
 	end
 	publish(team)
 	folder.Parent = teamsFolder
 	teleportTeam(team, 0)
 
 	for _, m in members do
-		Net.send(m, "modeIntro", { mode = mode })
+		Net.send(m, "modeIntro", { mode = mode, level = level.theme.id })
 		if mode == "solo" then
 			Net.send(m, "toast", { key = "soloStart" })
 		else
@@ -171,8 +183,9 @@ local function removeMember(player: Player, sendToLobby: boolean)
 	if player.Parent == Players then
 		player:SetAttribute("TeamId", nil)
 		player:SetAttribute("Section", nil)
+		player:SetAttribute("Level", nil)
 		if sendToLobby then
-			toLobby(player)
+			toHub(player, team.level.theme.world)
 		end
 	end
 	if #team.members == 0 then
@@ -198,11 +211,26 @@ end
 local function finish(team: Team)
 	team.finished = true
 	local mult = Config.Modes[team.mode].coinMultiplier
+	local theme = team.level.theme
+	local nextTheme = Themes.forLevel(theme.world, theme.level + 1)
 	for _, m in team.members do
 		local got = Progress.addCoins(m, Config.CoinsForFinish * mult, true)
 		local p = Data.get(m)
+		local unlocked: string? = nil
 		if p then
 			p.wins += 1
+			if not p.cleared[theme.id] then
+				-- first clear of this level: bonus coins
+				p.cleared[theme.id] = true
+				local bonus = Config.FirstClearBonus * theme.level
+				p.coins += bonus
+				got += bonus
+			end
+			local key = if theme.world == "solo" then "soloLevel" else "teamLevel"
+			if nextTheme and (p :: any)[key] < nextTheme.level then
+				(p :: any)[key] = nextTheme.level
+				unlocked = nextTheme.id
+			end
 			Data.markDirty(m)
 		end
 		Progress.recordWin(m, team.mode ~= "solo")
@@ -210,7 +238,7 @@ local function finish(team: Team)
 		if team.mode ~= "solo" then
 			Progress.addStat(m, "teamFinishes")
 		end
-		Net.send(m, "finish", { coins = got })
+		Net.send(m, "finish", { coins = got, unlocked = unlocked })
 	end
 	task.delay(5, function()
 		if teams[team.id] == team then
@@ -240,7 +268,7 @@ local function advance(team: Team, index: number, reward: boolean)
 		end
 	end
 	publish(team)
-	if index >= tower.winIndex then
+	if index >= team.level.winIndex then
 		finish(team)
 	end
 end
@@ -256,7 +284,7 @@ local function resetTeam(team: Team, _who: Player)
 	if team.mode ~= "solo" then
 		toastTeam(team, "teamFell")
 	end
-	if team.fails[cp] % Config.OfferSkipAfterFails == 0 and cp + 1 < tower.winIndex then
+	if team.fails[cp] % Config.OfferSkipAfterFails == 0 and cp + 1 < team.level.winIndex then
 		for _, m in team.members do
 			Net.send(m, "offerSkip")
 		end
@@ -390,7 +418,7 @@ end
 local function canRestore(part: BasePart): boolean
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { tower.folder }
+	params.FilterDescendantsInstances = { part.Parent :: Instance }
 	for _, hit in Workspace:GetPartBoundsInBox(part.CFrame, part.Size, params) do
 		local model = hit:FindFirstAncestorOfClass("Model")
 		if model and model:FindFirstChildOfClass("Humanoid") then
@@ -467,7 +495,7 @@ local function useSmash(player: Player)
 	end
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { tower.folder }
+	params.FilterDescendantsInstances = { team.level.folder }
 	local range = Config.SmashRange
 	local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
 	if look.Magnitude < 0.1 then
@@ -504,7 +532,7 @@ function Game.useSkip(player: Player)
 	if not team or not p or team.finished then
 		return
 	end
-	if team.checkpoint + 1 >= tower.winIndex then
+	if team.checkpoint + 1 >= team.level.winIndex then
 		return -- no skipping the final section
 	end
 	if p.skip <= 0 then
@@ -531,14 +559,14 @@ Net.on("leaveTeam", function(player)
 end)
 
 ----------------------------------------------------------------------
--- Tower parts with behaviour
+-- Level parts with behaviour
 ----------------------------------------------------------------------
-local function wireTower(t: World.Tower)
+local function wireLevel(t: World.Level)
 	for index, part in t.checkpoints do
 		part.Touched:Connect(function(hit)
 			local player = Players:GetPlayerFromCharacter(hit.Parent)
 			local team = player and teamOf[player]
-			if team and index == team.checkpoint + 1 then
+			if team and team.level == t and index == team.checkpoint + 1 then
 				advance(team, index, true)
 			end
 		end)
@@ -553,7 +581,7 @@ local function wireTower(t: World.Tower)
 			part.Touched:Connect(function(hit)
 				local player = Players:GetPlayerFromCharacter(hit.Parent)
 				local team = player and teamOf[player]
-				if player and team then
+				if player and team and team.level == t then
 					burnTeam(team, player)
 				end
 			end)
@@ -577,17 +605,8 @@ local function wireTower(t: World.Tower)
 	end
 end
 
-local function newTower()
+local function updateSign()
 	local event = Progress.currentEvent()
-	local seed = math.floor(os.time() + math.random(1, 1e6))
-	local layout = TowerLayout.generate(seed, Random.new(seed))
-	local old = tower
-	tower = World.buildTower(layout, event and event.accent or nil)
-	wireTower(tower)
-	if old then
-		old.folder:Destroy()
-	end
-	Workspace:SetAttribute("TowerSections", tower.winIndex)
 	Workspace:SetAttribute("EventId", event and event.id or "")
 	if lobby then
 		lobby.sign.Text = if event then ("🎉 %s event — free %s trail!"):format(event.id, event.trail) else ""
@@ -614,18 +633,46 @@ local function occupants(pad: BasePart): { Player }
 	return list
 end
 
+local lockedToast: { [Player]: number } = {}
+
+local function unlockedLevel(player: Player, world: string): number
+	local p = Data.get(player)
+	if not p then
+		return 0
+	end
+	return if world == "solo" then p.soloLevel else p.teamLevel
+end
+
+local function portalTick()
+	for _, portal in lobby.portals do
+		for _, player in occupants(portal.part) do
+			toHub(player, portal.target)
+		end
+	end
+end
+
 local function padTick()
+	portalTick()
 	for _, pad in lobby.pads do
 		local part = pad.part
 		local state = padStates[part] or {}
 		padStates[part] = state
-		local list = occupants(part)
+		local level = levels[(Themes.forLevel(pad.world, pad.level) :: Themes.Theme).id]
+		local list = {}
+		for _, player in occupants(part) do
+			if unlockedLevel(player, pad.world) >= pad.level then
+				table.insert(list, player)
+			elseif os.clock() - (lockedToast[player] or 0) > 4 then
+				lockedToast[player] = os.clock()
+				Net.send(player, "toast", { key = "locked", args = { pad.level - 1 } })
+			end
+		end
 		local max = Config.Modes[pad.mode].maxPlayers
 		part:SetAttribute("Count", math.min(#list, max))
 
 		if pad.mode == "solo" then
 			for _, p in list do
-				formTeam({ p }, "solo")
+				formTeam({ p }, "solo", level)
 			end
 			part:SetAttribute("Countdown", -1)
 			continue
@@ -649,7 +696,7 @@ local function padTick()
 			for i = 1, math.min(#list, max) do
 				group[i] = list[i]
 			end
-			formTeam(group, pad.mode)
+			formTeam(group, pad.mode, level)
 		else
 			part:SetAttribute("Countdown", math.ceil(remaining))
 		end
@@ -666,16 +713,16 @@ trussParams.FilterType = Enum.RaycastFilterType.Include
 -- Returns "safe", "air" (jumping / hanging on the chain), "lava" or "fallen"
 -- (landed somewhere below the team's checkpoint, which means the chain gave way).
 local function footing(team: Team, root: BasePart, unchained: boolean): string
-	if root.Position.Y < -30 then
-		return "fallen"
+	local cp = team.level.layout.checkpoints[team.checkpoint + 1]
+	if root.Position.Y < cp[2] - Config.FallBelowCheckpoint then
+		return "fallen" -- far below the team's checkpoint: nobody's holding the chain
 	end
+	rayParams.FilterDescendantsInstances = { team.level.folder }
+	trussParams.FilterDescendantsInstances = { team.level.folder }
 	local hit = Workspace:Raycast(root.Position, Vector3.new(0, -5, 0), rayParams)
 	if hit then
 		local kind = hit.Instance:GetAttribute("Kind")
 		local section = hit.Instance:GetAttribute("Section")
-		if kind == "Ground" then
-			return "fallen"
-		end
 		if kind == "Kill" then
 			return "lava"
 		end
@@ -693,9 +740,17 @@ local function footing(team: Team, root: BasePart, unchained: boolean): string
 end
 
 local function fallTick()
-	rayParams.FilterDescendantsInstances = { tower.folder, Workspace:FindFirstChild("Lobby") :: Instance }
-	trussParams.FilterDescendantsInstances = { tower.folder }
 	local t = now()
+	-- players walking around a world hub who fall off the island
+	for _, player in Players:GetPlayers() do
+		local zone = player:GetAttribute("Zone")
+		if not teamOf[player] and (zone == "solo" or zone == "team") then
+			local root = rootOf(player)
+			if root and root.Position.Y < World.hubSpawn(zone).Position.Y - 40 then
+				toHub(player, zone)
+			end
+		end
+	end
 	for _, team in teams do
 		if team.finished or team.burning or t < team.graceUntil then
 			continue
@@ -744,26 +799,48 @@ local function fallTick()
 	end
 end
 
-local function startRound()
-	newTower()
-	roundEndsAt = now() + Config.RoundSeconds
-	Workspace:SetAttribute("RoundEndsAt", roundEndsAt)
+-- Moving platforms follow a smooth back-and-forth based on server time, so the
+-- clients can animate the exact same motion locally.
+local function moverTick()
+	local t = now()
+	for _, level in levels do
+		for _, m in level.movers do
+			local phase = 0.5 - 0.5 * math.cos(2 * math.pi * (t % m.period) / m.period)
+			m.part.CFrame = CFrame.new(m.x, m.y, m.z + m.travel * phase)
+		end
+	end
 end
 
 function Game.start(theLobby: World.Lobby)
 	lobby = theLobby
-	startRound()
+	local levelsFolder = Instance.new("Folder")
+	levelsFolder.Name = "Levels"
+	levelsFolder.Parent = Workspace
+	for _, theme in Themes.List do
+		local level = World.buildLevel(theme, levelsFolder)
+		levels[theme.id] = level
+		wireLevel(level)
+	end
+	updateSign()
+	game:GetService("RunService").Heartbeat:Connect(moverTick)
 
 	local function watch(player: Player)
 		-- respawned while in a team (e.g. pressed Reset): back to the team checkpoint
 		player.CharacterAdded:Connect(function(character)
 			local team = teamOf[player]
+			character:WaitForChild("HumanoidRootPart", 5)
+			task.wait(0.1)
 			if team then
-				character:WaitForChild("HumanoidRootPart", 5)
-				task.wait(0.1)
 				local slot = table.find(team.members, player) or 1
 				team.graceUntil = now() + 1.5
-				teleport(player, World.checkpointCFrame(tower, team.checkpoint, slot))
+				teleport(player, World.checkpointCFrame(team.level, team.checkpoint, slot))
+			else
+				local zone = player:GetAttribute("Zone")
+				if zone == "solo" or zone == "team" then
+					toHub(player, zone)
+				else
+					setZone(player, "main", "main")
+				end
 			end
 		end)
 	end
@@ -773,6 +850,7 @@ function Game.start(theLobby: World.Lobby)
 	end
 	Players.PlayerRemoving:Connect(function(player)
 		removeMember(player, false)
+		lockedToast[player] = nil
 	end)
 
 	task.spawn(function()
@@ -795,14 +873,8 @@ function Game.start(theLobby: World.Lobby)
 	end)
 	task.spawn(function()
 		while true do
-			task.wait(1)
-			if now() >= roundEndsAt then
-				for _, team in teams do
-					dissolve(team)
-				end
-				startRound()
-				Net.sendAll("toast", { key = "newTower", good = true })
-			end
+			task.wait(60)
+			updateSign()
 		end
 	end)
 end

@@ -14,8 +14,10 @@ pcall(function()
 end)
 Strings.setLocale(locale)
 
+local Ambience = require(script.Parent.Ambience)
 local Chains = require(script.Parent.Chains)
 local UI = require(script.Parent.UI)
 
+Ambience.start()
 Chains.start()
 UI.start()

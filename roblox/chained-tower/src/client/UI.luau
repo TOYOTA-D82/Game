@@ -12,6 +12,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Strings = require(Shared:WaitForChild("Strings"))
+local Themes = require(Shared:WaitForChild("Themes"))
 local Chains = require(script.Parent.Chains)
 
 local player = Players.LocalPlayer
@@ -178,7 +179,7 @@ local top = make("Frame", {
 	BackgroundTransparency = 1,
 	Parent = gui,
 })
-local timerLabel = text({ Size = UDim2.new(1, 0, 0, 30), Text = "", Parent = top })
+local placeLabel = text({ Size = UDim2.new(1, 0, 0, 30), Text = "", Parent = top })
 local sectionLabel = text({
 	Position = UDim2.fromOffset(0, 32),
 	Size = UDim2.new(1, 0, 0, 26),
@@ -575,9 +576,11 @@ button({
 	rulesCard.Visible = false
 end)
 
-local function showRules(mode: string)
+local function showRules(mode: string, levelId: string?)
 	local solo = mode == "solo"
-	rulesText.Text = T(if solo then "rules_solo" else "rules_team")
+	local theme = if levelId then Themes.ById[levelId] else nil
+	local header = if theme then "🏁 " .. T("levelLine", theme.level, T("lv_" .. theme.id)) .. "\n" else ""
+	rulesText.Text = header .. T(if solo then "rules_solo" else "rules_team")
 	rulesCard.BackgroundColor3 = if solo then Color3.fromRGB(25, 45, 70) else Color3.fromRGB(55, 30, 70)
 	rulesCard.Visible = true
 	local shownAt = os.clock()
@@ -605,42 +608,74 @@ local banner = text({
 ----------------------------------------------------------------------
 -- Lobby pad labels
 ----------------------------------------------------------------------
-local function labelPad(pad: BasePart)
-	local mode = pad:GetAttribute("Mode")
-	local bb = make("BillboardGui", {
-		Size = UDim2.fromOffset(220, 90),
-		StudsOffset = Vector3.new(0, 5, 0),
+local padRefreshers: { () -> () } = {}
+
+local function billboard(part: BasePart, height: number): BillboardGui
+	return make("BillboardGui", {
+		Size = UDim2.fromOffset(250, 130),
+		StudsOffset = Vector3.new(0, height, 0),
 		AlwaysOnTop = false,
-		MaxDistance = 120,
-		Adornee = pad,
+		MaxDistance = 140,
+		Adornee = part,
 		ResetOnSpawn = false,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
-	local key = if mode == "solo" then "soloGate" elseif mode == "duo" then "duoPad" else "squadPad"
-	bb.Size = UDim2.fromOffset(240, 120)
-	text({ Size = UDim2.new(1, 0, 0.4, 0), Text = T(key), TextStrokeTransparency = 0.2, Parent = bb })
+end
+
+-- Portals in the lobby / hubs
+local function labelPortal(part: BasePart)
+	local target = tostring(part:GetAttribute("Target"))
+	local bb = billboard(part, 15)
+	text({ Size = UDim2.new(1, 0, 0.55, 0), Text = T("portal_" .. target), TextStrokeTransparency = 0.2, Parent = bb })
 	text({
-		Position = UDim2.fromScale(0, 0.4),
-		Size = UDim2.new(1, 0, 0.25, 0),
-		Text = T("padRule_" .. tostring(mode)),
+		Position = UDim2.fromScale(0, 0.55),
+		Size = UDim2.new(1, 0, 0.3, 0),
+		Text = T("portalSub_" .. target),
 		TextColor3 = COLORS.sub,
 		TextStrokeTransparency = 0.2,
 		Parent = bb,
 	})
-	local status = text({ Position = UDim2.fromScale(0, 0.67), Size = UDim2.new(1, 0, 0.3, 0), Text = "", TextColor3 = COLORS.gold, TextStrokeTransparency = 0.2, Parent = bb })
-	local function refresh()
+end
+
+-- Level gates in the world hubs
+local function labelPad(pad: BasePart)
+	local mode = tostring(pad:GetAttribute("Mode"))
+	local world = tostring(pad:GetAttribute("World"))
+	local level = pad:GetAttribute("Level") :: number
+	local themeId = tostring(pad:GetAttribute("Theme"))
+	local bb = billboard(pad, 9)
+	text({ Size = UDim2.new(1, 0, 0.3, 0), Text = T("gateTitle", level, T("lv_" .. themeId)), TextStrokeTransparency = 0.2, Parent = bb })
+	local modeKey = if mode == "solo" then "soloGate" elseif mode == "duo" then "duoPad" else "squadPad"
+	text({
+		Position = UDim2.fromScale(0, 0.3),
+		Size = UDim2.new(1, 0, 0.22, 0),
+		Text = T(modeKey) .. "  " .. T("padRule_" .. mode),
+		TextColor3 = COLORS.sub,
+		TextStrokeTransparency = 0.2,
+		Parent = bb,
+	})
+	local status = text({ Position = UDim2.fromScale(0, 0.55), Size = UDim2.new(1, 0, 0.3, 0), Text = "", TextColor3 = COLORS.gold, TextStrokeTransparency = 0.2, Parent = bb })
+	local function refreshPad()
+		local unlockedTo = (if world == "solo" then profile.soloLevel else profile.teamLevel) or 1
 		local countdown = pad:GetAttribute("Countdown") :: number? or -1
-		if mode == "solo" then
-			status.Text = "▶"
-		elseif (countdown :: number) >= 0 then
+		if level > unlockedTo then
+			status.Text = T("lockedShort")
+			status.TextColor3 = COLORS.gray
+		elseif mode ~= "solo" and (countdown :: number) >= 0 then
 			status.Text = T("padStarting", countdown)
-		else
+			status.TextColor3 = COLORS.gold
+		elseif mode ~= "solo" then
 			status.Text = T("padWaiting", pad:GetAttribute("Count") or 0, pad:GetAttribute("Max") or 0)
+			status.TextColor3 = COLORS.gold
+		else
+			status.Text = if profile.cleared and profile.cleared[themeId] then T("clearedShort") else "▶"
+			status.TextColor3 = COLORS.gold
 		end
 	end
-	pad:GetAttributeChangedSignal("Count"):Connect(refresh)
-	pad:GetAttributeChangedSignal("Countdown"):Connect(refresh)
-	refresh()
+	pad:GetAttributeChangedSignal("Count"):Connect(refreshPad)
+	pad:GetAttributeChangedSignal("Countdown"):Connect(refreshPad)
+	table.insert(padRefreshers, refreshPad)
+	refreshPad()
 end
 
 ----------------------------------------------------------------------
@@ -724,24 +759,23 @@ onInfoLoaded = function()
 	task.defer(refresh)
 end
 
-local function formatTime(seconds: number): string
-	seconds = math.max(0, math.floor(seconds))
-	return ("%d:%02d"):format(seconds // 60, seconds % 60)
-end
-
 local function tick()
-	local endsAt = Workspace:GetAttribute("RoundEndsAt")
-	if type(endsAt) == "number" then
-		timerLabel.Text = "⏱ " .. T("resetIn", formatTime(endsAt - Workspace:GetServerTimeNow()))
-	end
 	local team = Chains.myTeam()
 	local inTower = team ~= nil
-	local total = Workspace:GetAttribute("TowerSections") or Config.SectionsPerTower
+	local total = (team and team:GetAttribute("Sections")) or 6
 	local section = player:GetAttribute("Section")
 	local mode = team and team:GetAttribute("Mode")
+	local levelId = team and team:GetAttribute("Level")
+	local theme = if type(levelId) == "string" then Themes.ById[levelId] else nil
+	if theme then
+		placeLabel.Text = T("levelLine", theme.level, T("lv_" .. theme.id))
+	else
+		local zone = player:GetAttribute("Zone")
+		placeLabel.Text = T("world_" .. (if type(zone) == "string" then zone else "main"))
+	end
 	sectionLabel.Text = if inTower and type(section) == "number"
 		then ("[%s]  %s"):format(T("mode_" .. tostring(mode)), T("section", section, total))
-		else T("lobby")
+		else ""
 
 	unchainButton.Visible = inTower and mode ~= "solo"
 	smashButton.Visible = inTower
@@ -777,10 +811,13 @@ local function onMessage(kind: string, payload: any)
 	if kind == "profile" then
 		profile = payload
 		refresh()
+		for _, r in padRefreshers do
+			r()
+		end
 	elseif kind == "toast" then
 		UI.toast(T(payload.key, table.unpack(translateArgs(payload.args))), payload.good)
 	elseif kind == "modeIntro" then
-		showRules(payload.mode)
+		showRules(payload.mode, payload.level)
 	elseif kind == "offerSkip" then
 		local hasSkip = (profile.skip or 0) > 0
 		showPopup(T("offerSkip"), if hasSkip then T("skip") else robux(priceOf("product", "Skip")), function()
@@ -798,6 +835,9 @@ local function onMessage(kind: string, payload: any)
 			UI.buy("product", key)
 		end)
 	elseif kind == "finish" then
+		if payload.unlocked then
+			UI.toast(T("levelUnlocked", T("lv_" .. payload.unlocked)), true)
+		end
 		banner.Text = T("youFinished", payload.coins or 0)
 		banner.Visible = true
 		task.delay(4, function()
@@ -815,9 +855,14 @@ function UI.start()
 
 	local lobby = Workspace:WaitForChild("Lobby", 30)
 	if lobby then
-		for _, child in lobby:GetChildren() do
-			if child:IsA("BasePart") and child:GetAttribute("Kind") == "Pad" then
-				labelPad(child)
+		for _, child in lobby:GetDescendants() do
+			if child:IsA("BasePart") then
+				local kind = child:GetAttribute("Kind")
+				if kind == "Pad" then
+					labelPad(child)
+				elseif kind == "Portal" then
+					labelPortal(child)
+				end
 			end
 		end
 	end

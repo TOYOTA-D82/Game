@@ -9,14 +9,14 @@ local Config = {}
 Config.GameName = "Chained Tower"
 
 ----------------------------------------------------------------------
--- Round / tower
+-- Levels (the worlds and their levels live in Themes.luau)
 ----------------------------------------------------------------------
-Config.RoundSeconds = 10 * 60 -- the tower rebuilds itself every 10 minutes
-Config.SectionsPerTower = 10 -- 2.5 laps around the core
-Config.TowerHalfSize = 24 -- corners of the spiral are at (±24, ±24)
-Config.TowerBaseY = 4 -- top of the first checkpoint
-Config.FallDepth = 18 -- fall this far below your checkpoint = reset
+Config.FallBelowCheckpoint = 25 -- this far below your checkpoint = you fell (chain can't hold you)
 Config.SecondsBetweenResets = 1.5 -- debounce for team resets
+Config.FirstClearBonus = 60 -- extra coins the first time you clear a level (x level number)
+-- Testing helper: in Roblox Studio every level is unlocked so you can try them
+-- all. Has no effect in the real (published) game.
+Config.StudioUnlockAll = true
 
 ----------------------------------------------------------------------
 -- Teams and chains

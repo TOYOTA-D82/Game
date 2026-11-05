@@ -60,6 +60,9 @@ local function buildPayload(player: Player): { [string]: any }?
 		equipped = p.equipped,
 		passes = p.passes,
 		starterBought = p.starterBought,
+		soloLevel = p.soloLevel,
+		teamLevel = p.teamLevel,
+		cleared = p.cleared,
 		challenges = challenges,
 		event = event and { id = event.id, trail = event.trail, owned = p.trails[event.trail] == true } or nil,
 	}

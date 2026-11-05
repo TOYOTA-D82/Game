@@ -29,6 +29,9 @@ export type Profile = {
 	passes: { [string]: boolean }, -- remembered in case the ownership check fails later
 	starterBought: boolean,
 	receipts: { string },
+	soloLevel: number, -- highest unlocked level in the solo world
+	teamLevel: number, -- highest unlocked level in the team world
+	cleared: { [string]: boolean }, -- levels finished at least once (first-clear bonus)
 }
 
 local function defaults(): Profile
@@ -49,6 +52,9 @@ local function defaults(): Profile
 		passes = {},
 		starterBought = false,
 		receipts = {},
+		soloLevel = 1,
+		teamLevel = 1,
+		cleared = {},
 	}
 end
 
@@ -128,6 +134,10 @@ function Data.load(player: Player): Profile?
 		return nil
 	end
 	sessions[player] = session
+	if RunService:IsStudio() and Config.StudioUnlockAll then
+		session.profile.soloLevel = math.max(session.profile.soloLevel, 99)
+		session.profile.teamLevel = math.max(session.profile.teamLevel, 99)
+	end
 	Data.refreshDaily(player)
 	return session.profile
 end

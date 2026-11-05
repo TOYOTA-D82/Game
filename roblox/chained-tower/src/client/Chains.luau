@@ -378,16 +378,48 @@ local padParams = RaycastParams.new()
 padParams.FilterType = Enum.RaycastFilterType.Include
 local lastPad = 0
 
+-- Moving platforms: every client animates them with the same server-time
+-- formula as the server (smooth, no lag), and carries you along when you
+-- stand on one.
+type Mover = { part: BasePart, base: Vector3, travel: number, period: number, last: Vector3 }
+local movers: { [BasePart]: Mover } = {}
+
+local function moverPosition(m: Mover): Vector3
+	local t = Workspace:GetServerTimeNow()
+	local phase = 0.5 - 0.5 * math.cos(2 * math.pi * (t % m.period) / m.period)
+	return m.base + Vector3.new(0, 0, m.travel * phase)
+end
+
+local function animateMovers(): { [BasePart]: Vector3 }
+	local deltas = {}
+	for part, m in movers do
+		if not part.Parent then
+			movers[part] = nil
+			continue
+		end
+		local pos = moverPosition(m)
+		deltas[part] = pos - m.last
+		m.last = pos
+		part.CFrame = CFrame.new(pos)
+	end
+	return deltas
+end
+
 local function surfaces(dt: number)
+	local deltas = animateMovers()
 	local me = rootOf(player)
-	local tower = Workspace:FindFirstChild("Tower")
-	if not me or not tower then
+	local levelsFolder = Workspace:FindFirstChild("Levels")
+	if not me or not levelsFolder then
 		return
 	end
-	padParams.FilterDescendantsInstances = { tower }
+	padParams.FilterDescendantsInstances = { levelsFolder }
 	local hit = Workspace:Raycast(me.Position, Vector3.new(0, -4, 0), padParams)
 	if hit then
 		currentPush(hit.Instance, me, dt)
+		local delta = deltas[hit.Instance :: BasePart]
+		if delta and delta.Magnitude < 5 then
+			me.CFrame += delta -- ride the moving platform
+		end
 	end
 	if os.clock() - lastPad < 0.3 then
 		return
@@ -408,15 +440,31 @@ end
 type Foam = { part: BasePart, origin: Vector3, dir: Vector3, span: number, speed: number, offset: number }
 local foams: { Foam } = {}
 
-local function buildFoam(tower: Instance)
+local function buildFoam(levelsFolder: Instance)
 	for _, f in foams do
 		f.part:Destroy()
 	end
 	table.clear(foams)
-	for _, water in tower:GetChildren() do
-		if not water:IsA("BasePart") or water:GetAttribute("Kind") ~= "Current" then
+	for _, water in levelsFolder:GetDescendants() do
+		if not water:IsA("BasePart") then
 			continue
 		end
+		if water:GetAttribute("Kind") == "Mover" then
+			local m: Mover = {
+				part = water,
+				base = Vector3.new(water.Position.X, water.Position.Y, water:GetAttribute("BaseZ") :: number),
+				travel = water:GetAttribute("Travel") :: number,
+				period = water:GetAttribute("Period") :: number,
+				last = water.Position,
+			}
+			m.last = moverPosition(m)
+			movers[water] = m
+			continue
+		end
+		if water:GetAttribute("Kind") ~= "Current" then
+			continue
+		end
+		local isBelt = water:GetAttribute("Style") == "belt"
 		local fx = water:GetAttribute("FlowX") :: number? or 0
 		local fz = water:GetAttribute("FlowZ") :: number? or 0
 		local flow = Vector3.new(fx :: number, 0, fz :: number)
@@ -431,9 +479,10 @@ local function buildFoam(tower: Instance)
 		for k = 0, 2 do
 			local foam = Instance.new("Part")
 			foam.Size = if alongX then Vector3.new(0.35, 0.1, cross - 0.2) else Vector3.new(cross - 0.2, 0.1, 0.35)
-			foam.Color = Color3.new(1, 1, 1)
+			-- white foam on water, yellow hazard stripes on conveyor belts
+			foam.Color = if isBelt then Color3.fromRGB(255, 200, 40) else Color3.new(1, 1, 1)
 			foam.Material = Enum.Material.Neon
-			foam.Transparency = 0.45
+			foam.Transparency = if isBelt then 0.1 else 0.45
 			foam.Anchored = true
 			foam.CanCollide = false
 			foam.CanQuery = false
@@ -460,16 +509,14 @@ local function animateFoam()
 end
 
 function Chains.start()
-	Workspace.ChildAdded:Connect(function(child)
-		if child.Name == "Tower" then
-			task.wait(0.5) -- let the parts replicate
-			buildFoam(child)
+	-- the levels are built once when the server starts
+	task.spawn(function()
+		local levelsFolder = Workspace:WaitForChild("Levels", 60)
+		if levelsFolder then
+			task.wait(1) -- let the parts replicate
+			buildFoam(levelsFolder)
 		end
 	end)
-	local existing = Workspace:FindFirstChild("Tower")
-	if existing then
-		task.defer(buildFoam, existing)
-	end
 	RunService.RenderStepped:Connect(animateFoam)
 	RunService.Heartbeat:Connect(function(dt)
 		applyChain(dt)

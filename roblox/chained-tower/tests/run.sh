@@ -9,7 +9,7 @@ trap 'rm -rf "$work"' EXIT
 for f in "$here/../src/shared/"*.luau; do
   name="$(basename "$f")"
   {
-    echo 'local Color3 = (require("@lune/roblox") :: any).Color3'
+    echo 'local Color3, Enum = (require("@lune/roblox") :: any).Color3, (require("@lune/roblox") :: any).Enum'
     sed -E 's/require\(script\.Parent\.([A-Za-z]+)\)/require(".\/\1")/g' "$f"
   } > "$work/$name"
 done
