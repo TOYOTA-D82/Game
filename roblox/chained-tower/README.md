@@ -1,0 +1,168 @@
+# 綁腳塔 Chained Tower
+
+Roblox 合作跑酷塔：雙人用腳鐐綁在一起、四人一起綁在中間的鐵球上，爬一座**每 10 分鐘自動重新生成**的螺旋高塔。
+
+- **不用一直更新**：關卡自動產生、節日活動依日期自動開關、每日任務自動輪替、排行榜每週一自動重置。
+- **不買也能過**：每一座塔都經過自動測試（600 座隨機塔 100% 可通關），道具只拿來省時間和搞笑。
+
+---
+
+## 一、怎麼打開
+
+1. 安裝 [Roblox Studio](https://create.roblox.com/)。
+2. 雙擊 `ChainedTower.rbxl`，或在 Studio 裡用 File → Open from File 開啟。
+3. 按 **Play**（F5）就能玩。大廳和高塔都是程式自動蓋的，編輯模式下看到的是空地，屬於正常現象。
+
+**測試雙人或四人模式**：上方選單 **Test → Clients and Servers**，玩家數選 2 或 4，按 Start。每個視窗是一個玩家，一起走上橘色（雙人）或紫色（四人）踏板。
+
+**測試購買**：還沒填商品 ID 前，在 Studio 裡按任何購買按鈕都會**免費拿到**，方便你先把每個道具試一遍。
+
+---
+
+## 二、玩法
+
+| 大廳踏板 | 模式 | 金幣倍率 |
+|---|---|---|
+| 藍色 SOLO | 單人，沒有鎖鏈 | ×1 |
+| 橘色 DUO | 兩人腳鐐（鏈長 12 格），2 人站上去 3 秒後出發 | ×1.5 |
+| 紫色 SQUAD | 2 到 4 人綁在中間的鐵球上，不能離鐵球超過 14 格。滿 4 人 3 秒後出發，2 到 3 人 10 秒後出發 | ×2 |
+
+- 有一個人掉下去、碰到岩漿，**全隊一起回到檢查點**。
+- 高塔有 10 種關卡類型：踏石、岩漿木板、窄橫樑、跳板、梯子、繞路牆、木箱牆、旋轉棒、會消失的玻璃、岩漿石柱。
+- 越往上越難，每座塔 10 段，最後一段的檢查點是金色獎盃台。
+
+### 三種道具
+
+| 道具 | 按鍵 | 效果 | 每天免費 |
+|---|---|---|---|
+| 🔓 解除束縛 | Q | 全隊掙脫鎖鏈 12 秒。時間到時，鎖鏈把落後的人拉回爬最高的隊友身邊 | 3 次（VIP +2、Premium 會員 +1） |
+| 🔨 破壞錘 | E | 把前方有 🔨 記號的磚牆、木箱、旋轉棒炸飛，12 秒後會長回來 | 2 次（VIP +1） |
+| ⏭ 跳過 | 按鈕 | 全隊直接跳到下一段（最後一段不能跳） | 無 |
+
+有 🔨 記號的障礙**一定有不用炸的路**（梯子或外圍繞路），炸掉只是走捷徑。
+
+---
+
+## 三、付費設計（為什麼這樣定價）
+
+照「先免費、再便宜、再划算」的順序，一步一步讓玩家習慣付費：
+
+1. **每天免費**：每天送 3 個解除束縛、2 個破壞錘，讓所有人先玩上癮。
+2. **第一次付費門檻很低**：新手禮包 R$25 可以拿到 10 個解除束縛、5 個破壞錘和彩虹特效，每人限買一次。免費次數用完時，會優先推這個。
+3. **小包裝**：解除束縛 ×5 R$19、破壞錘 ×3 R$25。
+4. **大包裝比較划算**：解除束縛 ×20 R$59、破壞錘 ×12 R$79。
+5. **VIP R$299**：永久金幣 2 倍、每天多送道具、金色名牌。是最貴的選項，讓其他價格看起來便宜。
+6. **跑步特效**：火焰 R$99、閃電 R$129、銀河 R$199，別人都看得到。另外也可以用金幣買樹葉、泡泡、黃金特效。
+7. **跳過一段 R$15**：同一段失敗 3 次才會跳出提示，不會一進遊戲就推銷。
+
+**被動收入（上架後不用管）**：
+- **Premium 分潤**：Premium 會員在你遊戲裡玩越久，Roblox 自動付你越多。
+- **私人伺服器**：到 Creator Dashboard 打開，玩家每月付費開房間（建議 R$100 至 R$200）。
+
+**符合 Roblox 規範**：沒有抽獎和隨機寶箱，沒有假的「限時」或「快賣完」，也不用催促話術。
+
+---
+
+## 四、上架步驟
+
+### 1. 發布
+
+1. Studio：**File → Publish to Roblox** → Create new experience → 名稱填 `Chained Tower 綁腳塔`。
+2. **Home → Game Settings → Security** → 打開 **Enable Studio Access to API Services**（存檔和排行榜才會運作）。
+3. 同一頁的 **Monetization** 可以打開 **Private Servers**。
+
+### 2. 建立商品
+
+到 [Creator Dashboard](https://create.roblox.com/dashboard/creations) → 你的遊戲 → **Monetization**：
+
+**Passes**（建 4 個）：
+
+| 名稱 | 價格 | 對應的設定名稱 |
+|---|---|---|
+| VIP | 299 | `VIP` |
+| Fire Trail 火焰特效 | 99 | `FireTrail` |
+| Lightning Trail 閃電特效 | 129 | `LightningTrail` |
+| Galaxy Trail 銀河特效 | 199 | `GalaxyTrail` |
+
+**Developer Products**（建 7 個）：
+
+| 名稱 | 價格 | 對應的設定名稱 |
+|---|---|---|
+| Starter Pack 新手禮包 | 25 | `StarterPack` |
+| Skip Section 跳過 | 15 | `Skip` |
+| 5x Unchain | 19 | `Unchain5` |
+| 20x Unchain | 59 | `Unchain20` |
+| 3x Smash | 25 | `Smash3` |
+| 12x Smash | 79 | `Smash12` |
+| 1,000 Coins | 49 | `Coins1000` |
+
+商品圖可以先用 `art/icon-512.png`。
+
+### 3. 填入商品 ID
+
+1. Studio 左側 **Explorer → ReplicatedStorage → Shared → Config**，雙擊打開。
+2. 把每個商品的 ID 填到 `id = 0` 的位置。例如 `VIP = { id = 123456789, price = 299 }`。
+3. 再按一次 **File → Publish to Roblox**。
+
+### 4. 上傳圖片、填問卷、公開
+
+1. Dashboard → **Places → Thumbnails & Icons**：圖示上傳 `art/icon-512.png`，封面上傳 `art/thumbnail-1920x1080.png`。
+2. **Audience → Questionnaire**：填內容成熟度問卷（必填）。這款遊戲沒有暴力血腥，也沒有隨機付費獎勵。
+3. 把遊戲從 **Private** 改成 **Public**。
+
+### 5. 宣傳
+
+用 Studio 錄影（或任何螢幕錄影工具）錄這幾種畫面，剪成 15 至 30 秒的短影音，上傳到 TikTok、YouTube Shorts、IG Reels，說明欄放遊戲連結：
+
+- 雙人被腳鐐拉著一起從高處掉下去
+- 用破壞錘把整面木箱牆炸飛
+- 四人被鐵球拖著跑
+
+---
+
+## 五、不用更新也會自動發生的事
+
+| 什麼時候 | 會發生什麼 |
+|---|---|
+| 每 10 分鐘 | 高塔重新生成，路線全新 |
+| 每天（UTC 0 點，台灣早上 8 點） | 免費道具補滿，換 3 個新的每日任務 |
+| 每週一 | 每週通關排行榜重置 |
+| 2/10–2/16 | 情人節：免費愛心特效 |
+| 農曆新年（2027–2036 已設定） | 免費燈籠特效 |
+| 10/20–11/3 | 萬聖節：免費南瓜特效 |
+| 12/15–12/31 | 冬季慶典：免費雪花特效 |
+
+活動期間高塔中心柱會換成節日顏色，玩家可以到「每日」或「特效」頁面領取限定特效，領了就永久擁有。
+
+---
+
+## 六、想調整數值
+
+全部集中在 `src/shared/Config.luau`（Studio 裡是 `ReplicatedStorage → Shared → Config`），例如：
+
+- `Config.RoundSeconds`：多久換一座塔
+- `Config.SectionsPerTower`：一座塔幾段
+- `Config.Modes.duo.chainLength`：腳鐐長度
+- `Config.Daily`：每天送幾個免費道具
+- 商品價格、特效顏色、活動日期
+
+---
+
+## 給開發者
+
+```
+src/shared/   Config（數值）、Strings（中英文）、Calendar（日期）、TowerLayout（關卡算法）
+src/server/   Main（啟動）、Game（組隊/鎖鏈/檢查點/道具）、World（蓋場景）、
+              Data（存檔）、Shop（購買）、Progress（金幣/任務/特效/排行榜）、Net（連線）
+src/client/   Main（啟動）、Chains（鎖鏈物理與畫面、跳板）、UI（介面）
+tests/        Lune 測試
+```
+
+- 重新打包：`rojo build -o ChainedTower.rbxl`（需要 [Rojo](https://rojo.space/)）
+- 邊改邊同步到 Studio：`rojo serve`，再用 Studio 的 Rojo 外掛連線
+- 跑測試：`tests/run.sh`（需要 [Lune](https://lune-org.github.io/docs)）
+  - 用正式的 Luau 編譯器檢查所有檔案語法
+  - 產生 600 座隨機塔，確認每座都能**不靠道具通關**、不會插進中心柱、上下兩圈之間有足夠頭頂空間
+  - 驗證節日日期、每日任務、每週重置
+  - 用 Roblox 物件規則實際蓋出大廳和 40 座塔
+- 語法檢查：`selene src`
