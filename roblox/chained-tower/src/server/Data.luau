@@ -29,10 +29,25 @@ export type Profile = {
 	passes: { [string]: boolean }, -- remembered in case the ownership check fails later
 	starterBought: boolean,
 	receipts: { string },
-	soloLevel: number, -- highest unlocked level in the solo world
-	teamLevel: number, -- highest unlocked level in the team world
-	cleared: { [string]: boolean }, -- levels finished at least once (first-clear bonus)
+	-- today's daily challenge (reset every UTC day)
+	today: { day: number, solo: WorldDay, team: WorldDay },
+	points: number, -- daily points earned from rankings, all time
+	pending: { { day: number, world: string } }, -- days waiting to be ranked
+	rewardRank: number, -- 1..3 while a daily top-3 reward is active
+	rewardUntil: number, -- os.time() when it ends
 }
+
+-- cleared: levels cleared in order today; times: best time (seconds) per level
+export type WorldDay = { cleared: number, times: { [string]: number } }
+
+local function freshDay(day: number)
+	return {
+		day = day,
+		solo = { cleared = 0, times = {} },
+		team = { cleared = 0, times = {} },
+	}
+end
+Data.freshDay = freshDay
 
 local function defaults(): Profile
 	return {
@@ -52,9 +67,11 @@ local function defaults(): Profile
 		passes = {},
 		starterBought = false,
 		receipts = {},
-		soloLevel = 1,
-		teamLevel = 1,
-		cleared = {},
+		today = freshDay(-1),
+		points = 0,
+		pending = {},
+		rewardRank = 0,
+		rewardUntil = 0,
 	}
 end
 
@@ -134,10 +151,6 @@ function Data.load(player: Player): Profile?
 		return nil
 	end
 	sessions[player] = session
-	if RunService:IsStudio() and Config.StudioUnlockAll then
-		session.profile.soloLevel = math.max(session.profile.soloLevel, 99)
-		session.profile.teamLevel = math.max(session.profile.teamLevel, 99)
-	end
 	Data.refreshDaily(player)
 	return session.profile
 end
@@ -172,6 +185,7 @@ function Data.refreshDaily(player: Player)
 		end
 		p.stats = {}
 		p.claimed = {}
+		p.today = freshDay(today)
 		Data.markDirty(player)
 	end
 end

@@ -13,10 +13,30 @@ Config.GameName = "Chained Tower"
 ----------------------------------------------------------------------
 Config.FallBelowCheckpoint = 25 -- this far below your checkpoint = you fell (chain can't hold you)
 Config.SecondsBetweenResets = 1.5 -- debounce for team resets
-Config.FirstClearBonus = 60 -- extra coins the first time you clear a level (x level number)
+Config.FirstClearBonus = 20 -- extra coins the first time each day you clear a level (x level number)
 -- Testing helper: in Roblox Studio every level is unlocked so you can try them
 -- all. Has no effect in the real (published) game.
 Config.StudioUnlockAll = true
+
+----------------------------------------------------------------------
+-- Daily challenge & ranking
+-- Every day (UTC 00:00 = 08:00 in Taiwan) the routes change and everyone starts
+-- again from level 1. Ranking: most levels cleared today, then the fastest
+-- total time. The day after, each player gets daily points by rank, and the
+-- top 3 of each world get rewards for 24 hours.
+----------------------------------------------------------------------
+Config.DailyRankPoints = { 100, 80, 65, 55, 50, 45, 40, 35, 30, 25 } -- rank 1..10
+Config.DailyRankBands = { -- ranks after 10
+	{ upTo = 25, points = 15 },
+	{ upTo = 50, points = 10 },
+	{ upTo = 100, points = 6 },
+}
+Config.DailyParticipationPoints = 3 -- cleared at least one level but not in the top 100
+Config.DailyRewards = {
+	{ title = "Champion", trail = "Champion", coinMultiplier = 2, hours = 24 }, -- 1st
+	{ title = "Silver", trail = "Silver", coinMultiplier = 1.5, hours = 24 }, -- 2nd
+	{ title = "Bronze", trail = "Bronze", coinMultiplier = 1.25, hours = 24 }, -- 3rd
+}
 
 ----------------------------------------------------------------------
 -- Teams and chains
@@ -30,8 +50,10 @@ Config.ChainPullStrength = 9 -- how hard a tight chain pulls you back
 -- When a teammate hangs off an edge, players still standing get dragged toward
 -- the edge at this speed (studs/s). Walking the other way (16 studs/s) beats it
 -- and hauls the hanging player back up.
-Config.ChainDragSpeed = 6
-Config.ClimbSpeed = 9 -- hold Jump while hanging to climb up the chain
+Config.ChainDragSpeed = 3.5
+Config.ClimbSpeed = 16 -- hold Jump (or the Climb button) while hanging to climb up the chain
+Config.AutoClimbSpeed = 3 -- a hanging player always creeps up slowly, even without pressing anything
+Config.ClimbOverBoost = 32 -- when you reach the edge you hop up onto the platform
 Config.AllFallSeconds = 2.5 -- the team only resets when NOBODY is standing for this long
 -- Lava: one touch sets the chain on fire. It runs to each teammate in turn,
 -- then the whole team goes back to the checkpoint.
@@ -131,6 +153,10 @@ Config.Trails = {
 	{ id = "Pumpkin", source = "event", colors = { Color3.fromRGB(255, 140, 20), Color3.fromRGB(90, 30, 120) } },
 	{ id = "Snowflake", source = "event", colors = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 220, 255) }, sparkles = true },
 	{ id = "Lantern", source = "event", colors = { Color3.fromRGB(255, 60, 40), Color3.fromRGB(255, 210, 60) }, sparkles = true },
+	-- daily top-3 rewards: only usable while the 24h reward lasts
+	{ id = "Champion", source = "reward", colors = { Color3.fromRGB(255, 240, 120), Color3.fromRGB(255, 120, 200), Color3.fromRGB(120, 220, 255) }, sparkles = true, width = 2 },
+	{ id = "Silver", source = "reward", colors = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(170, 185, 210) }, sparkles = true, width = 1.6 },
+	{ id = "Bronze", source = "reward", colors = { Color3.fromRGB(255, 200, 150), Color3.fromRGB(200, 120, 60) }, sparkles = true, width = 1.5 },
 	{ id = "Heart", source = "event", colors = { Color3.fromRGB(255, 120, 170), Color3.fromRGB(255, 40, 90) } },
 } :: { Trail }
 

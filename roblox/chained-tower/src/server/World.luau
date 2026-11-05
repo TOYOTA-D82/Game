@@ -22,8 +22,11 @@ export type Portal = { part: BasePart, target: string }
 export type Lobby = {
 	pads: { Pad },
 	portals: { Portal },
-	soloBoard: SurfaceGui,
-	teamBoard: SurfaceGui,
+	soloBoard: SurfaceGui, -- today's solo ranking (lobby, left wall)
+	teamBoard: SurfaceGui, -- today's team ranking (lobby, right wall)
+	pointsBoard: SurfaceGui, -- all-time daily points (lobby, behind the spawn)
+	soloHubBoard: SurfaceGui, -- today's solo ranking again, on the solo island
+	teamHubBoard: SurfaceGui, -- today's team ranking again, on the team island
 	sign: TextLabel,
 }
 export type Level = {
@@ -32,6 +35,7 @@ export type Level = {
 	layout: Course.Result,
 	checkpoints: { [number]: BasePart },
 	winIndex: number,
+	day: number, -- the day whose route this is
 	movers: { { part: BasePart, x: number, y: number, z: number, travel: number, period: number } },
 }
 
@@ -127,7 +131,7 @@ end
 function World.levelOrigin(theme: Themes.Theme): { number }
 	local o = hubOrigin(theme.world)
 	local dir = if theme.world == "solo" then 1 else -1
-	return { o.X + dir * (theme.level - 3) * 700, o.Y + 40, o.Z + 500 }
+	return { o.X + dir * (theme.level - 4.5) * 700, o.Y + 40, o.Z + 500 }
 end
 
 ----------------------------------------------------------------------
@@ -203,18 +207,16 @@ function World.buildLobby(): Lobby
 	eventLine.Position = UDim2.fromScale(0, 0.6)
 
 	-- Two weekly leaderboards: solo on the left wall, teams on the right wall
-	local function makeBoard(name: string, x: number, face: Enum.NormalId, color: Color3): SurfaceGui
-		local boardPart = makePart({
-			Name = name,
-			Size = Vector3.new(1, 14, 18),
-			CFrame = CFrame.new(x, 8, -105),
-			Color = color,
-		})
-		boardPart.Parent = folder
+	local function makeBoard(parent: Instance, name: string, cf: CFrame, size: Vector3, face: Enum.NormalId, color: Color3): SurfaceGui
+		local boardPart = makePart({ Name = name, Size = size, CFrame = cf, Color = color })
+		boardPart.Parent = parent
 		return surfaceGui(boardPart, face, 25)
 	end
-	local soloBoard = makeBoard("SoloLeaderboard", -42, Enum.NormalId.Right, Color3.fromRGB(25, 45, 70))
-	local teamBoard = makeBoard("TeamLeaderboard", 42, Enum.NormalId.Left, Color3.fromRGB(55, 30, 70))
+	local sideSize = Vector3.new(1, 14, 18)
+	local soloBoard = makeBoard(folder, "SoloLeaderboard", CFrame.new(-42, 8, -105), sideSize, Enum.NormalId.Right, Color3.fromRGB(25, 45, 70))
+	local teamBoard = makeBoard(folder, "TeamLeaderboard", CFrame.new(42, 8, -105), sideSize, Enum.NormalId.Left, Color3.fromRGB(55, 30, 70))
+	local pointsBoard = makeBoard(folder, "PointsLeaderboard", CFrame.new(0, 9, -134), Vector3.new(20, 14, 1), Enum.NormalId.Back, Color3.fromRGB(60, 45, 20))
+	local hubBoards: { [string]: SurfaceGui } = {}
 
 	-- World hubs: an island with one gate per level and a portal home
 	local pads: { Pad } = {}
@@ -226,22 +228,30 @@ function World.buildLobby(): Lobby
 		local islandColor = if world == "solo" then Color3.fromRGB(235, 245, 255) else Color3.fromRGB(245, 230, 245)
 		makePart({
 			Name = "Island",
-			Size = Vector3.new(180, 2, 80),
+			Size = Vector3.new(300, 2, 80),
 			CFrame = CFrame.new(o + Vector3.new(0, -1, 0)),
 			Color = islandColor,
 			Material = Enum.Material.Pavement,
 		}).Parent = hub
 		-- a rim of grass and rock under the island so it looks like a floating island
 		decorPart(hub, {
-			Size = Vector3.new(170, 14, 70),
+			Size = Vector3.new(290, 14, 70),
 			CFrame = CFrame.new(o + Vector3.new(0, -9, 0)),
 			Color = Color3.fromRGB(120, 100, 80),
 			Material = Enum.Material.Rock,
 		})
 		portal(hub, o + Vector3.new(0, 0.5, -30), "main", Color3.fromRGB(255, 255, 255))
+		hubBoards[world] = makeBoard(
+			hub,
+			"TodayLeaderboard",
+			CFrame.new(o + Vector3.new(0, 24, 36)), -- above and behind the level gates
+			Vector3.new(20, 14, 1),
+			Enum.NormalId.Front,
+			if world == "solo" then Color3.fromRGB(25, 45, 70) else Color3.fromRGB(55, 30, 70)
+		)
 
 		local count = Themes.levelCount(world)
-		local spacing = if world == "solo" then 26 else 32
+		local spacing = if world == "solo" then 30 else 34
 		for level = 1, count do
 			local theme = Themes.forLevel(world, level) :: Themes.Theme
 			local x = (level - (count + 1) / 2) * spacing
@@ -277,7 +287,16 @@ function World.buildLobby(): Lobby
 		end
 	end
 
-	return { pads = pads, portals = portals, soloBoard = soloBoard, teamBoard = teamBoard, sign = eventLine }
+	return {
+		pads = pads,
+		portals = portals,
+		soloBoard = soloBoard,
+		teamBoard = teamBoard,
+		pointsBoard = pointsBoard,
+		soloHubBoard = hubBoards.solo,
+		teamHubBoard = hubBoards.team,
+		sign = eventLine,
+	}
 end
 
 ----------------------------------------------------------------------
@@ -408,6 +427,48 @@ local decorators: { [string]: Decorator } = {
 			block(parent, CFrame.new(pos + Vector3.new(0, 4, 0)), Vector3.new(3.2, 0.6, 3.2), rgb(255, 200, 40), Enum.Material.SmoothPlastic)
 		end
 	end,
+	palms = function(parent, pos, rng)
+		local h = rng:NextNumber(10, 16)
+		local lean = rng:NextNumber(-0.25, 0.25)
+		decorPart(parent, {
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(h, 1.4, 1.4),
+			CFrame = CFrame.new(pos + Vector3.new(0, h / 2, 0)) * CFrame.Angles(lean, 0, math.pi / 2),
+			Color = rgb(160, 120, 80),
+			Material = Enum.Material.Wood,
+		})
+		for i = 1, 5 do
+			block(parent, CFrame.new(pos + Vector3.new(0, h, 0)) * CFrame.Angles(0, i * 1.25, -0.4) * CFrame.new(3.2, 0, 0), Vector3.new(6.5, 0.3, 1.8), rgb(60, 170, 70), Enum.Material.Grass)
+		end
+		ball(parent, pos + Vector3.new(0.6, h - 0.8, 0.3), 1.1, rgb(120, 80, 40))
+	end,
+	clouds = function(parent, pos, rng)
+		local c = pos + Vector3.new(0, rng:NextNumber(-12, 6), 0)
+		for _ = 1, 4 do
+			ball(parent, c + Vector3.new(rng:NextNumber(-5, 5), rng:NextNumber(-1, 2), rng:NextNumber(-4, 4)), rng:NextNumber(5, 9), rgb(255, 255, 255))
+		end
+		if rng:NextNumber() < 0.3 then
+			-- a little golden pillar of the sky city
+			cylinder(parent, c + Vector3.new(0, 2, 0), rng:NextNumber(6, 12), 1, rgb(255, 225, 140), Enum.Material.Marble)
+		end
+	end,
+	pines = function(parent, pos, rng)
+		local h = rng:NextNumber(10, 18)
+		cylinder(parent, pos, h * 0.35, 0.7, rgb(110, 80, 55), Enum.Material.Wood)
+		for i = 0, 2 do
+			local size = (3 - i) * 2.6
+			block(parent, CFrame.new(pos + Vector3.new(0, h * 0.35 + i * h * 0.22, 0)) * CFrame.Angles(0, i * 0.7, 0), Vector3.new(size, h * 0.25, size), rgb(60, 110, 80), Enum.Material.Grass)
+			block(parent, CFrame.new(pos + Vector3.new(0, h * 0.35 + i * h * 0.22 + h * 0.13, 0)) * CFrame.Angles(0, i * 0.7, 0), Vector3.new(size * 0.9, 0.4, size * 0.9), rgb(250, 252, 255), Enum.Material.Snow)
+		end
+	end,
+	neon = function(parent, pos, rng)
+		local colors = { rgb(255, 60, 200), rgb(60, 240, 255), rgb(170, 90, 255), rgb(255, 230, 60) }
+		local h = rng:NextNumber(14, 30)
+		block(parent, CFrame.new(pos + Vector3.new(0, h / 2 - 10, 0)), Vector3.new(6, h, 6), rgb(25, 25, 40))
+		for i = 1, 3 do
+			block(parent, CFrame.new(pos + Vector3.new(0, i * h / 4 - 10, 0)), Vector3.new(6.3, 0.4, 6.3), colors[rng:NextInteger(1, #colors)], Enum.Material.Neon)
+		end
+	end,
 	castle = function(parent, pos, rng)
 		local h = rng:NextNumber(14, 26)
 		cylinder(parent, pos, h, 2.5, rgb(130, 125, 140), Enum.Material.Cobblestone)
@@ -499,9 +560,11 @@ local KIND_NAMES = {
 	mover = "Mover",
 }
 
-function World.buildLevel(theme: Themes.Theme, parent: Instance): Level
+-- Builds a level as it is on `day` (the route changes every day).
+function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): Level
 	local origin = World.levelOrigin(theme)
-	local layout = Course.generate(theme, origin, Course.rng(theme.seed))
+	local seed = Course.dailySeed(theme, day)
+	local layout = Course.generate(theme, origin, Course.rng(seed), seed, Course.sequenceFor(theme, day))
 	local folder = Instance.new("Folder")
 	folder.Name = "Level_" .. theme.id
 	folder:SetAttribute("Theme", theme.id)
@@ -648,6 +711,7 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance): Level
 		layout = layout,
 		checkpoints = checkpoints,
 		winIndex = #layout.checkpoints - 1,
+		day = day,
 		movers = movers,
 	}
 end

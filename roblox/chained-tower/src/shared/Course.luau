@@ -445,7 +445,41 @@ Course.Builders = builders
 ----------------------------------------------------------------------
 -- Whole course
 ----------------------------------------------------------------------
-function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed: number?): Result
+-- Today's section list for a level: picked from the theme's pool, respecting
+-- difficulty, never the same type twice in a row, and as varied as possible.
+function Course.sequenceFor(theme: Themes.Theme, day: number): { string }
+	local rng = Course.rng(theme.seed * 31 + day * 7919 + 13)
+	local count = Themes.sectionCount(theme.level)
+	local half = math.ceil(count / 2)
+	local used: { [string]: boolean } = {}
+	local out: { string } = {}
+	for i = 1, count do
+		local diff = if i <= half then theme.diff[1] else theme.diff[2]
+		local fresh, ok = {}, {}
+		for _, name in theme.pool do
+			local b = builders[name]
+			if b and b.minDiff <= diff and name ~= out[i - 1] then
+				table.insert(ok, name)
+				if not used[name] then
+					table.insert(fresh, name)
+				end
+			end
+		end
+		local choices = if #fresh > 0 then fresh elseif #ok > 0 then ok else { "Stones" }
+		local name = choices[rng:NextInteger(1, #choices)]
+		used[name] = true
+		table.insert(out, name)
+	end
+	return out
+end
+
+-- Seed for a level's layout on a given day (changes the details every day).
+function Course.dailySeed(theme: Themes.Theme, day: number): number
+	return theme.seed + day * 101
+end
+
+function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed: number?, sequence: { string }?): Result
+	local sections = sequence or Course.sequenceFor(theme, 0)
 	local worldInfo = Themes.Worlds[theme.world]
 	local cpHalf = worldInfo.checkpoint
 	local SECTION = worldInfo.section
@@ -463,7 +497,7 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 		hurdles = {},
 		movers = {},
 		minWidth = math.huge,
-		length = #theme.sections * SECTION,
+		length = #sections * SECTION,
 		bottom = origin[2],
 	}
 
@@ -487,11 +521,11 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 
 	local y = origin[2]
 	out.startSurface = checkpoint(0, y, "checkpoint")
-	local count = #theme.sections
+	local count = #sections
 	local half = math.ceil(count / 2)
 	for i = 1, count do
 		local diff = math.clamp(if i <= half then theme.diff[1] else theme.diff[2], 1, 3)
-		local chosen = builders[theme.sections[i]] or builders.Stones
+		local chosen = builders[sections[i]] or builders.Stones
 		table.insert(out.builders, chosen.name)
 
 		local ctx: Ctx = {

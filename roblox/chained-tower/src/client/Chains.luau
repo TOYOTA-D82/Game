@@ -261,6 +261,19 @@ UserInputService.JumpRequest:Connect(function()
 	lastJumpRequest = os.clock()
 end)
 
+-- Hanging / climbing state (the UI shows a big CLIMB button while hanging)
+local climbHeld = false
+local hangingUntil = 0
+local lastHop = 0
+
+function Chains.setClimbHeld(held: boolean)
+	climbHeld = held
+end
+
+function Chains.isHanging(): boolean
+	return os.clock() < hangingUntil
+end
+
 local function humanoidOf(root: BasePart): Humanoid?
 	return (root.Parent :: Model):FindFirstChildOfClass("Humanoid")
 end
@@ -286,21 +299,51 @@ local function yank(root: BasePart, dir: Vector3, over: number, dt: number)
 	end
 end
 
+-- I'm hanging below my team: climb up the chain. You always creep up a little
+-- on your own, much faster while holding Jump / the CLIMB button, and when you
+-- reach the edge you hop up onto the platform.
+local function climb(root: BasePart, target: Vector3, dir: Vector3)
+	hangingUntil = os.clock() + 0.35
+	hint("hintHanging")
+	local pressing = climbHeld or os.clock() - lastJumpRequest < 0.3
+	local speed = if pressing then Config.ClimbSpeed else Config.AutoClimbSpeed
+	local v = root.AssemblyLinearVelocity
+	local along = v:Dot(dir)
+	if along < speed then
+		root.AssemblyLinearVelocity = v + dir * (speed - along)
+	end
+	if target.Y - root.Position.Y < 2.5 and os.clock() - lastHop > 0.8 then
+		lastHop = os.clock()
+		local flat = Vector3.new(dir.X, 0, dir.Z)
+		local push = if flat.Magnitude > 0.05 then flat.Unit * 14 else Vector3.zero
+		root.AssemblyLinearVelocity = push + Vector3.new(0, Config.ClimbOverBoost, 0)
+	end
+end
+
 -- One rope between me and a target point (partner, or the squad's iron ball).
 local function rope(root: BasePart, target: Vector3, limit: number, dt: number)
 	local offset = target - root.Position
 	local d = offset.Magnitude
-	if d <= limit or d < 0.01 then
+	if d < 0.01 then
 		return
 	end
 	local dir = offset / d
-	local over = d - limit
 	local grounded = isGrounded(root)
+	local hanging = not grounded and target.Y > root.Position.Y + 1
+
+	if d <= limit then
+		-- chain is slack; keep climbing if I was already hanging
+		if hanging and os.clock() < hangingUntil then
+			climb(root, target, dir)
+		end
+		return
+	end
+	local over = d - limit
 	local targetBelow = target.Y < root.Position.Y - 2
 
 	if grounded and targetBelow and over < 6 then
 		-- Someone is hanging off an edge: their weight drags me slowly toward it.
-		-- Walking the other way is faster than the drag, which hauls them back up.
+		-- Walking the other way is much faster than the drag and hauls them up.
 		local flat = Vector3.new(dir.X, 0, dir.Z)
 		if flat.Magnitude > 0.05 then
 			root.CFrame += flat.Unit * Config.ChainDragSpeed * dt
@@ -310,15 +353,8 @@ local function rope(root: BasePart, target: Vector3, limit: number, dt: number)
 	end
 
 	yank(root, dir, over, dt)
-	if not grounded and target.Y > root.Position.Y + 1 then
-		-- I'm the one hanging: hold Jump to climb up the chain
-		hint("hintHanging")
-		if os.clock() - lastJumpRequest < 0.3 then
-			local v = root.AssemblyLinearVelocity
-			if v:Dot(dir) < Config.ClimbSpeed then
-				root.AssemblyLinearVelocity = v + dir * (Config.ClimbSpeed - v:Dot(dir))
-			end
-		end
+	if hanging then
+		climb(root, target, dir)
 	end
 end
 

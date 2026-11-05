@@ -10,8 +10,11 @@ local Shop = require(script.Parent.Shop)
 local World = require(script.Parent.World)
 
 local lobby = World.buildLobby()
-Progress.startLeaderboard(lobby.soloBoard, "Solo")
-Progress.startLeaderboard(lobby.teamBoard, "Team")
+Progress.startLeaderboard(lobby.soloBoard, "solo")
+Progress.startLeaderboard(lobby.teamBoard, "team")
+Progress.startLeaderboard(lobby.pointsBoard, "points")
+Progress.startLeaderboard(lobby.soloHubBoard, "solo")
+Progress.startLeaderboard(lobby.teamHubBoard, "team")
 Shop.init(Game.onGranted)
 Data.start()
 Game.start(lobby)
@@ -24,6 +27,7 @@ local function onPlayer(player: Player)
 	end
 	Shop.checkPasses(player)
 	Progress.sync(player)
+	task.spawn(Progress.settle, player) -- points/rewards for days that ended since last visit
 
 	local function onCharacter(character: Model)
 		character:WaitForChild("HumanoidRootPart", 5)

@@ -1,9 +1,10 @@
 --!strict
--- The two worlds and their levels. Each level is a fixed course (same on every
--- server, so nothing needs updating) with its own look, sky and obstacle mix.
+-- The two worlds and their 8 levels each. A level keeps its look (sky, colours,
+-- scenery) forever, but its route is rebuilt EVERY DAY from its pool of section
+-- types — same on every server, so it's a fair daily challenge with no updates.
 --
---   solo world "Sky Isles"   : Meadow -> Desert -> Ice -> Candy -> Space
---   team world "Chain Isles" : Jungle -> Volcano -> Harbor -> Factory -> Castle
+--   solo world "Sky Isles"   : Meadow, Desert, Ice, Candy, Space, Beach, Cave, Clouds
+--   team world "Chain Isles" : Jungle, Volcano, Harbor, Factory, Castle, Snow, Pirate, Neon
 
 local Themes = {}
 
@@ -21,7 +22,7 @@ export type Theme = {
 	world: string, -- "solo" | "team"
 	level: number,
 	seed: number,
-	sections: { string }, -- the section types of this level, in order (hand-picked, no repeats in a row)
+	pool: { string }, -- section types this level picks from each day
 	diff: { number }, -- difficulty for the first and second half of the course
 	lava: boolean, -- lava under hazards (otherwise it's an open drop)
 	slippery: boolean?, -- icy floors
@@ -66,7 +67,7 @@ local list: { Theme } = {
 		level = 1,
 		seed = 1101,
 		diff = { 1, 1 },
-		sections = { "Stones", "JumpPads", "Beams", "Mover", "Stones", "Truss" },
+		pool = { "Stones", "JumpPads", "Beams", "Mover", "Stones", "Truss" },
 		lava = false,
 		colors = { rgb(120, 200, 90), rgb(150, 215, 100), rgb(240, 220, 120), rgb(110, 185, 120) },
 		material = Enum.Material.Grass,
@@ -82,7 +83,7 @@ local list: { Theme } = {
 		level = 2,
 		seed = 2202,
 		diff = { 1, 2 },
-		sections = { "Stones", "Conveyor", "Mover", "Pillars", "Hurdles", "Spinner" },
+		pool = { "Stones", "Conveyor", "Mover", "Pillars", "Hurdles", "Spinner" },
 		lava = false,
 		colors = { rgb(235, 200, 140), rgb(220, 175, 115), rgb(245, 215, 160) },
 		material = Enum.Material.Sandstone,
@@ -98,7 +99,7 @@ local list: { Theme } = {
 		level = 3,
 		seed = 3303,
 		diff = { 2, 2 },
-		sections = { "Stones", "Mover", "Vanish", "Truss", "Hurdles", "Beams" },
+		pool = { "Stones", "Mover", "Vanish", "Truss", "Hurdles", "Beams" },
 		lava = false,
 		slippery = true,
 		colors = { rgb(190, 230, 255), rgb(160, 210, 245), rgb(225, 245, 255) },
@@ -115,7 +116,7 @@ local list: { Theme } = {
 		level = 4,
 		seed = 4404,
 		diff = { 2, 3 },
-		sections = { "JumpPads", "Spinner", "Vanish", "Mover", "Beams", "Hurdles" },
+		pool = { "JumpPads", "Spinner", "Vanish", "Mover", "Beams", "Hurdles" },
 		lava = false,
 		colors = { rgb(255, 150, 200), rgb(150, 235, 210), rgb(255, 230, 120), rgb(200, 160, 255) },
 		material = Enum.Material.SmoothPlastic,
@@ -131,7 +132,7 @@ local list: { Theme } = {
 		level = 5,
 		seed = 5505,
 		diff = { 3, 3 },
-		sections = { "Pillars", "Mover", "Spinner", "Vanish", "Beams", "JumpPads" },
+		pool = { "Pillars", "Mover", "Spinner", "Vanish", "Beams", "JumpPads" },
 		lava = false,
 		gravity = 110, -- floaty jumps
 		colors = { rgb(90, 80, 160), rgb(60, 60, 120), rgb(120, 90, 200) },
@@ -151,7 +152,7 @@ local list: { Theme } = {
 		level = 1,
 		seed = 1111,
 		diff = { 1, 1 },
-		sections = { "Stones", "Rapids", "JumpPads", "Beams", "Truss", "Mover" },
+		pool = { "Stones", "Rapids", "JumpPads", "Beams", "Truss", "Mover" },
 		lava = false,
 		colors = { rgb(110, 160, 70), rgb(140, 110, 70), rgb(90, 140, 80) },
 		material = Enum.Material.WoodPlanks,
@@ -167,7 +168,7 @@ local list: { Theme } = {
 		level = 2,
 		seed = 2222,
 		diff = { 1, 2 },
-		sections = { "LavaPlanks", "Stones", "Mover", "Pillars", "Hurdles", "Vanish" },
+		pool = { "LavaPlanks", "Stones", "Mover", "Pillars", "Hurdles", "Vanish" },
 		lava = true,
 		colors = { rgb(80, 70, 70), rgb(110, 90, 80), rgb(60, 55, 60) },
 		material = Enum.Material.Basalt,
@@ -183,7 +184,7 @@ local list: { Theme } = {
 		level = 3,
 		seed = 3333,
 		diff = { 2, 2 },
-		sections = { "Rapids", "Mover", "Detour", "Conveyor", "Beams", "Rapids" },
+		pool = { "Rapids", "Mover", "Detour", "Conveyor", "Beams", "Rapids" },
 		lava = false,
 		colors = { rgb(170, 120, 80), rgb(150, 100, 65), rgb(190, 140, 95) },
 		material = Enum.Material.WoodPlanks,
@@ -199,7 +200,7 @@ local list: { Theme } = {
 		level = 4,
 		seed = 4444,
 		diff = { 2, 3 },
-		sections = { "Conveyor", "Spinner", "Mover", "Detour", "Hurdles", "Vanish" },
+		pool = { "Conveyor", "Spinner", "Mover", "Detour", "Hurdles", "Vanish" },
 		lava = false,
 		colors = { rgb(120, 125, 135), rgb(95, 100, 110), rgb(150, 150, 160) },
 		material = Enum.Material.DiamondPlate,
@@ -215,7 +216,7 @@ local list: { Theme } = {
 		level = 5,
 		seed = 5555,
 		diff = { 3, 3 },
-		sections = { "Spinner", "Detour", "Rapids", "Hurdles", "Mover", "LavaPlanks" },
+		pool = { "Spinner", "Detour", "Rapids", "Hurdles", "Mover", "LavaPlanks" },
 		lava = true,
 		colors = { rgb(120, 115, 130), rgb(100, 95, 115), rgb(140, 130, 150) },
 		material = Enum.Material.Cobblestone,
@@ -224,6 +225,109 @@ local list: { Theme } = {
 		sky = { clock = 21, brightness = 1.2, ambient = rgb(110, 90, 150), atmosphere = rgb(90, 70, 140), density = 0.35, haze = 1.5 },
 		floor = { color = rgb(70, 60, 90), material = Enum.Material.Slate },
 		decor = "castle",
+	},
+	----------------------------------------------------------------
+	-- SOLO 6-8
+	----------------------------------------------------------------
+	{
+		id = "Beach",
+		world = "solo",
+		level = 6,
+		seed = 6606,
+		diff = { 2, 3 },
+		pool = { "Stones", "Rapids", "Mover", "JumpPads", "Hurdles", "Beams" },
+		lava = false,
+		colors = { rgb(245, 225, 170), rgb(120, 220, 230), rgb(255, 190, 150) },
+		material = Enum.Material.Sand,
+		checkpoint = rgb(255, 255, 255),
+		pad = rgb(255, 120, 90),
+		sky = { clock = 15.5, brightness = 2.8, ambient = rgb(170, 180, 190), atmosphere = rgb(190, 235, 255), density = 0.2, haze = 1 },
+		floor = { color = rgb(40, 170, 220), material = Enum.Material.Glass, transparency = 0.1 },
+		decor = "palms",
+	},
+	{
+		id = "Cave",
+		world = "solo",
+		level = 7,
+		seed = 7707,
+		diff = { 3, 3 },
+		pool = { "Pillars", "Vanish", "Truss", "Spinner", "Mover", "Beams" },
+		lava = false,
+		colors = { rgb(110, 90, 150), rgb(70, 130, 140), rgb(130, 110, 170) },
+		material = Enum.Material.Slate,
+		checkpoint = rgb(140, 255, 230),
+		pad = rgb(120, 255, 220),
+		sky = { clock = 3, brightness = 1, ambient = rgb(120, 90, 160), atmosphere = rgb(60, 40, 90), density = 0.45, haze = 1 },
+		floor = { color = rgb(40, 30, 55), material = Enum.Material.Slate },
+		decor = "crystals",
+	},
+	{
+		id = "Clouds",
+		world = "solo",
+		level = 8,
+		seed = 8808,
+		diff = { 3, 3 },
+		pool = { "JumpPads", "Mover", "Vanish", "Spinner", "Beams", "Hurdles" },
+		lava = false,
+		colors = { rgb(255, 255, 255), rgb(255, 230, 150), rgb(230, 235, 255) },
+		material = Enum.Material.SmoothPlastic,
+		checkpoint = rgb(255, 215, 90),
+		pad = rgb(255, 200, 60),
+		sky = { clock = 6.8, brightness = 2.4, ambient = rgb(200, 170, 170), atmosphere = rgb(255, 210, 200), density = 0.3, haze = 2 },
+		floor = nil,
+		decor = "clouds",
+	},
+	----------------------------------------------------------------
+	-- TEAM 6-8
+	----------------------------------------------------------------
+	{
+		id = "Snow",
+		world = "team",
+		level = 6,
+		seed = 6666,
+		diff = { 2, 3 },
+		pool = { "Stones", "Mover", "Vanish", "Truss", "Hurdles", "Conveyor" },
+		lava = false,
+		slippery = true,
+		colors = { rgb(235, 245, 255), rgb(200, 225, 245), rgb(170, 200, 230) },
+		material = Enum.Material.Snow,
+		checkpoint = rgb(255, 120, 120),
+		pad = rgb(255, 120, 120),
+		sky = { clock = 11, brightness = 2.3, ambient = rgb(180, 190, 210), atmosphere = rgb(235, 240, 255), density = 0.42, haze = 2.5 },
+		floor = { color = rgb(250, 252, 255), material = Enum.Material.Snow },
+		decor = "pines",
+	},
+	{
+		id = "Pirate",
+		world = "team",
+		level = 7,
+		seed = 7777,
+		diff = { 3, 3 },
+		pool = { "Rapids", "Mover", "Detour", "Spinner", "Hurdles", "Beams" },
+		lava = false,
+		colors = { rgb(110, 75, 50), rgb(140, 95, 60), rgb(90, 60, 40) },
+		material = Enum.Material.WoodPlanks,
+		checkpoint = rgb(255, 215, 90),
+		pad = rgb(255, 80, 80),
+		sky = { clock = 18.2, brightness = 1.9, ambient = rgb(170, 120, 100), atmosphere = rgb(255, 170, 120), density = 0.3, haze = 1.5 },
+		floor = { color = rgb(30, 90, 160), material = Enum.Material.Glass, transparency = 0.1 },
+		decor = "harbor",
+	},
+	{
+		id = "Neon",
+		world = "team",
+		level = 8,
+		seed = 8888,
+		diff = { 3, 3 },
+		pool = { "Conveyor", "Spinner", "Mover", "LavaPlanks", "Vanish", "Detour", "Hurdles" },
+		lava = true,
+		colors = { rgb(40, 40, 60), rgb(55, 45, 80), rgb(30, 50, 70) },
+		material = Enum.Material.SmoothPlastic,
+		checkpoint = rgb(80, 255, 255),
+		pad = rgb(255, 80, 220),
+		sky = { clock = 22, brightness = 1.1, ambient = rgb(120, 90, 170), atmosphere = rgb(70, 40, 120), density = 0.3, haze = 1 },
+		floor = { color = rgb(20, 15, 35), material = Enum.Material.SmoothPlastic },
+		decor = "neon",
 	},
 }
 
@@ -242,6 +346,11 @@ function Themes.forLevel(world: string, level: number): Theme?
 		end
 	end
 	return nil
+end
+
+-- Later levels are longer: 4 sections at level 1-2, 5 at 3-5, 6 at 6+.
+function Themes.sectionCount(level: number): number
+	return if level <= 2 then 4 elseif level <= 5 then 5 else 6
 end
 
 function Themes.levelCount(world: string): number

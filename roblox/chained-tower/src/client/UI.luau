@@ -13,6 +13,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Strings = require(Shared:WaitForChild("Strings"))
 local Themes = require(Shared:WaitForChild("Themes"))
+local Ranking = require(Shared:WaitForChild("Ranking"))
 local Chains = require(script.Parent.Chains)
 
 local player = Players.LocalPlayer
@@ -277,6 +278,29 @@ local skipButton, skipSub = actionButton(3, "⏭", COLORS.green, function()
 	toServer:FireServer("useSkip")
 end)
 
+-- Big CLIMB button, only while you're hanging on the chain (easy on phones)
+local climbButton = make("TextButton", {
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -120),
+	Size = UDim2.fromOffset(220, 70),
+	BackgroundColor3 = COLORS.gold,
+	TextColor3 = Color3.fromRGB(60, 40, 0),
+	Font = FONT,
+	TextScaled = true,
+	Text = T("climb"),
+	Visible = false,
+	Parent = gui,
+}, { corner(18), stroke(Color3.new(1, 1, 1), 3) })
+climbButton.MouseButton1Down:Connect(function()
+	Chains.setClimbHeld(true)
+end)
+climbButton.MouseButton1Up:Connect(function()
+	Chains.setClimbHeld(false)
+end)
+climbButton.MouseLeave:Connect(function()
+	Chains.setClimbHeld(false)
+end)
+
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then
 		return
@@ -485,6 +509,13 @@ end
 
 -- Daily
 local dailyList = panel("daily", "📅 " .. T("daily"))
+local todayCard = card(dailyList, -2, COLORS.blue, function() end)
+local pointsCard = card(dailyList, -1, COLORS.gold, function() end)
+todayCard.action.Visible = false
+pointsCard.action.Visible = false
+for _, c in { todayCard, pointsCard } do
+	c.desc.Size = UDim2.new(1, -20, 0, 78)
+end
 local dailyCards: { Card } = {}
 for i = 1, Config.ChallengesPerDay + 1 do
 	local c = card(dailyList, i, COLORS.green, function()
@@ -656,7 +687,9 @@ local function labelPad(pad: BasePart)
 	})
 	local status = text({ Position = UDim2.fromScale(0, 0.55), Size = UDim2.new(1, 0, 0.3, 0), Text = "", TextColor3 = COLORS.gold, TextStrokeTransparency = 0.2, Parent = bb })
 	local function refreshPad()
-		local unlockedTo = (if world == "solo" then profile.soloLevel else profile.teamLevel) or 1
+		local today = (profile.today or {})[world] or { cleared = 0, times = {} }
+		local unlockedTo = if profile.studioUnlockAll then math.huge else (today.cleared or 0) + 1
+		local best = (today.times or {})[tostring(level)]
 		local countdown = pad:GetAttribute("Countdown") :: number? or -1
 		if level > unlockedTo then
 			status.Text = T("lockedShort")
@@ -668,7 +701,7 @@ local function labelPad(pad: BasePart)
 			status.Text = T("padWaiting", pad:GetAttribute("Count") or 0, pad:GetAttribute("Max") or 0)
 			status.TextColor3 = COLORS.gold
 		else
-			status.Text = if profile.cleared and profile.cleared[themeId] then T("clearedShort") else "▶"
+			status.Text = if best then T("bestTime", Ranking.formatTime(best)) else "▶"
 			status.TextColor3 = COLORS.gold
 		end
 	end
@@ -751,6 +784,29 @@ local function refresh()
 		eventCard.action.Text = if p.event.owned then T("owned") else T("claim")
 		eventCard.action.BackgroundColor3 = if p.event.owned then COLORS.gray else COLORS.gold
 	end
+	-- today's challenge and points
+	local today = p.today or {}
+	local lines = {}
+	for _, world in { "solo", "team" } do
+		local wd = today[world] or { cleared = 0, times = {} }
+		local total = 0
+		for level = 1, wd.cleared or 0 do
+			total += (wd.times or {})[tostring(level)] or 0
+		end
+		table.insert(lines, T("todayLine", T("worldShort_" .. world), wd.cleared or 0, Ranking.formatTime(total)))
+	end
+	todayCard.title.Text = T("todayTitle")
+	todayCard.desc.Text = table.concat(lines, "\n")
+	pointsCard.title.Text = T("pointsTitle")
+	local pointLines = { T("pointsLine", p.points or 0) }
+	if (p.rewardRank or 0) > 0 and (p.rewardLeft or 0) > 0 then
+		local reward = Config.DailyRewards[p.rewardRank]
+		local hours = math.ceil((p.rewardLeft :: number) / 3600)
+		table.insert(pointLines, T("rewardActive", T("reward_" .. p.rewardRank), ("%dh"):format(hours), tostring(reward.coinMultiplier)))
+	end
+	table.insert(pointLines, T("settleNote"))
+	pointsCard.desc.Text = table.concat(pointLines, "\n")
+
 	local free = ("%s: %d · %s: %d"):format(T("unchain"), p.freeUnchain or 0, T("smash"), p.freeSmash or 0)
 	panels.daily:FindFirstChildOfClass("TextLabel").Text = "📅 " .. T("daily") .. "   (" .. T("free") .. " — " .. free .. ")"
 end
@@ -773,9 +829,18 @@ local function tick()
 		local zone = player:GetAttribute("Zone")
 		placeLabel.Text = T("world_" .. (if type(zone) == "string" then zone else "main"))
 	end
+	local started = team and team:GetAttribute("StartedAt")
+	local finishedIn = team and team:GetAttribute("FinishedIn")
+	local clock = ""
+	if type(finishedIn) == "number" then
+		clock = "  ⏱ " .. Ranking.formatTime(finishedIn)
+	elseif type(started) == "number" then
+		clock = "  ⏱ " .. Ranking.formatTime(Workspace:GetServerTimeNow() - started)
+	end
 	sectionLabel.Text = if inTower and type(section) == "number"
-		then ("[%s]  %s"):format(T("mode_" .. tostring(mode)), T("section", section, total))
+		then ("[%s]  %s%s"):format(T("mode_" .. tostring(mode)), T("section", section, total), clock)
 		else ""
+	climbButton.Visible = inTower and Chains.isHanging()
 
 	unchainButton.Visible = inTower and mode ~= "solo"
 	smashButton.Visible = inTower
@@ -834,11 +899,23 @@ local function onMessage(kind: string, payload: any)
 		showPopup(T("noItems", T(if isUnchain then "unchain" else "smash")) .. "\n" .. T("p_" .. key), robux(priceOf("product", key)), function()
 			UI.buy("product", key)
 		end)
+	elseif kind == "dailyResult" then
+		local worldName = T("worldShort_" .. tostring(payload.world))
+		if payload.rank then
+			UI.toast(T("dailyResult", worldName, payload.rank, payload.points), true)
+			if payload.rank <= #Config.DailyRewards then
+				UI.toast(T("rewardWon", T("reward_" .. payload.rank)), true)
+			end
+		else
+			UI.toast(T("dailyResultNoRank", worldName, payload.points), true)
+		end
 	elseif kind == "finish" then
 		if payload.unlocked then
 			UI.toast(T("levelUnlocked", T("lv_" .. payload.unlocked)), true)
 		end
-		banner.Text = T("youFinished", payload.coins or 0)
+		banner.Text = if payload.seconds
+			then T("youFinishedTime", Ranking.formatTime(payload.seconds), payload.coins or 0)
+			else T("youFinished", payload.coins or 0)
 		banner.Visible = true
 		task.delay(4, function()
 			banner.Visible = false

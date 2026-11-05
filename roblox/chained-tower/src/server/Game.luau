@@ -6,7 +6,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
+local RunService = game:GetService("RunService")
+
 local Shared = ReplicatedStorage.Shared
+local Calendar = require(Shared.Calendar)
 local Config = require(Shared.Config)
 local Themes = require(Shared.Themes)
 local Data = require(script.Parent.Data)
@@ -30,6 +33,7 @@ type Team = {
 	unsafeSince: number?, -- when the last teammate stopped standing on something
 	burning: boolean, -- lava fire is running along the chain
 	level: World.Level,
+	startedAt: number, -- server time the run started (for the daily ranking)
 }
 
 local lobby: World.Lobby = nil :: any
@@ -144,7 +148,9 @@ local function formTeam(players: { Player }, mode: string, level: World.Level)
 		graceUntil = 0,
 		burning = false,
 		level = level,
+		startedAt = now(),
 	}
+	folder:SetAttribute("StartedAt", team.startedAt)
 	teams[team.id] = team
 	for _, m in members do
 		teamOf[m] = team
@@ -210,35 +216,35 @@ end
 ----------------------------------------------------------------------
 local function finish(team: Team)
 	team.finished = true
+	local seconds = now() - team.startedAt
+	team.folder:SetAttribute("FinishedIn", seconds)
 	local mult = Config.Modes[team.mode].coinMultiplier
 	local theme = team.level.theme
-	local nextTheme = Themes.forLevel(theme.world, theme.level + 1)
+	local hasNext = Themes.forLevel(theme.world, theme.level + 1) ~= nil
 	for _, m in team.members do
 		local got = Progress.addCoins(m, Config.CoinsForFinish * mult, true)
+		local isNew, best = Progress.recordClear(m, theme.world, theme.level, seconds)
 		local p = Data.get(m)
-		local unlocked: string? = nil
 		if p then
 			p.wins += 1
-			if not p.cleared[theme.id] then
-				-- first clear of this level: bonus coins
-				p.cleared[theme.id] = true
+			if isNew then
+				-- first clear of this level today: bonus coins
 				local bonus = Config.FirstClearBonus * theme.level
 				p.coins += bonus
 				got += bonus
 			end
-			local key = if theme.world == "solo" then "soloLevel" else "teamLevel"
-			if nextTheme and (p :: any)[key] < nextTheme.level then
-				(p :: any)[key] = nextTheme.level
-				unlocked = nextTheme.id
-			end
 			Data.markDirty(m)
 		end
-		Progress.recordWin(m, team.mode ~= "solo")
 		Progress.addStat(m, "finishes")
 		if team.mode ~= "solo" then
 			Progress.addStat(m, "teamFinishes")
 		end
-		Net.send(m, "finish", { coins = got, unlocked = unlocked })
+		Net.send(m, "finish", {
+			coins = got,
+			seconds = seconds,
+			best = best,
+			unlocked = if isNew and hasNext then (Themes.forLevel(theme.world, theme.level + 1) :: Themes.Theme).id else nil,
+		})
 	end
 	task.delay(5, function()
 		if teams[team.id] == team then
@@ -635,12 +641,17 @@ end
 
 local lockedToast: { [Player]: number } = {}
 
+-- Today's daily challenge: level 1 is always open, each clear opens the next.
 local function unlockedLevel(player: Player, world: string): number
 	local p = Data.get(player)
 	if not p then
 		return 0
 	end
-	return if world == "solo" then p.soloLevel else p.teamLevel
+	if RunService:IsStudio() and Config.StudioUnlockAll then
+		return math.huge
+	end
+	Data.refreshDaily(player)
+	return ((p.today :: any)[world] :: Data.WorldDay).cleared + 1
 end
 
 local function portalTick()
@@ -816,12 +827,56 @@ function Game.start(theLobby: World.Lobby)
 	local levelsFolder = Instance.new("Folder")
 	levelsFolder.Name = "Levels"
 	levelsFolder.Parent = Workspace
+	local builtDay = Calendar.dayNumber(os.time())
 	for _, theme in Themes.List do
-		local level = World.buildLevel(theme, levelsFolder)
+		local level = World.buildLevel(theme, levelsFolder, builtDay)
 		levels[theme.id] = level
 		wireLevel(level)
 	end
 	updateSign()
+
+	-- A new day: rebuild every level with today's route. A level that a team
+	-- is still running is rebuilt as soon as they leave it.
+	local function rebuildIdleLevels()
+		for _, theme in Themes.List do
+			local level = levels[theme.id]
+			if level.day ~= builtDay then
+				local busy = false
+				for _, team in teams do
+					if team.level == level then
+						busy = true
+					end
+				end
+				if not busy then
+					local fresh = World.buildLevel(theme, levelsFolder, builtDay)
+					level.folder:Destroy()
+					levels[theme.id] = fresh
+					wireLevel(fresh)
+				end
+			end
+		end
+	end
+	task.spawn(function()
+		while true do
+			task.wait(20)
+			local today = Calendar.dayNumber(os.time())
+			if today ~= builtDay then
+				builtDay = today
+				Net.sendAll("toast", { key = "newDay", good = true })
+			end
+			rebuildIdleLevels()
+		end
+	end)
+
+	-- Hand out daily points and top-3 rewards for days that have ended
+	task.spawn(function()
+		while true do
+			task.wait(300)
+			for _, player in Players:GetPlayers() do
+				task.spawn(Progress.settle, player)
+			end
+		end
+	end)
 	game:GetService("RunService").Heartbeat:Connect(moverTick)
 
 	local function watch(player: Player)

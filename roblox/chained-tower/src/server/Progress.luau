@@ -60,9 +60,11 @@ local function buildPayload(player: Player): { [string]: any }?
 		equipped = p.equipped,
 		passes = p.passes,
 		starterBought = p.starterBought,
-		soloLevel = p.soloLevel,
-		teamLevel = p.teamLevel,
-		cleared = p.cleared,
+		today = p.today,
+		points = p.points,
+		rewardRank = if p.rewardUntil > os.time() then p.rewardRank else 0,
+		rewardLeft = math.max(0, p.rewardUntil - os.time()), -- seconds
+		studioUnlockAll = game:GetService("RunService"):IsStudio() and Config.StudioUnlockAll,
 		challenges = challenges,
 		event = event and { id = event.id, trail = event.trail, owned = p.trails[event.trail] == true } or nil,
 	}
@@ -102,6 +104,10 @@ function Progress.addCoins(player: Player, amount: number, applyVip: boolean?)
 	if applyVip and p.passes.VIP then
 		total *= Config.VipCoinMultiplier
 	end
+	local reward = Progress.activeReward(player)
+	if applyVip and reward then
+		total *= reward.coinMultiplier -- daily top-3 reward
+	end
 	total = math.floor(total + 0.5)
 	p.coins += total
 	Data.markDirty(player)
@@ -126,8 +132,17 @@ function Progress.addStat(player: Player, stat: string, amount: number?)
 end
 
 ----------------------------------------------------------------------
--- Trails and VIP tag
+-- Trails, VIP tag and daily top-3 rewards
 ----------------------------------------------------------------------
+-- The reward a player won in yesterday's ranking, if it's still running.
+function Progress.activeReward(player: Player): typeof(Config.DailyRewards[1])?
+	local p = Data.get(player)
+	if not p or p.rewardRank < 1 or p.rewardUntil <= os.time() then
+		return nil
+	end
+	return Config.DailyRewards[p.rewardRank]
+end
+
 function Progress.ownsTrail(player: Player, id: string): boolean
 	local p = Data.get(player)
 	local trail = trailById[id]
@@ -136,6 +151,10 @@ function Progress.ownsTrail(player: Player, id: string): boolean
 	end
 	if trail.source == "free" or p.trails[id] then
 		return true
+	end
+	if trail.source == "reward" then
+		local reward = Progress.activeReward(player)
+		return reward ~= nil and reward.trail == id
 	end
 	return trail.pass ~= nil and p.passes[trail.pass :: string] == true
 end
@@ -207,10 +226,18 @@ function Progress.applyCosmetics(player: Player)
 		if old then
 			old:Destroy()
 		end
+		local reward = Progress.activeReward(player)
+		local tags = {}
+		if reward then
+			table.insert(tags, ({ "👑 #1", "🥈 #2", "🥉 #3" })[p.rewardRank])
+		end
 		if p.passes.VIP then
+			table.insert(tags, "VIP")
+		end
+		if #tags > 0 then
 			local bb = Instance.new("BillboardGui")
 			bb.Name = "CT_Vip"
-			bb.Size = UDim2.fromOffset(70, 24)
+			bb.Size = UDim2.fromOffset(110, 26)
 			bb.StudsOffset = Vector3.new(0, 2.6, 0)
 			bb.MaxDistance = 60
 			local l = Instance.new("TextLabel")
@@ -218,8 +245,8 @@ function Progress.applyCosmetics(player: Player)
 			l.Size = UDim2.fromScale(1, 1)
 			l.Font = Enum.Font.FredokaOne
 			l.TextScaled = true
-			l.Text = "👑 VIP"
-			l.TextColor3 = Color3.fromRGB(255, 215, 60)
+			l.Text = table.concat(tags, "  ")
+			l.TextColor3 = if reward then Color3.fromRGB(255, 235, 120) else Color3.fromRGB(255, 215, 60)
 			l.TextStrokeTransparency = 0.2
 			l.Parent = bb
 			bb.Parent = head
@@ -267,25 +294,154 @@ Net.on("claimEvent", function(player)
 end)
 
 ----------------------------------------------------------------------
--- Weekly leaderboard (resets itself every Monday because the key changes)
+-- Daily ranking
+-- Score = levels cleared today x 10,000,000 - total time in tenths of a second,
+-- so more levels always wins, and with the same levels the faster time wins.
 ----------------------------------------------------------------------
--- kind = "Solo" or "Team": solo and team clears are ranked separately
-local function weeklyStore(kind: string): OrderedDataStore?
-	local ok, store = pcall(function()
-		return DataStoreService:GetOrderedDataStore(("WeeklyWins_%s_%d"):format(kind, Calendar.weekNumber(os.time())))
+local Ranking = require(ReplicatedStorage.Shared.Ranking)
+
+local function store(name: string, ordered: boolean): any
+	local ok, result = pcall(function()
+		return if ordered then DataStoreService:GetOrderedDataStore(name) else DataStoreService:GetDataStore(name)
 	end)
-	return if ok then store else nil
+	return if ok then result else nil
 end
 
-function Progress.recordWin(player: Player, isTeam: boolean)
-	task.spawn(function()
-		local store = weeklyStore(if isTeam then "Team" else "Solo")
-		if store then
-			pcall(function()
-				store:IncrementAsync(tostring(player.UserId), 1)
-			end)
+local function dailyStore(world: string, day: number): OrderedDataStore?
+	return store(("Daily_%s_%d"):format(world, day), true)
+end
+
+local function pointsStore(): OrderedDataStore?
+	return store("Points_All", true)
+end
+
+local function totalTime(day: Data.WorldDay): number
+	local total = 0
+	for level = 1, day.cleared do
+		total += day.times[tostring(level)] or 0
+	end
+	return total
+end
+
+-- Called when a player finishes a level. Returns (newLevelToday, bestTime).
+function Progress.recordClear(player: Player, world: string, level: number, seconds: number): (boolean, number)
+	local p = Data.get(player)
+	if not p then
+		return false, seconds
+	end
+	Data.refreshDaily(player)
+	local today = p.today
+	local wd: Data.WorldDay = (today :: any)[world]
+	local key = tostring(level)
+	local isNew = false
+	if level == wd.cleared + 1 then
+		wd.cleared = level
+		isNew = true
+	end
+	local best = wd.times[key]
+	if best == nil or seconds < best then
+		wd.times[key] = math.floor(seconds * 10 + 0.5) / 10
+	end
+	-- remember to settle this day's ranking tomorrow
+	local listed = false
+	for _, entry in p.pending do
+		if entry.day == today.day and entry.world == world then
+			listed = true
 		end
-	end)
+	end
+	if not listed then
+		table.insert(p.pending, { day = today.day, world = world })
+	end
+	Data.markDirty(player)
+
+	if wd.cleared > 0 then
+		local score = Ranking.encode(wd.cleared, totalTime(wd))
+		task.spawn(function()
+			local board = dailyStore(world, today.day)
+			if board then
+				pcall(function()
+					board:UpdateAsync(tostring(player.UserId), function(old)
+						return math.max(old or 0, score)
+					end)
+				end)
+			end
+		end)
+	end
+	return isNew, wd.times[key]
+end
+
+-- Top 100 of a finished day, cached for 10 minutes per server.
+local rankCache: { [string]: { at: number, ids: { [number]: number } } } = {}
+local function rankOf(world: string, day: number, userId: number): number?
+	local cacheKey = world .. day
+	local cached = rankCache[cacheKey]
+	if not cached or os.clock() - cached.at > 600 then
+		local board = dailyStore(world, day)
+		if not board then
+			return nil
+		end
+		local ok, pages = pcall(function()
+			return board:GetSortedAsync(false, 100)
+		end)
+		if not ok then
+			return nil
+		end
+		local ids = {}
+		for i, entry in (pages :: DataStorePages):GetCurrentPage() do
+			ids[tonumber(entry.key) or 0] = i
+		end
+		cached = { at = os.clock(), ids = ids }
+		rankCache[cacheKey] = cached
+	end
+	return (cached :: any).ids[userId]
+end
+
+-- Gives points (and top-3 rewards) for days that have ended. Runs when a
+-- player joins and every few minutes, so no server needs to be online at midnight.
+function Progress.settle(player: Player)
+	local p = Data.get(player)
+	if not p or #p.pending == 0 then
+		return
+	end
+	local today = Calendar.dayNumber(os.time())
+	local remaining = {}
+	local gained = 0
+	for _, entry in p.pending do
+		if entry.day >= today then
+			table.insert(remaining, entry)
+			continue
+		end
+		local board = dailyStore(entry.world, entry.day)
+		local rank: number? = nil
+		if board then
+			rank = rankOf(entry.world, entry.day, player.UserId)
+		end
+		local points = Ranking.pointsFor(rank)
+		gained += points
+		p.points += points
+		Net.send(player, "dailyResult", { world = entry.world, rank = rank, points = points })
+		if rank and rank <= #Config.DailyRewards then
+			local reward = Config.DailyRewards[rank]
+			if p.rewardUntil <= os.time() or rank < p.rewardRank then
+				p.rewardRank = rank
+			end
+			p.rewardUntil = math.max(p.rewardUntil, os.time() + reward.hours * 3600)
+			p.equipped = Config.DailyRewards[p.rewardRank].trail
+		end
+	end
+	p.pending = remaining
+	Data.markDirty(player)
+	Progress.applyCosmetics(player)
+	if gained > 0 then
+		task.spawn(function()
+			local board = pointsStore()
+			if board then
+				pcall(function()
+					board:SetAsync(tostring(player.UserId), p.points)
+				end)
+			end
+		end)
+	end
 end
 
 local nameCache: { [number]: string } = {}
@@ -300,6 +456,9 @@ local function nameOf(userId: number): string
 	return nameCache[userId]
 end
 
+local formatTime = Ranking.formatTime
+
+-- kind: "solo" / "team" (today's ranking) or "points" (all-time daily points)
 function Progress.startLeaderboard(board: SurfaceGui, kind: string)
 	local list = Instance.new("Frame")
 	list.BackgroundTransparency = 1
@@ -322,32 +481,48 @@ function Progress.startLeaderboard(board: SurfaceGui, kind: string)
 		return l
 	end
 
-	local title = if kind == "Team" then "🔗 TEAM — WEEKLY TOP 🔗\n組隊本週排行榜" else "🧍 SOLO — WEEKLY TOP 🧍\n單人本週排行榜"
-	local header = row(0, title, Color3.fromRGB(255, 215, 80), 0.16)
+	local titles = {
+		solo = "🧍 TODAY · SOLO 🧍\n今日單人排行（關數→時間）",
+		team = "🔗 TODAY · TEAM 🔗\n今日組隊排行（關數→時間）",
+		points = "⭐ DAILY POINTS · ALL TIME ⭐\n積分總榜",
+	}
+	local header = row(0, titles[kind] or kind, Color3.fromRGB(255, 215, 80), 0.16)
 	header.TextWrapped = true
 	local rows = {}
+	local medal = { "🥇", "🥈", "🥉" }
 	for i = 1, 10 do
-		rows[i] = row(i, "", Color3.new(1, 1, 1), 0.08)
+		rows[i] = row(i, "", if i <= 3 then Color3.fromRGB(255, 235, 150) else Color3.new(1, 1, 1), 0.08)
 	end
 
 	task.spawn(function()
 		while true do
-			local store = weeklyStore(kind)
-			if store then
-				local ok, pages = pcall(function()
-					return store:GetSortedAsync(false, 10)
+			local boardStore = if kind == "points" then pointsStore() else dailyStore(kind, Calendar.dayNumber(os.time()))
+			local ok, pages = false, nil
+			if boardStore then
+				ok, pages = pcall(function()
+					return boardStore:GetSortedAsync(false, 10)
 				end)
-				if ok and pages then
-					local entries = (pages :: DataStorePages):GetCurrentPage()
-					for i = 1, 10 do
-						local e = entries[i]
-						rows[i].Text = if e then ("%d. %s — %d"):format(i, nameOf(tonumber(e.key) or 0), e.value) else ""
+			end
+			if ok and pages then
+				local entries = (pages :: DataStorePages):GetCurrentPage()
+				for i = 1, 10 do
+					local e = entries[i]
+					if not e then
+						rows[i].Text = ""
+					elseif kind == "points" then
+						rows[i].Text = ("%s %d. %s — %d ⭐"):format(medal[i] or "", i, nameOf(tonumber(e.key) or 0), e.value)
+					else
+						local cleared, seconds = Ranking.decode(e.value)
+						rows[i].Text = ("%s %d. %s — %d/8 · %s"):format(medal[i] or "", i, nameOf(tonumber(e.key) or 0), cleared, formatTime(seconds))
 					end
+				end
+				if #entries == 0 then
+					rows[1].Text = "No one yet today — be the first! 今天還沒有人上榜"
 				end
 			else
 				rows[1].Text = "(publish the game to see the leaderboard)"
 			end
-			task.wait(120)
+			task.wait(60)
 		end
 	end)
 end

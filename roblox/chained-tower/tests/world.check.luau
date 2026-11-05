@@ -6,14 +6,14 @@ local Themes = require("./Themes")
 
 local lobby = World.buildLobby()
 assert(#lobby.portals == 4, "2 lobby portals + 1 back-portal per world hub, got " .. #lobby.portals)
-assert(#lobby.pads == 5 + 10, "5 solo gates + 5x2 team gates, got " .. #lobby.pads)
+assert(#lobby.pads == 8 + 16, "8 solo gates + 8x2 team gates, got " .. #lobby.pads)
 
 local folder = env.Instance.new("Folder")
 folder.Name = "Levels"
 folder.Parent = env.game:GetService("Workspace")
 local parts = 0
 for _, theme in Themes.List do
-	local level = World.buildLevel(theme, folder)
+	local level = World.buildLevel(theme, folder, 20400)
 	assert(level.checkpoints[0] and level.checkpoints[level.winIndex], theme.id .. ": checkpoints exist")
 	local n = #level.folder:GetDescendants()
 	parts += n
@@ -31,4 +31,4 @@ for _, a in Themes.List do
 		end
 	end
 end
-print(("built lobby, 2 world hubs and 10 levels (%d instances in levels)"):format(parts))
+print(("built lobby, 2 world hubs and 16 levels (%d instances in levels)"):format(parts))
