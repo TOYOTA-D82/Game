@@ -3,11 +3,13 @@
 -- instances, so the tests can build thousands of courses and prove each one is
 -- beatable WITHOUT buying anything.
 --
--- A course is a straight run of sections that climbs as it goes. Each section
--- goes from one checkpoint pad to the next. Inside a section we use local
--- coordinates:
---   z: forward, 0 = centre of the start pad, SECTION = centre of the end pad
---   x: sideways, -lane..lane is the path
+-- A course is a climb: it spirals up around a big landmark in the middle (a
+-- mountain, a space station, a lighthouse...). Every section runs along one
+-- side of the square around the landmark, from one corner checkpoint to the
+-- next, turning 90 degrees and climbing as it goes. Inside a section we use
+-- local coordinates:
+--   z: forward along the side, 0 = start corner, SECTION = end corner
+--   x: sideways, -lane..lane is the path, + is away from the landmark
 --   y: height above the start pad
 
 local Themes = require(script.Parent.Themes)
@@ -56,8 +58,10 @@ export type Piece = {
 	flowZ: number?,
 	flowSpeed: number?,
 	style: string?, -- "water" | "belt"
-	travel: number?, -- mover: distance along +z it slides back and forth
+	travel: number?, -- mover: distance it slides back and forth
 	period: number?, -- mover: seconds for a full back-and-forth
+	moveX: number?, -- mover: direction it slides (world)
+	moveZ: number?,
 }
 
 export type Surface = {
@@ -84,11 +88,14 @@ export type Result = {
 	startSurface: number,
 	winSurface: number,
 	builders: { string },
-	hurdles: { { height: number, before: number, after: number } },
+	walls: { number }, -- heights of the smashable walls (tests check you can't just jump them)
 	movers: { { gapBefore: number, gapAfter: number, size: number } },
 	minWidth: number, -- narrowest standable thing (tests check it's not too thin)
-	length: number,
-	bottom: number, -- lowest point of the course (falls below this = fallen)
+	bottom: number, -- lowest point of the course
+	top: number, -- height of the finish
+	center: { number }, -- x, z of the landmark in the middle
+	coreHalf: number, -- half size of the landmark's solid square
+	ringHalf: number, -- half size of the square the path runs around
 }
 
 Course.Thickness = 2 -- platforms are chunky, not thin slabs
@@ -106,9 +113,14 @@ type Ctx = {
 	rng: Rng,
 	diff: number,
 	section: number,
-	ox: number, -- world position of this section's local origin
+	cx: number, -- world position of this section's start corner
+	cz: number,
+	dx: number, -- world direction of local +z (along the side)
+	dz: number,
+	ux: number, -- world direction of local +x (away from the landmark)
+	uz: number,
 	oy: number,
-	oz: number,
+	minRise: number, -- keeps a full lap tall enough so laps never bump heads
 	lane: number,
 	widthScale: number,
 	z0: number, -- where section content starts / ends (pads take the rest)
@@ -118,16 +130,22 @@ type Ctx = {
 	rise: number,
 }
 
+local function toWorld(ctx: Ctx, x: number, z: number): (number, number)
+	return ctx.cx + ctx.dx * z + ctx.ux * x, ctx.cz + ctx.dz * z + ctx.uz * x
+end
+
 local function add(ctx: Ctx, kind: string, minX: number, maxX: number, minY: number, maxY: number, minZ: number, maxZ: number): Piece
+	local ax, az = toWorld(ctx, minX, minZ)
+	local bx, bz = toWorld(ctx, maxX, maxZ)
 	local piece: Piece = {
 		kind = kind,
 		section = ctx.section,
-		cx = ctx.ox + (minX + maxX) / 2,
+		cx = (ax + bx) / 2,
 		cy = ctx.oy + (minY + maxY) / 2,
-		cz = ctx.oz + (minZ + maxZ) / 2,
-		sx = maxX - minX,
+		cz = (az + bz) / 2,
+		sx = math.abs(bx - ax),
 		sy = maxY - minY,
-		sz = maxZ - minZ,
+		sz = math.abs(bz - az),
 	}
 	table.insert(ctx.out.pieces, piece)
 	return piece
@@ -171,7 +189,13 @@ local function link(ctx: Ctx, from: number, to: number)
 end
 
 local function pickRise(ctx: Ctx, low: number, high: number): number
-	return ctx.rng:NextInteger(low, high)
+	return math.max(ctx.rng:NextInteger(low, high), ctx.minRise)
+end
+
+-- Smashable walls are taller than anyone can jump (even in low gravity).
+local function wallHeight(ctx: Ctx): number
+	local jump = 7.2 * 196.2 / (ctx.theme.gravity or 196.2)
+	return math.ceil(jump + 3.5)
 end
 
 local function w(ctx: Ctx, base: number): number
@@ -240,7 +264,7 @@ local function run(ctx: Ctx, zFrom: number, zTo: number, yFrom: number, yTo: num
 		local k = o.kind or "platform"
 		table.insert(hops, { x = x, near = near, far = near + s, top = top, width = width })
 		if o.pillar then
-			local piece = add(ctx, k, x - width / 2, x + width / 2, -14, top, near, near + s)
+			local piece = add(ctx, k, x - width / 2, x + width / 2, -6, top, near, near + s)
 			addSurface(ctx.out, piece, k)
 		else
 			platform(ctx, x - width / 2, x + width / 2, near, near + s, top, k)
@@ -249,16 +273,12 @@ local function run(ctx: Ctx, zFrom: number, zTo: number, yFrom: number, yTo: num
 	return hops
 end
 
--- A breakable block standing on the route. Players jump over it — or smash it.
-local function hurdle(ctx: Ctx, minX: number, maxX: number, zMid: number, thick: number, top: number, height: number, before: number, after: number)
-	add(ctx, "breakable", minX, maxX, top, top + height, zMid - thick / 2, zMid + thick / 2)
-	table.insert(ctx.out.hurdles, { height = height, before = before, after = after })
-end
-
 -- Water (or a conveyor belt) that pushes you along (fx, fz).
 local function stream(ctx: Ctx, minZ: number, maxZ: number, top: number, speed: number, fx: number, fz: number, style: string)
 	local id, piece = platform(ctx, -ctx.lane, ctx.lane, minZ, maxZ, top, "current")
-	piece.flowX, piece.flowZ = fx, fz
+	-- local (sideways fx, forward fz) -> world direction
+	piece.flowX = ctx.dx * fz + ctx.ux * fx
+	piece.flowZ = ctx.dz * fz + ctx.uz * fx
 	piece.flowSpeed = speed
 	piece.style = style
 	return id
@@ -267,7 +287,7 @@ end
 -- Lava under a stretch of the course (only in lava themes; elsewhere a fall is a fall).
 local function lava(ctx: Ctx, zFrom: number, zTo: number)
 	if ctx.theme.lava then
-		add(ctx, "kill", -ctx.lane - 2, ctx.lane + 2, -4, -3, zFrom, zTo)
+		add(ctx, "kill", -ctx.lane, ctx.lane + 2, -4, -3, zFrom, zTo) -- not under the landmark
 	end
 end
 
@@ -275,41 +295,33 @@ end
 -- Section types. Each sets ctx.rise and ends with a hop reachable from the
 -- end pad (z = z1, top = ctx.rise).
 ----------------------------------------------------------------------
-type Builder = { name: string, minDiff: number, build: (ctx: Ctx) -> () }
+-- maxRise: the most a section type can climb (used to keep laps tall enough)
+type Builder = { name: string, minDiff: number, maxRise: number, build: (ctx: Ctx) -> () }
 
 local builders: { [string]: Builder } = {}
-local function builder(name: string, minDiff: number, build: (ctx: Ctx) -> ())
-	builders[name] = { name = name, minDiff = minDiff, build = build }
+local function builder(name: string, minDiff: number, maxRise: number, build: (ctx: Ctx) -> ())
+	builders[name] = { name = name, minDiff = minDiff, maxRise = maxRise, build = build }
 end
 
-builder("Stones", 1, function(ctx)
+builder("Stones", 1, 20, function(ctx)
 	ctx.rise = pickRise(ctx, 6, 8)
 	local size = w(ctx, ({ 6, 5.5, 5 })[ctx.diff])
 	run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = size, maxGap = 3.5 + ctx.diff * 0.5, extra = 1 })
 end)
 
-builder("LavaPlanks", 1, function(ctx)
+builder("LavaPlanks", 1, 16, function(ctx)
 	ctx.rise = pickRise(ctx, 6, 7)
 	lava(ctx, ctx.z0, ctx.z1)
 	run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = 4.5, width = w(ctx, 4), maxGap = 3.5 + ctx.diff * 0.5 })
 end)
 
-builder("Beams", 1, function(ctx)
+builder("Beams", 1, 14, function(ctx)
 	ctx.rise = pickRise(ctx, 6, 8)
 	local width = w(ctx, ({ 3.6, 3.3, 3 })[ctx.diff])
-	local hops = run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = 8, width = width, zigzag = 2, maxGap = 2.5, maxRise = 2 })
-	if ctx.diff >= 2 then
-		-- a post in the middle of every other beam: hop over it, or smash it
-		for i, h in hops do
-			if i % 2 == 0 and h.far - h.near >= 6 then
-				local mid = (h.near + h.far) / 2
-				hurdle(ctx, h.x - 0.75, h.x + 0.75, mid, 1.5, h.top, 2.5 + ctx.diff * 0.5, mid - h.near - 0.75, h.far - mid - 0.75)
-			end
-		end
-	end
+	run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = 8 - ctx.diff, width = width, zigzag = 2, maxGap = 2 + ctx.diff * 0.5, maxRise = 2.5 })
 end)
 
-builder("JumpPads", 1, function(ctx)
+builder("JumpPads", 1, 16, function(ctx)
 	platform(ctx, -ctx.lane, ctx.lane, ctx.z0 + 1, 12, 1)
 	local padId, pad = platform(ctx, -3.5, 3.5, 12, 16, 1, "pad")
 	pad.boost = 64 -- ~10 studs up
@@ -319,7 +331,7 @@ builder("JumpPads", 1, function(ctx)
 	run(ctx, 23, ctx.z1, 9, ctx.rise, { size = w(ctx, 5.5), maxGap = 3.5 + ctx.diff * 0.5 })
 end)
 
-builder("Truss", 1, function(ctx)
+builder("Truss", 1, 18, function(ctx)
 	local floorId = platform(ctx, -ctx.lane, ctx.lane, ctx.z0, 14, 0)
 	add(ctx, "truss", -1, 1, 0, 12, 14, 16)
 	local upId = platform(ctx, -ctx.lane, ctx.lane, 16, 26, 12)
@@ -329,23 +341,25 @@ builder("Truss", 1, function(ctx)
 end)
 
 -- A platform sliding back and forth over a wide gap. Ride it across.
-builder("Mover", 1, function(ctx)
+builder("Mover", 1, 6, function(ctx)
 	local size = w(ctx, 7)
-	local aId = platform(ctx, -ctx.lane, ctx.lane, ctx.z0, 14, 1)
-	local gapStart, gapEnd = 14, 34
+	local aId = platform(ctx, -ctx.lane, ctx.lane, ctx.z0, 12, 1)
+	local gapStart, gapEnd = 12, 30
 	lava(ctx, gapStart, gapEnd)
 	local travel = (gapEnd - gapStart) - size - 2 -- leaves 1 stud at each end
 	local mover = add(ctx, "mover", -size / 2, size / 2, 1 - Course.Thickness, 1, gapStart + 1, gapStart + 1 + size)
 	mover.travel = travel
-	mover.period = travel / (2.5 + ctx.diff) * 2
+	mover.period = travel / (2 + ctx.diff) * 2
+	mover.moveX, mover.moveZ = ctx.dx, ctx.dz
 	table.insert(ctx.out.movers, { gapBefore = 1, gapAfter = 1, size = size })
-	local bId = platform(ctx, -ctx.lane, ctx.lane, gapEnd, ctx.z1 - 3, 1)
+	local bId = platform(ctx, -ctx.lane, ctx.lane, gapEnd, 34, 1)
 	link(ctx, aId, bId)
-	ctx.rise = pickRise(ctx, 3, 4) -- one step up from the landing to the next pad
+	ctx.rise = pickRise(ctx, 4, 6)
+	run(ctx, 34, ctx.z1, 1, ctx.rise, { size = w(ctx, 4) })
 end)
 
 -- Conveyor belts that run backwards (and one that pushes you to the side).
-builder("Conveyor", 1, function(ctx)
+builder("Conveyor", 1, 8, function(ctx)
 	ctx.rise = pickRise(ctx, 6, 7)
 	local count = 3
 	local length = 9
@@ -360,42 +374,84 @@ builder("Conveyor", 1, function(ctx)
 end)
 
 -- A cracked wall blocks the path. Go round over small stones — or smash it.
-builder("Detour", 2, function(ctx)
+builder("Detour", 2, 8, function(ctx)
 	local L = ctx.lane
 	run(ctx, ctx.z0, 14, 0, 3)
 	platform(ctx, -L, L, 14, 24, 3)
 	add(ctx, "floor", -L, L, 3 - Course.Thickness, 3, 24, 26)
-	blocker(ctx, add(ctx, "breakable", -L, L, 3, 13, 24, 26))
+	local h = wallHeight(ctx)
+	blocker(ctx, add(ctx, "breakable", -L, L, 3, 3 + h, 24, 26))
+	table.insert(ctx.out.walls, h)
 	platform(ctx, -L, L, 26, 36, 3)
-	local s = w(ctx, if ctx.diff >= 3 then 3 else 3.5)
-	local kind = if ctx.diff >= 3 then "vanish" else "platform"
-	local x0 = L + 2
-	platform(ctx, x0, x0 + s, 18, 18 + s, 4.5, kind)
-	platform(ctx, x0, x0 + s, 23.5, 23.5 + s, 6, kind)
-	platform(ctx, x0, x0 + s, 29, 29 + s, 4.5, kind)
+	-- the way round: small stones out over the drop (smaller and vanishing when harder)
+	local hard = ctx.diff >= 3
+	local s = w(ctx, if hard then 3 else 3.5)
+	local kind = if hard then "vanish" else "platform"
+	local x0 = L + (if hard then 3 else 2)
+	platform(ctx, x0, x0 + s, 17.5, 17.5 + s, 5, kind)
+	platform(ctx, x0 + 1.5, x0 + 1.5 + s, 23.5, 23.5 + s, 7, kind)
+	platform(ctx, x0, x0 + s, 29.5, 29.5 + s, 5, kind)
 	ctx.rise = pickRise(ctx, 6, 7)
 	run(ctx, 36, ctx.z1, 3, ctx.rise, { size = w(ctx, 5) })
 end)
 
--- Long planks with a crate on each one. Jump the crates — or smash them.
-builder("Hurdles", 2, function(ctx)
-	ctx.rise = pickRise(ctx, 6, 7)
-	lava(ctx, ctx.z0, ctx.z1)
-	local count = 3
-	local length = 9
-	local gap = ((ctx.z1 - ctx.z0) - count * length) / (count + 1)
-	local height = if ctx.diff >= 3 then 4.5 else 3.5
-	local half = w(ctx, 3.5)
-	for i = 1, count do
-		local near = ctx.z0 + gap * i + length * (i - 1)
-		local top = ctx.rise * i / (count + 1)
-		platform(ctx, -half, half, near, near + length, top)
-		local mid = near + length / 2
-		hurdle(ctx, -half, half, mid, 2, top, height, length / 2 - 1, length / 2 - 1)
+-- A narrow bridge blocked by a tall crate wall. Climb the ledges on the
+-- outside, go round high up and drop down behind it — or smash it.
+builder("Barricade", 2, 7, function(ctx)
+	local L = ctx.lane
+	local h = wallHeight(ctx)
+	platform(ctx, -L, L, ctx.z0, 22, 0)
+	blocker(ctx, add(ctx, "breakable", -L, L, 0, h, 22, 24))
+	table.insert(ctx.out.walls, h)
+	add(ctx, "floor", -L, L, -Course.Thickness, 0, 22, 24)
+	platform(ctx, -L, L, 24, 32, 0)
+	-- ledges zig-zagging up the outside, then a high ledge past the wall
+	local s = w(ctx, if ctx.diff >= 3 then 3 else 3.5)
+	local x = L + 1.5
+	local top = 0
+	local z = 10
+	local depth = 3.4 * ctx.widthScale
+	for i = 1, 3 do
+		top += 2.5
+		local near = 6 + i * (depth + 0.6)
+		local xi = if i % 2 == 1 then x else x + 2
+		platform(ctx, xi, xi + s, near, near + depth, top)
+		z = near + depth
 	end
+	-- a high ledge past the wall, then drop back down onto the bridge
+	local highStart = z + 1.5
+	platform(ctx, x, x + s, highStart, math.max(highStart + depth, 30), top)
+	ctx.rise = pickRise(ctx, 5, 7)
+	run(ctx, 32, ctx.z1, 0, ctx.rise, { size = w(ctx, 4.5) })
 end)
 
-builder("Spinner", 2, function(ctx)
+-- A rock wall: ledges zig-zag steeply up, then a short run to the next pad.
+builder("Climb", 1, 20, function(ctx)
+	local L = ctx.lane
+	local s = w(ctx, ({ 4.5, 4, 3.6 })[ctx.diff])
+	local xs = { -(L - s / 2), L - s / 2 }
+	local steps = 5
+	local top = 0
+	local depth = 3 * ctx.widthScale
+	for i = 1, steps do
+		top += 2.5
+		local near = ctx.z0 + 1 + (i - 1) * 2.4
+		local x = xs[(i % 2) + 1]
+		platform(ctx, x - s / 2, x + s / 2, near, near + depth, top)
+	end
+	local last = ctx.z0 + 1 + (steps - 1) * 2.4 + depth
+	ctx.rise = math.max(pickRise(ctx, 14, 16), top + 1)
+	run(ctx, last, ctx.z1, top, ctx.rise, { size = w(ctx, 4.5), maxGap = 3 + ctx.diff * 0.5 })
+end)
+
+-- Floating rocks scattered at different heights.
+builder("Asteroids", 1, 16, function(ctx)
+	ctx.rise = pickRise(ctx, 7, 9)
+	local size = w(ctx, ({ 5, 4.5, 4 })[ctx.diff])
+	run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = size, maxGap = 3 + ctx.diff * 0.5, extra = 2, kind = "rock" })
+end)
+
+builder("Spinner", 2, 7, function(ctx)
 	run(ctx, ctx.z0, 10, 0, 2)
 	platform(ctx, -ctx.lane, ctx.lane, 10, 38, 2)
 	local centers = if ctx.diff >= 3 then { 17, 31 } else { 24 }
@@ -410,20 +466,20 @@ builder("Spinner", 2, function(ctx)
 	run(ctx, 38, ctx.z1, 2, ctx.rise, { size = w(ctx, 5) })
 end)
 
-builder("Vanish", 2, function(ctx)
+builder("Vanish", 2, 16, function(ctx)
 	ctx.rise = pickRise(ctx, 6, 7)
 	lava(ctx, ctx.z0, ctx.z1)
 	run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = w(ctx, 5), maxGap = 3.5, kind = "vanish" })
 end)
 
-builder("Pillars", 2, function(ctx)
+builder("Pillars", 2, 16, function(ctx)
 	ctx.rise = pickRise(ctx, 6, 8)
 	lava(ctx, ctx.z0, ctx.z1)
 	run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = w(ctx, 4), maxGap = 4.5, pillar = true, extra = 1 })
 end)
 
 -- Wide steps with strips of rushing water that sweep you off the side.
-builder("Rapids", 1, function(ctx)
+builder("Rapids", 1, 8, function(ctx)
 	ctx.rise = pickRise(ctx, 6, 7)
 	local steps = 3
 	local length = (ctx.z1 - ctx.z0) / steps
@@ -478,11 +534,15 @@ function Course.dailySeed(theme: Themes.Theme, day: number): number
 	return theme.seed + day * 101
 end
 
+local LAP_RISE = 34 -- one full lap (4 sections) climbs at least this much
+
 function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed: number?, sequence: { string }?): Result
 	local sections = sequence or Course.sequenceFor(theme, 0)
 	local worldInfo = Themes.Worlds[theme.world]
 	local cpHalf = worldInfo.checkpoint
 	local SECTION = worldInfo.section
+	local S = SECTION / 2 -- corners of the square are at (±S, ±S) around the landmark
+	local lane = worldInfo.lane
 	local out: Result = {
 		theme = theme,
 		seed = seed or theme.seed,
@@ -494,22 +554,30 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 		startSurface = 0,
 		winSurface = 0,
 		builders = {},
-		hurdles = {},
+		walls = {},
 		movers = {},
 		minWidth = math.huge,
-		length = #sections * SECTION,
 		bottom = origin[2],
+		top = origin[2],
+		center = { origin[1], origin[3] },
+		coreHalf = S - lane - 1,
+		ringHalf = S,
 	}
 
+	-- corners go round counter-clockwise; side k runs from corner k to corner k+1
+	local corners = { { -S, -S }, { S, -S }, { S, S }, { -S, S } }
+	local dirs = { { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 } }
+
 	local function checkpoint(index: number, top: number, kind: string): number
-		local half = if kind == "win" then cpHalf + 2 else cpHalf
+		local half = if kind == "win" then cpHalf + 1 else cpHalf
+		local corner = corners[(index % 4) + 1]
 		local piece: Piece = {
 			kind = kind,
 			section = index,
 			index = index,
-			cx = origin[1],
+			cx = origin[1] + corner[1],
 			cy = top - Course.Thickness / 2,
-			cz = origin[3] + index * SECTION,
+			cz = origin[3] + corner[2],
 			sx = half * 2,
 			sy = Course.Thickness,
 			sz = half * 2,
@@ -523,19 +591,36 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 	out.startSurface = checkpoint(0, y, "checkpoint")
 	local count = #sections
 	local half = math.ceil(count / 2)
+	local rises: { number } = {}
 	for i = 1, count do
 		local diff = math.clamp(if i <= half then theme.diff[1] else theme.diff[2], 1, 3)
+		local lastThree = 0
+		for back = 1, 3 do
+			lastThree += rises[i - back] or 0
+		end
+		local minRise = if i >= 4 then math.max(0, LAP_RISE - lastThree) else 0
 		local chosen = builders[sections[i]] or builders.Stones
+		if chosen.maxRise < minRise then
+			chosen = builders.Climb -- this one can always climb high enough
+		end
 		table.insert(out.builders, chosen.name)
 
+		local side = (i - 1) % 4
+		local corner = corners[side + 1]
+		local dir = dirs[side + 1]
 		local ctx: Ctx = {
 			rng = rng,
 			diff = diff,
 			section = i,
-			ox = origin[1],
+			cx = origin[1] + corner[1],
+			cz = origin[3] + corner[2],
+			dx = dir[1],
+			dz = dir[2],
+			ux = dir[2], -- outward = direction rotated 90 degrees
+			uz = -dir[1],
 			oy = y,
-			oz = origin[3] + (i - 1) * SECTION,
-			lane = worldInfo.lane,
+			minRise = minRise,
+			lane = lane,
 			widthScale = worldInfo.widthScale,
 			z0 = cpHalf,
 			z1 = SECTION - cpHalf,
@@ -544,6 +629,7 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 			rise = 6,
 		}
 		chosen.build(ctx)
+		rises[i] = ctx.rise
 		y += ctx.rise
 		local kind = if i == count then "win" else "checkpoint"
 		local id = checkpoint(i, y, kind)
@@ -551,6 +637,7 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 			out.winSurface = id
 		end
 	end
+	out.top = y
 	for _, p in out.pieces do
 		out.bottom = math.min(out.bottom, p.cy - p.sy / 2)
 	end

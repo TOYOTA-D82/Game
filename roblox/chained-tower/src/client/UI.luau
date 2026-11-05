@@ -637,7 +637,7 @@ end)
 local function showRules(mode: string, levelId: string?)
 	local solo = mode == "solo"
 	local theme = if levelId then Themes.ById[levelId] else nil
-	local header = if theme then "🏁 " .. T("levelLine", theme.level, T("lv_" .. theme.id)) .. "\n" else ""
+	local header = if theme then "🏁 " .. T("levelLine", theme.level, T("lv_" .. theme.id)) .. " · " .. T("goal_" .. theme.id) .. "\n" else ""
 	rulesText.Text = header .. T(if solo then "rules_solo" else "rules_team")
 	rulesCard.BackgroundColor3 = if solo then Color3.fromRGB(25, 45, 70) else Color3.fromRGB(55, 30, 70)
 	rulesCard.Visible = true
@@ -850,6 +850,32 @@ onInfoLoaded = function()
 	task.defer(refresh)
 end
 
+-- Checkpoint flags and borders your team has reached turn green.
+local lastFlagKey = ""
+local REACHED = Color3.fromRGB(90, 230, 120)
+local function colourFlags(levelId: any, section: any)
+	local key = tostring(levelId) .. ":" .. tostring(section)
+	if key == lastFlagKey then
+		return
+	end
+	lastFlagKey = key
+	local levels = Workspace:FindFirstChild("Levels")
+	local folder = if levels and type(levelId) == "string" then levels:FindFirstChild("Level_" .. levelId) else nil
+	if not folder then
+		return
+	end
+	for _, part in folder:GetChildren() do
+		if part:IsA("BasePart") and (part.Name == "CheckpointFlag" or part.Name == "CheckpointTrim") then
+			if part:GetAttribute("BaseColor") == nil then
+				part:SetAttribute("BaseColor", part.Color)
+			end
+			local index = part:GetAttribute("Index")
+			local reached = type(index) == "number" and type(section) == "number" and index <= section
+			part.Color = if reached then REACHED else part:GetAttribute("BaseColor") :: Color3
+		end
+	end
+end
+
 local function tick()
 	local team = Chains.myTeam()
 	local inTower = team ~= nil
@@ -857,6 +883,7 @@ local function tick()
 	local section = player:GetAttribute("Section")
 	local mode = team and team:GetAttribute("Mode")
 	local levelId = team and team:GetAttribute("Level")
+	colourFlags(levelId, section)
 	local theme = if type(levelId) == "string" then Themes.ById[levelId] else nil
 	if theme then
 		placeLabel.Text = T("levelLine", theme.level, T("lv_" .. theme.id))

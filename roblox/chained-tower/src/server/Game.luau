@@ -79,9 +79,23 @@ local function setZone(player: Player, zone: string, theme: string)
 	player:SetAttribute("Theme", theme)
 end
 
+-- Back to a world island: stand in front of the gate of the level you'd play
+-- next today (level 1 if you haven't cleared anything today). The lobby uses
+-- its normal spawn.
 local function toHub(player: Player, world: string)
-	local offset = Vector3.new(math.random(-4, 4), 0, math.random(-2, 2))
-	teleport(player, World.hubSpawn(world) + offset)
+	local offset = Vector3.new(math.random(-2, 2), 0, math.random(-1, 1))
+	if world == "solo" or world == "team" then
+		local level = 1
+		local p = Data.get(player)
+		if p then
+			Data.refreshDaily(player)
+			local wd = (p.today :: any)[world]
+			level = math.clamp((wd and wd.cleared or 0) + 1, 1, Themes.levelCount(world))
+		end
+		teleport(player, World.gateSpawn(world, level) + offset)
+	else
+		teleport(player, World.hubSpawn(world) + offset)
+	end
 	setZone(player, world, world)
 end
 
@@ -828,7 +842,7 @@ local function moverTick()
 	for _, level in levels do
 		for _, m in level.movers do
 			local phase = 0.5 - 0.5 * math.cos(2 * math.pi * (t % m.period) / m.period)
-			m.part.CFrame = CFrame.new(m.x, m.y, m.z + m.travel * phase)
+			m.part.CFrame = CFrame.new(m.base + m.dir * (m.travel * phase))
 		end
 	end
 end

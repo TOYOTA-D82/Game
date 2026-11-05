@@ -38,7 +38,7 @@ export type Level = {
 	checkpoints: { [number]: BasePart },
 	winIndex: number,
 	day: number, -- the day whose route this is
-	movers: { { part: BasePart, x: number, y: number, z: number, travel: number, period: number } },
+	movers: { { part: BasePart, base: Vector3, dir: Vector3, travel: number, period: number } },
 }
 
 local function makePart(props: { [string]: any }, className: string?): BasePart
@@ -127,6 +127,24 @@ function World.hubSpawn(world: string): CFrame
 	end
 	local o = hubOrigin(world)
 	return CFrame.lookAt(o + Vector3.new(0, 3, -12), o + Vector3.new(0, 3, 10))
+end
+
+-- Where level `level`'s gate stands on a world island.
+local function gatePosition(world: string, level: number): Vector3
+	local o = hubOrigin(world)
+	local count = Themes.levelCount(world)
+	local spacing = if world == "solo" then 30 else 34
+	local x = (level - (count + 1) / 2) * spacing
+	return o + Vector3.new(x, 0.5, 20)
+end
+World.gatePosition = gatePosition
+
+-- Arriving on a world island: stand a few steps in front of a level's gate
+-- (not on the pad itself), facing it.
+function World.gateSpawn(world: string, level: number): CFrame
+	local gatePos = gatePosition(world, level)
+	local pos = gatePos + Vector3.new(0, 2.5, -9)
+	return CFrame.lookAt(pos, Vector3.new(gatePos.X, pos.Y, gatePos.Z))
 end
 
 -- Each level course sits far away from the others so every one feels like its own world.
@@ -462,11 +480,9 @@ function World.buildLobby(): Lobby
 		)
 
 		local count = Themes.levelCount(world)
-		local spacing = if world == "solo" then 30 else 34
 		for level = 1, count do
 			local theme = Themes.forLevel(world, level) :: Themes.Theme
-			local x = (level - (count + 1) / 2) * spacing
-			local base = o + Vector3.new(x, 0.5, 20)
+			local base = gatePosition(world, level)
 			if world == "solo" then
 				local pad = gate(hub, base, 10, theme.colors[1])
 				pad.Name = "Gate_" .. theme.id
@@ -760,6 +776,7 @@ end
 local KIND_NAMES = {
 	platform = "Platform",
 	floor = "Platform",
+	rock = "Platform",
 	checkpoint = "Checkpoint",
 	win = "Win",
 	kill = "Kill",
@@ -799,24 +816,62 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 		local part: BasePart? = nil
 		local color = theme.colors[((piece.section - 1) % #theme.colors) + 1]
 
-		if kind == "platform" or kind == "floor" then
+		if kind == "rock" then
+			part = makePart({ Size = size, CFrame = cf, Color = color:Lerp(Color3.fromRGB(80, 75, 85), 0.35), Material = Enum.Material.Rock })
+		elseif kind == "platform" or kind == "floor" then
 			part = makePart({ Size = size, CFrame = cf, Color = color, Material = theme.material })
 			if slippery then
 				(part :: BasePart).CustomPhysicalProperties = slippery
 			end
 		elseif kind == "checkpoint" or kind == "win" then
+			local isWin = kind == "win"
 			local p = makePart({
 				Size = size,
 				CFrame = cf,
-				Color = if kind == "win" then Color3.fromRGB(255, 205, 60) else theme.checkpoint,
-				Material = Enum.Material.Neon,
+				Color = if isWin then Color3.fromRGB(255, 205, 60) else theme.checkpoint,
+				Material = if isWin then Enum.Material.Neon else Enum.Material.SmoothPlastic,
 			})
 			p:SetAttribute("Index", piece.index)
 			checkpoints[piece.index :: number] = p
+			-- a soft glowing border and a small flag on the outside corner: easy to
+			-- spot without shouting. The flag turns green once your team reached it.
+			local topY = piece.cy + piece.sy / 2
+			local halfX, halfZ = piece.sx / 2, piece.sz / 2
+			for _, edge in { { 0, halfZ, piece.sx, 0.4 }, { 0, -halfZ, piece.sx, 0.4 }, { halfX, 0, 0.4, piece.sz }, { -halfX, 0, 0.4, piece.sz } } do
+				local trim = decorPart(folder, {
+					Size = Vector3.new(edge[3], 0.15, edge[4]),
+					CFrame = CFrame.new(piece.cx + edge[1], topY + 0.08, piece.cz + edge[2]),
+					Color = Color3.new(1, 1, 1),
+					Material = Enum.Material.Neon,
+					Transparency = 0.35,
+				})
+				trim.Name = "CheckpointTrim"
+				trim:SetAttribute("Index", piece.index)
+			end
+			if not isWin then
+				local sx = if piece.cx >= layout.center[1] then 1 else -1
+				local sz = if piece.cz >= layout.center[2] then 1 else -1
+				local base = Vector3.new(piece.cx + sx * (halfX - 0.8), topY, piece.cz + sz * (halfZ - 0.8))
+				decorPart(folder, {
+					Shape = Enum.PartType.Cylinder,
+					Size = Vector3.new(6, 0.3, 0.3),
+					CFrame = CFrame.new(base + Vector3.new(0, 3, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+					Color = Color3.fromRGB(230, 230, 235),
+					Material = Enum.Material.Metal,
+				})
+				local flag = decorPart(folder, {
+					Size = Vector3.new(0.1, 1.4, 2.2),
+					CFrame = CFrame.new(base + Vector3.new(0, 5.2, 0)) * CFrame.new(0, 0, -sz * 1.1),
+					Color = theme.checkpoint:Lerp(Color3.fromRGB(255, 120, 80), 0.5),
+					Material = Enum.Material.SmoothPlastic,
+				})
+				flag.Name = "CheckpointFlag"
+				flag:SetAttribute("Index", piece.index)
+			end
 			local bb = Instance.new("BillboardGui")
-			bb.Size = UDim2.fromOffset(80, 50)
-			bb.StudsOffset = Vector3.new(0, 4, 0)
-			bb.MaxDistance = 80
+			bb.Size = UDim2.fromOffset(60, 36)
+			bb.StudsOffset = Vector3.new(0, 3, 0)
+			bb.MaxDistance = 50
 			local t = Instance.new("TextLabel")
 			t.BackgroundTransparency = 1
 			t.Size = UDim2.fromScale(1, 1)
@@ -857,10 +912,13 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 			part = p
 		elseif kind == "mover" then
 			local p = makePart({ Size = size, CFrame = cf, Color = color:Lerp(Color3.fromRGB(255, 220, 90), 0.5), Material = theme.material })
+			local base = Vector3.new(piece.cx, piece.cy, piece.cz)
+			local dir = Vector3.new(piece.moveX or 0, 0, piece.moveZ or 1)
 			p:SetAttribute("Travel", piece.travel or 0)
 			p:SetAttribute("Period", piece.period or 6)
-			p:SetAttribute("BaseZ", piece.cz)
-			table.insert(movers, { part = p, x = piece.cx, y = piece.cy, z = piece.cz, travel = piece.travel or 0, period = piece.period or 6 })
+			p:SetAttribute("BasePos", base)
+			p:SetAttribute("MoveDir", dir)
+			table.insert(movers, { part = p, base = base, dir = dir, travel = piece.travel or 0, period = piece.period or 6 })
 			part = p
 		elseif kind == "spinner" then
 			local best: Course.Piece? = nil
@@ -882,32 +940,165 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 		end
 	end
 
-	-- Scenery
+	-- Scenery around the climb
 	local decor = Instance.new("Folder")
 	decor.Name = "Decor"
 	decor.Parent = folder
 	local decorate = decorators[theme.decor]
 	local rng = Random.new(theme.seed + 7)
 	local lane = Themes.Worlds[theme.world].lane
+	local center = Vector3.new(layout.center[1], 0, layout.center[2])
+	local height = layout.top - layout.bottom
 	if decorate then
-		local z = origin[3] - 10
-		while z < origin[3] + layout.length + 10 do
-			for _, side in { -1, 1 } do
-				local offset = side * rng:NextNumber(lane + 12, lane + 34)
-				local y = origin[2] + (z - origin[3]) / layout.length * (layout.checkpoints[#layout.checkpoints][2] - origin[2]) - rng:NextNumber(4, 16)
-				decorate(decor, Vector3.new(origin[1] + offset, y, z + rng:NextNumber(-4, 4)), rng)
-			end
-			z += rng:NextNumber(14, 22)
+		for i = 0, 27 do
+			local a = i / 28 * math.pi * 2 + rng:NextNumber(-0.1, 0.1)
+			local r = layout.ringHalf + lane + rng:NextNumber(14, 42)
+			local y = layout.bottom + rng:NextNumber(-8, height + 4)
+			decorate(decor, center + Vector3.new(math.cos(a) * r, y, math.sin(a) * r), rng)
 		end
 	end
 	if theme.floor then
 		decorPart(decor, {
 			Name = "Backdrop",
-			Size = Vector3.new(lane * 2 + 260, 2, layout.length + 260),
-			CFrame = CFrame.new(origin[1], layout.bottom - 45, origin[3] + layout.length / 2),
+			Size = Vector3.new(layout.ringHalf * 2 + 320, 2, layout.ringHalf * 2 + 320),
+			CFrame = CFrame.new(center + Vector3.new(0, layout.bottom - 45, 0)),
 			Color = theme.floor.color,
 			Material = theme.floor.material,
 			Transparency = theme.floor.transparency or 0,
+		})
+	end
+
+	-- The landmark you climb around (solid, so nobody cuts through the middle)
+	local lm = theme.landmark
+	local coreHalf = layout.coreHalf
+	local baseY = layout.bottom - 30
+	local function chunk(y0: number, y1: number, half: number, color: Color3, material: Enum.Material)
+		local h = y1 - y0
+		local props: { [string]: any } = { Color = color, Material = material }
+		if lm.round then
+			props.Shape = Enum.PartType.Cylinder
+			props.Size = Vector3.new(h, half * 2, half * 2)
+			props.CFrame = CFrame.new(center + Vector3.new(0, (y0 + y1) / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+		else
+			props.Size = Vector3.new(half * 2, h, half * 2)
+			props.CFrame = CFrame.new(center + Vector3.new(0, (y0 + y1) / 2, 0))
+		end
+		-- not solid: you can't stand on its ledges to skip the route
+		local part = decorPart(decor, props)
+		part.Name = "Landmark"
+	end
+	if lm.shape == "taper" then
+		-- mountain / pyramid / cake: tiers getting smaller towards the top
+		local tiers = 7
+		local topY = layout.top + 18
+		for t = 0, tiers - 1 do
+			local y0 = baseY + (topY - baseY) * t / tiers
+			local y1 = baseY + (topY - baseY) * (t + 1) / tiers
+			local half = coreHalf * (1 - t / tiers * 0.7)
+			local color = lm.colors[1]:Lerp(lm.colors[2], t / (tiers - 1))
+			if lm.cap and t == tiers - 1 then
+				color = lm.cap
+			end
+			chunk(y0, y1, half, color, if lm.cap and t == tiers - 1 then Enum.Material.Snow else lm.material)
+		end
+	else
+		-- tower / lighthouse / station: a striped column with a lit top
+		local topY = layout.top + 10
+		local band = 12
+		local y0 = baseY
+		local i = 0
+		while y0 < topY do
+			local y1 = math.min(topY, y0 + band)
+			chunk(y0, y1, coreHalf * 0.8, lm.colors[(i % 2) + 1], lm.material)
+			y0 = y1
+			i += 1
+		end
+		decorPart(decor, {
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(coreHalf, coreHalf, coreHalf),
+			CFrame = CFrame.new(center + Vector3.new(0, topY + coreHalf * 0.3, 0)),
+			Color = lm.colors[2],
+			Material = Enum.Material.Neon,
+			Transparency = 0.2,
+		})
+	end
+
+	-- What waits at the top (on the finish pad)
+	local win = layout.checkpoints[#layout.checkpoints]
+	local goalPos = Vector3.new(win[1], win[2], win[3])
+	local outward = (goalPos - Vector3.new(center.X, goalPos.Y, center.Z)).Unit
+	local goalBase = goalPos + outward * 3
+	if lm.goal == "flag" then
+		decorPart(decor, {
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(16, 0.6, 0.6),
+			CFrame = CFrame.new(goalBase + Vector3.new(0, 8, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+			Color = Color3.fromRGB(240, 240, 245),
+			Material = Enum.Material.Metal,
+		})
+		decorPart(decor, {
+			Size = Vector3.new(0.2, 4, 6),
+			CFrame = CFrame.lookAt(goalBase + Vector3.new(0, 14, 0), goalBase + Vector3.new(0, 14, 0) + outward) * CFrame.new(3, 0, 0) * CFrame.Angles(0, math.pi / 2, 0),
+			Color = Color3.fromRGB(255, 70, 70),
+			Material = Enum.Material.SmoothPlastic,
+		})
+	elseif lm.goal == "station" then
+		local hub = goalPos + Vector3.new(0, 16, 0)
+		decorPart(decor, {
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(10, 8, 8),
+			CFrame = CFrame.new(hub) * CFrame.Angles(0, 0, math.pi / 2),
+			Color = Color3.fromRGB(220, 225, 235),
+			Material = Enum.Material.Metal,
+		})
+		for _, side in { -1, 1 } do
+			decorPart(decor, {
+				Size = Vector3.new(16, 0.3, 5),
+				CFrame = CFrame.new(hub + Vector3.new(side * 13, 0, 0)),
+				Color = Color3.fromRGB(40, 70, 160),
+				Material = Enum.Material.Glass,
+			})
+		end
+		decorPart(decor, {
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.6, 18, 18),
+			CFrame = CFrame.new(hub) * CFrame.Angles(0, 0, math.pi / 2) * CFrame.Angles(0.3, 0, 0),
+			Color = Color3.fromRGB(90, 220, 255),
+			Material = Enum.Material.Neon,
+			Transparency = 0.4,
+		})
+	elseif lm.goal == "beacon" then
+		local light = decorPart(decor, {
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(4, 4, 4),
+			CFrame = CFrame.new(goalBase + Vector3.new(0, 9, 0)),
+			Color = Color3.fromRGB(255, 240, 160),
+			Material = Enum.Material.Neon,
+		})
+		local glow = Instance.new("PointLight")
+		glow.Range = 30
+		glow.Brightness = 3
+		glow.Parent = light
+		decorPart(decor, {
+			Size = Vector3.new(1, 7, 1),
+			CFrame = CFrame.new(goalBase + Vector3.new(0, 3.5, 0)),
+			Color = Color3.fromRGB(60, 60, 70),
+			Material = Enum.Material.Metal,
+		})
+	else -- crown: a golden arch over the finish
+		for _, side in { -1, 1 } do
+			decorPart(decor, {
+				Size = Vector3.new(1.5, 12, 1.5),
+				CFrame = CFrame.new(goalPos + Vector3.new(side * 6, 6, 0)),
+				Color = Color3.fromRGB(255, 210, 90),
+				Material = Enum.Material.Marble,
+			})
+		end
+		decorPart(decor, {
+			Size = Vector3.new(14, 1.5, 1.5),
+			CFrame = CFrame.new(goalPos + Vector3.new(0, 12, 0)),
+			Color = Color3.fromRGB(255, 220, 110),
+			Material = Enum.Material.Neon,
 		})
 	end
 

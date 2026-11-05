@@ -159,7 +159,7 @@ subtitle.Parent = overlay
 local function titleFor(key: string): (string, string)
 	local theme = Themes.ById[key]
 	if theme then
-		return T("lv_" .. theme.id), T("levelLine", theme.level, T("worldShort_" .. theme.world))
+		return T("lv_" .. theme.id), T("levelLine", theme.level, T("worldShort_" .. theme.world)) .. " · " .. T("goal_" .. theme.id)
 	end
 	return T("world_" .. key), ""
 end

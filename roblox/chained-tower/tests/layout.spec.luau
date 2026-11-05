@@ -18,11 +18,11 @@ end
 
 local KNOWN = {
 	platform = true, checkpoint = true, win = true, kill = true, breakable = true, truss = true,
-	pad = true, vanish = true, spinner = true, pivot = true, current = true, mover = true, floor = true,
+	pad = true, vanish = true, spinner = true, pivot = true, current = true, mover = true, floor = true, rock = true,
 }
 
 local DAYS = 60 -- simulate two months of daily layouts
-local total, hurdles, movers = 0, 0, 0
+local total, walls, movers = 0, 0, 0
 local usage = {}
 local thinnest = { solo = math.huge, team = math.huge }
 
@@ -35,11 +35,12 @@ local function verify(theme, course, label)
 	local need = if theme.world == "team" then 4 else 3
 	check(course.minWidth >= need - 0.01, ("%s: platform only %.2f wide"):format(label, course.minWidth))
 	thinnest[theme.world] = math.min(thinnest[theme.world], course.minWidth)
-	for _, h in course.hurdles do
-		check(h.height <= 5, label .. " hurdle too tall")
-		check(h.before >= 2.5 and h.after >= 2.5, label .. " no room around hurdle")
+	-- smashable walls must be too tall to just jump over (even in low gravity)
+	local jump = 7.2 * 196.2 / (theme.gravity or 196.2)
+	for _, h in course.walls do
+		check(h >= jump + 2, ("%s: wall %.1f is jumpable (jump %.1f)"):format(label, h, jump))
 	end
-	hurdles += #course.hurdles
+	walls += #course.walls
 	for _, m in course.movers do
 		check(m.gapBefore <= 2 and m.gapAfter <= 2, label .. " mover too far from the platforms")
 		check(m.size >= 6, label .. " mover too small")
@@ -48,9 +49,31 @@ local function verify(theme, course, label)
 	for _, p in course.pieces do
 		check(KNOWN[p.kind] == true, label .. " unknown piece kind " .. p.kind)
 		check(p.sx > 0 and p.sy > 0 and p.sz > 0, label .. " zero-size piece")
-		check(math.abs(p.cx - info.origin[1]) + p.sx / 2 <= info.lane + 7, label .. " piece too far to the side")
+		-- stays within the ring around the landmark (plus the detour stones)
+		local rx = math.abs(p.cx - course.center[1]) + p.sx / 2
+		local rz = math.abs(p.cz - course.center[2]) + p.sz / 2
+		check(math.max(rx, rz) <= course.ringHalf + info.lane + 9, label .. " piece too far out")
+		-- never pokes into the landmark in the middle
+		local inside = (math.abs(p.cx - course.center[1]) - p.sx / 2) < course.coreHalf - 0.01
+			and (math.abs(p.cz - course.center[2]) - p.sz / 2) < course.coreHalf - 0.01
+		check(not inside, ("%s: %s in section %d pokes into the landmark"):format(label, p.kind, p.section))
 		if p.kind == "platform" or p.kind == "vanish" or p.kind == "checkpoint" then
 			check(p.sy >= 2, label .. " platform thinner than 2 studs")
+		end
+	end
+	-- headroom: a later lap above an earlier one leaves room to jump
+	for _, a in course.pieces do
+		for _, b in course.pieces do
+			if b.section >= a.section + 3 then
+				local ox = math.min(a.cx + a.sx / 2, b.cx + b.sx / 2) - math.max(a.cx - a.sx / 2, b.cx - b.sx / 2)
+				local oz = math.min(a.cz + a.sz / 2, b.cz + b.sz / 2) - math.max(a.cz - a.sz / 2, b.cz - b.sz / 2)
+				if ox > 0.01 and oz > 0.01 then
+					local standable = a.kind ~= "breakable" and a.kind ~= "truss" and a.kind ~= "pivot" and a.kind ~= "spinner" and a.kind ~= "kill"
+					local need = if standable then 10 else 5.5
+					local gap = (b.cy - b.sy / 2) - (a.cy + a.sy / 2)
+					check(gap >= need, ("%s: headroom %.1f between %s(s%d) and %s(s%d)"):format(label, gap, a.kind, a.section, b.kind, b.section))
+				end
+			end
 		end
 	end
 	for _, name in course.builders do
@@ -191,7 +214,7 @@ end
 table.sort(names)
 print(("courses checked: %d (16 levels x %d days of daily layouts)"):format(total, DAYS))
 print("section types used: " .. table.concat(names, ", "))
-print(("jumpable breakable obstacles: %d, moving platforms: %d"):format(hurdles, movers))
+print(("smashable walls: %d, moving platforms: %d"):format(walls, movers))
 print(("narrowest platform: solo %.1f studs, team %.1f studs"):format(thinnest.solo, thinnest.team))
 if failures > 0 then
 	print(("%d check(s) failed"):format(failures))

@@ -418,13 +418,13 @@ local lastPad = 0
 -- Moving platforms: every client animates them with the same server-time
 -- formula as the server (smooth, no lag), and carries you along when you
 -- stand on one.
-type Mover = { part: BasePart, base: Vector3, travel: number, period: number, last: Vector3 }
+type Mover = { part: BasePart, base: Vector3, dir: Vector3, travel: number, period: number, last: Vector3 }
 local movers: { [BasePart]: Mover } = {}
 
 local function moverPosition(m: Mover): Vector3
 	local t = Workspace:GetServerTimeNow()
 	local phase = 0.5 - 0.5 * math.cos(2 * math.pi * (t % m.period) / m.period)
-	return m.base + Vector3.new(0, 0, m.travel * phase)
+	return m.base + m.dir * (m.travel * phase)
 end
 
 local function animateMovers(): { [BasePart]: Vector3 }
@@ -486,7 +486,8 @@ local function buildFoam(levelFolder: Instance)
 		if water:GetAttribute("Kind") == "Mover" then
 			local m: Mover = {
 				part = water,
-				base = Vector3.new(water.Position.X, water.Position.Y, water:GetAttribute("BaseZ") :: number),
+				base = water:GetAttribute("BasePos") :: Vector3,
+				dir = water:GetAttribute("MoveDir") :: Vector3,
 				travel = water:GetAttribute("Travel") :: number,
 				period = water:GetAttribute("Period") :: number,
 				last = water.Position,
