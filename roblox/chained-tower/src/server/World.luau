@@ -38,6 +38,7 @@ export type Level = {
 	checkpoints: { [number]: BasePart },
 	winIndex: number,
 	day: number, -- the day whose route this is
+	terrainBox: { cf: CFrame, size: Vector3 }?, -- terrain sculpted for this level (cleared on rebuild)
 	movers: { { part: BasePart, base: Vector3, dir: Vector3, travel: number, period: number } },
 }
 
@@ -796,6 +797,26 @@ local KIND_NAMES = {
 	mover = "Mover",
 }
 
+-- Natural landmarks are sculpted from Roblox Terrain: smooth, solid, with
+-- real rock / snow / glacier / sand / lava materials.
+local NATURAL = {
+	Meadow = "mountain",
+	Snow = "mountain",
+	Ice = "iceberg",
+	Volcano = "volcano",
+	Desert = "pyramid",
+}
+
+local terrain = Workspace:FindFirstChildOfClass("Terrain")
+
+-- Clears the terrain a level sculpted (when it's rebuilt for a new day).
+function World.clearTerrain(level: Level)
+	if terrain and level.terrainBox then
+		local box = level.terrainBox :: { cf: CFrame, size: Vector3 }
+		terrain:FillBlock(box.cf, box.size, Enum.Material.Air)
+	end
+end
+
 -- Builds a level as it is on `day` (the route changes every day).
 function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): Level
 	local origin = World.levelOrigin(theme)
@@ -1085,6 +1106,93 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 
 	-- The landmark you're heading for: a big mountain / station / tower just
 	-- past the finish, visible from far away.
+	-- Terrain sculpting that never covers the route (sphere/box checked against
+	-- every route piece, with `margin` studs to spare).
+	local terrainBox: { cf: CFrame, size: Vector3 }? = nil
+	local function clearOfRoute(pos: Vector3, r: number, margin: number): boolean
+		for _, piece in layout.pieces do
+			local dx = math.max(0, math.abs(pos.X - piece.cx) - piece.sx / 2)
+			local dy = math.max(0, math.abs(pos.Y - piece.cy) - piece.sy / 2)
+			local dz = math.max(0, math.abs(pos.Z - piece.cz) - piece.sz / 2)
+			if math.sqrt(dx * dx + dy * dy + dz * dz) < r + margin + 4 then
+				return false
+			end
+		end
+		return true
+	end
+	local function sculpt(style: string, c: Vector3, y0: number, y1: number, R: number, margin: number): boolean
+		if not terrain then
+			return false
+		end
+		local t = terrain :: Terrain
+		local srng = Random.new(theme.seed + 1234)
+		local placed = 0
+		local function tBall(pos: Vector3, r: number, material: Enum.Material)
+			if clearOfRoute(pos, r, margin) then
+				t:FillBall(pos, r, material)
+				placed += 1
+			end
+		end
+		local function blockAt(cf: CFrame, size: Vector3, material: Enum.Material)
+			local r = size.Magnitude / 2
+			if clearOfRoute(cf.Position, r, margin) then
+				t:FillBlock(cf, size, material)
+				placed += 1
+			end
+		end
+		local h = y1 - y0
+		if style == "mountain" or style == "volcano" then
+			local rock = if style == "volcano" then Enum.Material.Basalt else Enum.Material.Rock
+			local layers = 16
+			for k = 0, layers - 1 do
+				local f = k / layers
+				local r = R * (1 - f) * 1.05 + 3
+				for _ = 1, 3 do
+					local j = Vector3.new(srng:NextNumber(-1, 1), 0, srng:NextNumber(-1, 1)) * r * 0.18
+					local material = if style == "mountain" and f > 0.72 then Enum.Material.Snow else rock
+					tBall(c + j + Vector3.new(0, y0 + h * f, 0), r, material)
+				end
+			end
+			-- a few rocky outcrops on the slopes
+			for _ = 1, 10 do
+				local f = srng:NextNumber(0.1, 0.7)
+				local a = srng:NextNumber(0, math.pi * 2)
+				local r = R * (1 - f)
+				tBall(c + Vector3.new(math.cos(a) * r, y0 + h * f, math.sin(a) * r), srng:NextNumber(4, 8), rock)
+			end
+			if style == "volcano" then
+				-- a crater with glowing lava inside
+				local top = c + Vector3.new(0, y1, 0)
+				if clearOfRoute(top, R * 0.4, margin) then
+					t:FillBall(top, R * 0.4, Enum.Material.Air)
+					t:FillBall(top - Vector3.new(0, R * 0.3, 0), R * 0.3, Enum.Material.CrackedLava)
+				end
+			end
+		elseif style == "iceberg" then
+			tBall(c + Vector3.new(0, y0 + h * 0.25, 0), R * 0.95, Enum.Material.Glacier)
+			for i = 1, 8 do
+				local a = i / 8 * math.pi * 2 + srng:NextNumber(-0.3, 0.3)
+				local d = srng:NextNumber(0, R * 0.45)
+				local height = h * srng:NextNumber(0.45, 0.95)
+				local width = R * srng:NextNumber(0.35, 0.55)
+				local cf = CFrame.new(c + Vector3.new(math.cos(a) * d, y0 + height / 2, math.sin(a) * d))
+					* CFrame.Angles(srng:NextNumber(-0.25, 0.25), srng:NextNumber(0, math.pi), srng:NextNumber(-0.25, 0.25))
+				blockAt(cf, Vector3.new(width, height, width), if i % 3 == 0 then Enum.Material.Ice else Enum.Material.Glacier)
+			end
+			tBall(c + Vector3.new(0, y1 - h * 0.08, 0), R * 0.3, Enum.Material.Snow)
+		elseif style == "pyramid" then
+			local tiers = 16
+			for k = 0, tiers - 1 do
+				local f = k / tiers
+				local half = R * (1 - f * 0.95)
+				local th = h / tiers
+				blockAt(CFrame.new(c + Vector3.new(0, y0 + th * (k + 0.5), 0)), Vector3.new(half * 2, th, half * 2), Enum.Material.Sandstone)
+			end
+		end
+		terrainBox = { cf = CFrame.new(c + Vector3.new(0, (y0 + y1) / 2, 0)), size = Vector3.new(R * 2 + 30, h + 40, R * 2 + 30) }
+		return placed > 0
+	end
+
 	local lm = theme.landmark
 	local win = layout.checkpoints[#layout.checkpoints]
 	local fd = Vector3.new(layout.finishDir[1], 0, layout.finishDir[2])
@@ -1113,66 +1221,73 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 		local part = decorPart(landmark, props)
 		part.Name = "Landmark"
 	end
-	if lm.shape == "taper" then
-		-- mountain / pyramid / cake: tiers getting smaller towards the top
-		local tiers = 12
-		local topY = win[2] + 30
-		for t = 0, tiers - 1 do
-			local y0 = baseY + (topY - baseY) * t / tiers
-			local y1 = baseY + (topY - baseY) * (t + 1) / tiers
-			local half = coreHalf * (1 - t / tiers * 0.7)
-			local color = lm.colors[1]:Lerp(lm.colors[2], t / (tiers - 1))
-			if lm.cap and t == tiers - 1 then
-				color = lm.cap
-			end
-			chunk(y0, y1, half, color, if lm.cap and t == tiers - 1 then Enum.Material.Snow else lm.material)
-		end
-	else
-		-- tower / lighthouse / station: a striped column with a lit top
-		local topY = win[2] + 24
-		local band = 12
-		local y0 = baseY
-		local i = 0
-		while y0 < topY do
-			local y1 = math.min(topY, y0 + band)
-			chunk(y0, y1, coreHalf * 0.8, lm.colors[(i % 2) + 1], lm.material)
-			y0 = y1
-			i += 1
-		end
-		decorPart(landmark, {
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(coreHalf, coreHalf, coreHalf),
-			CFrame = CFrame.new(center + Vector3.new(0, topY + coreHalf * 0.3, 0)),
-			Color = lm.colors[2],
-			Material = Enum.Material.Neon,
-			Transparency = 0.2,
-		})
+	local natural = NATURAL[theme.id]
+	local sculpted = false
+	if natural and terrain then
+		sculpted = sculpt(natural, center, baseY, win[2] + 30, coreHalf, if tower then 2 else 6)
 	end
-	-- rocky landmarks get extra boulders on their slopes so they look natural
-	local boulders = Instance.new("Folder")
-	boulders.Name = "Boulders"
-	boulders.Parent = landmark
-	if lm.shape == "taper" and lm.round then
-		local lrng = Random.new(theme.seed + 99)
-		local topY = win[2] + 30
-		for _ = 1, 14 do
-			local t = lrng:NextNumber(0.05, 0.8)
-			local y = baseY + (topY - baseY) * t
-			local r = coreHalf * (1 - t * 0.7)
-			local a = lrng:NextNumber(0, math.pi * 2)
-			local size = lrng:NextNumber(5, 10)
-			local rr = math.max(0, r - size * 0.6) -- tucked into the slope, not sticking out
-			decorPart(boulders, {
-				Size = Vector3.new(size, size * 0.8, size),
-				CFrame = CFrame.new(center + Vector3.new(math.cos(a) * rr, y, math.sin(a) * rr))
-					* CFrame.Angles(lrng:NextNumber(-0.6, 0.6), a, lrng:NextNumber(-0.6, 0.6)),
-				Color = lm.colors[1]:Lerp(lm.colors[2], t),
-				Material = lm.material,
+	if not sculpted then
+		if lm.shape == "taper" then
+			-- mountain / pyramid / cake: tiers getting smaller towards the top
+			local tiers = 12
+			local topY = win[2] + 30
+			for t = 0, tiers - 1 do
+				local y0 = baseY + (topY - baseY) * t / tiers
+				local y1 = baseY + (topY - baseY) * (t + 1) / tiers
+				local half = coreHalf * (1 - t / tiers * 0.7)
+				local color = lm.colors[1]:Lerp(lm.colors[2], t / (tiers - 1))
+				if lm.cap and t == tiers - 1 then
+					color = lm.cap
+				end
+				chunk(y0, y1, half, color, if lm.cap and t == tiers - 1 then Enum.Material.Snow else lm.material)
+			end
+		else
+			-- tower / lighthouse / station: a striped column with a lit top
+			local topY = win[2] + 24
+			local band = 12
+			local y0 = baseY
+			local i = 0
+			while y0 < topY do
+				local y1 = math.min(topY, y0 + band)
+				chunk(y0, y1, coreHalf * 0.8, lm.colors[(i % 2) + 1], lm.material)
+				y0 = y1
+				i += 1
+			end
+			decorPart(landmark, {
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(coreHalf, coreHalf, coreHalf),
+				CFrame = CFrame.new(center + Vector3.new(0, topY + coreHalf * 0.3, 0)),
+				Color = lm.colors[2],
+				Material = Enum.Material.Neon,
+				Transparency = 0.2,
 			})
 		end
+		-- rocky landmarks get extra boulders on their slopes so they look natural
+		local boulders = Instance.new("Folder")
+		boulders.Name = "Boulders"
+		boulders.Parent = landmark
+		if lm.shape == "taper" and lm.round then
+			local lrng = Random.new(theme.seed + 99)
+			local topY = win[2] + 30
+			for _ = 1, 14 do
+				local t = lrng:NextNumber(0.05, 0.8)
+				local y = baseY + (topY - baseY) * t
+				local r = coreHalf * (1 - t * 0.7)
+				local a = lrng:NextNumber(0, math.pi * 2)
+				local size = lrng:NextNumber(5, 10)
+				local rr = math.max(0, r - size * 0.6) -- tucked into the slope, not sticking out
+				decorPart(boulders, {
+					Size = Vector3.new(size, size * 0.8, size),
+					CFrame = CFrame.new(center + Vector3.new(math.cos(a) * rr, y, math.sin(a) * rr))
+						* CFrame.Angles(lrng:NextNumber(-0.6, 0.6), a, lrng:NextNumber(-0.6, 0.6)),
+					Color = lm.colors[1]:Lerp(lm.colors[2], t),
+					Material = lm.material,
+				})
+			end
+		end
+		-- never in the way of the route (a tower's core sits right next to it by design)
+		prune(if tower then boulders else landmark)
 	end
-	-- never in the way of the route (a tower's core sits right next to it by design)
-	prune(if tower then boulders else landmark)
 
 	-- What waits at the top (on the finish pad)
 	local goalPos = Vector3.new(win[1], win[2], win[3])
@@ -1274,6 +1389,7 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 		checkpoints = checkpoints,
 		winIndex = #layout.checkpoints - 1,
 		day = day,
+		terrainBox = terrainBox,
 		movers = movers,
 	}
 end

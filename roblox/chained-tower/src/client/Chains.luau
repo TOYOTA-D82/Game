@@ -509,7 +509,7 @@ local function spinnerHits(me: BasePart, levelsFolder: Instance)
 				humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
 			end
 			me.AssemblyLinearVelocity = away.Unit * Config.SpinnerFling + Vector3.new(0, Config.SpinnerFling * 0.7, 0)
-			hint("hintFlung")
+			hint(if part.Name == "Sweeper" then "hintWallHit" else "hintFlung")
 			return
 		end
 	end

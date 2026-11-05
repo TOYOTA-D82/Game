@@ -173,6 +173,20 @@ local gui = make("ScreenGui", {
 	Parent = player:WaitForChild("PlayerGui"),
 })
 
+-- Shrink the whole UI on small screens (phones, small windows) so nothing overlaps.
+local uiScale = Instance.new("UIScale")
+uiScale.Parent = gui
+local function rescale()
+	local camera = Workspace.CurrentCamera
+	if camera then
+		uiScale.Scale = math.clamp(camera.ViewportSize.Y / 760, 0.62, 1)
+	end
+end
+rescale()
+if Workspace.CurrentCamera then
+	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+end
+
 -- Top bar: timer + section
 local top = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0),
@@ -342,14 +356,15 @@ end)
 ----------------------------------------------------------------------
 -- Menu buttons (left side)
 ----------------------------------------------------------------------
+-- right under the coins and points, so nothing overlaps
 local menu = make("Frame", {
-	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 12, 0.5, 0),
-	Size = UDim2.fromOffset(96, 330),
+	AnchorPoint = Vector2.new(0, 0),
+	Position = UDim2.new(0, 12, 0, 118),
+	Size = UDim2.fromOffset(96, 260),
 	BackgroundTransparency = 1,
 	Parent = gui,
 }, {
-	make("UIListLayout", { Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Center }),
+	make("UIListLayout", { Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Top }),
 })
 
 local panels: { [string]: Frame } = {}

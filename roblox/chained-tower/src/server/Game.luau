@@ -812,7 +812,7 @@ local function footing(team: Team, root: BasePart, unchained: boolean): string
 	if root.Position.Y < cp[2] - Config.FallBelowCheckpoint then
 		return "fallen" -- far below the team's checkpoint: nobody's holding the chain
 	end
-	rayParams.FilterDescendantsInstances = { team.level.folder }
+	rayParams.FilterDescendantsInstances = { team.level.folder, Workspace.Terrain }
 	trussParams.FilterDescendantsInstances = { team.level.folder }
 	local hit = Workspace:Raycast(root.Position, Vector3.new(0, -5, 0), rayParams)
 	if hit then
@@ -821,7 +821,7 @@ local function footing(team: Team, root: BasePart, unchained: boolean): string
 		if kind == "Kill" then
 			return "lava"
 		end
-		if kind == "Scenery" then
+		if kind == "Scenery" or hit.Instance:IsA("Terrain") then
 			return "fallen" -- off the route (mountains, trees, buildings in the background)
 		end
 		if not unchained and type(section) == "number" and section >= 0 and section < team.checkpoint then
@@ -935,8 +935,9 @@ function Game.start(theLobby: World.Lobby)
 					end
 				end
 				if not busy then
-					local fresh = World.buildLevel(theme, levelsFolder, builtDay)
+					World.clearTerrain(level) -- sculpted landmarks move with the route
 					level.folder:Destroy()
+					local fresh = World.buildLevel(theme, levelsFolder, builtDay)
 					levels[theme.id] = fresh
 					wireLevel(fresh)
 				end
