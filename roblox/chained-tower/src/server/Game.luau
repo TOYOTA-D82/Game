@@ -28,6 +28,7 @@ type Team = {
 	finished: boolean,
 	graceUntil: number, -- skip fall checks right after a teleport
 	unsafeSince: number?, -- when the last teammate stopped standing on something
+	burning: boolean, -- lava fire is running along the chain
 }
 
 local tower: World.Tower = nil :: any
@@ -131,6 +132,7 @@ local function formTeam(players: { Player }, mode: string)
 		fails = {},
 		finished = false,
 		graceUntil = 0,
+		burning = false,
 	}
 	teams[team.id] = team
 	for _, m in members do
@@ -258,6 +260,56 @@ local function resetTeam(team: Team, _who: Player)
 			Net.send(m, "offerSkip")
 		end
 	end
+end
+
+-- Lava: the touched player catches fire, the fire runs along the chain to each
+-- teammate (closest first), then the whole team goes back to the checkpoint.
+local function burnTeam(team: Team, toucher: Player)
+	if team.burning or team.finished then
+		return
+	end
+	if team.mode == "solo" then
+		resetTeam(team, toucher)
+		return
+	end
+	team.burning = true
+	local origin = rootOf(toucher)
+	local order = table.clone(team.members)
+	if origin then
+		table.sort(order, function(a, b)
+			local ra, rb = rootOf(a), rootOf(b)
+			local da = if ra then (ra.Position - origin.Position).Magnitude else math.huge
+			local db = if rb then (rb.Position - origin.Position).Magnitude else math.huge
+			return da < db
+		end)
+	end
+	local total = #order * Config.BurnHopSeconds + 0.6
+	team.graceUntil = now() + total + 0.5
+	team.folder:SetAttribute("BurnUntil", now() + total)
+	toastTeam(team, "lavaBurn")
+	local fires: { Instance } = {}
+	for i, m in order do
+		task.delay((i - 1) * Config.BurnHopSeconds, function()
+			local root = rootOf(m)
+			if root then
+				local fire = Instance.new("Fire")
+				fire.Size = 6
+				fire.Heat = 12
+				fire.Parent = root
+				table.insert(fires, fire)
+			end
+		end)
+	end
+	task.delay(total, function()
+		for _, fire in fires do
+			fire:Destroy()
+		end
+		team.burning = false
+		if teams[team.id] == team then
+			team.lastReset = 0
+			resetTeam(team, toucher)
+		end
+	end)
 end
 
 ----------------------------------------------------------------------
@@ -496,13 +548,12 @@ local function wireTower(t: World.Tower)
 		end
 		local kind = part:GetAttribute("Kind")
 		if kind == "Kill" then
-			-- Solo players reset on lava. Chained players bounce (client side) and
-			-- only fail when the whole team is down.
+			-- one touch burns the whole chained team
 			part.Touched:Connect(function(hit)
 				local player = Players:GetPlayerFromCharacter(hit.Parent)
 				local team = player and teamOf[player]
-				if player and team and team.mode == "solo" then
-					resetTeam(team, player)
+				if player and team then
+					burnTeam(team, player)
 				end
 			end)
 		elseif kind == "Vanish" then
@@ -611,7 +662,7 @@ local trussParams = OverlapParams.new()
 trussParams.FilterType = Enum.RaycastFilterType.Include
 
 -- Is this player standing on something (or climbing a ladder)?
--- Returns "safe", "air" (jumping / hanging on the chain / in lava) or "fallen"
+-- Returns "safe", "air" (jumping / hanging on the chain), "lava" or "fallen"
 -- (landed somewhere below the team's checkpoint, which means the chain gave way).
 local function footing(team: Team, root: BasePart, unchained: boolean): string
 	if root.Position.Y < -30 then
@@ -625,7 +676,7 @@ local function footing(team: Team, root: BasePart, unchained: boolean): string
 			return "fallen"
 		end
 		if kind == "Kill" then
-			return if team.mode == "solo" then "fallen" else "air"
+			return "lava"
 		end
 		if not unchained and type(section) == "number" and section >= 0 and section < team.checkpoint then
 			return "fallen"
@@ -645,12 +696,13 @@ local function fallTick()
 	trussParams.FilterDescendantsInstances = { tower.folder }
 	local t = now()
 	for _, team in teams do
-		if team.finished or t < team.graceUntil then
+		if team.finished or team.burning or t < team.graceUntil then
 			continue
 		end
 		local unchained = team.unchainUntil > t
 		local anySafe = false
 		local fallenBy: Player? = nil
+		local burnedBy: Player? = nil
 		for _, m in team.members do
 			local root = rootOf(m)
 			if not root then
@@ -662,9 +714,14 @@ local function fallTick()
 				anySafe = true
 			elseif state == "fallen" then
 				fallenBy = m
+			elseif state == "lava" then
+				burnedBy = m
 			end
 		end
-		if fallenBy then
+		if burnedBy then
+			team.unsafeSince = nil
+			burnTeam(team, burnedBy)
+		elseif fallenBy then
 			team.unsafeSince = nil
 			resetTeam(team, fallenBy)
 		elseif #team.members >= 2 then

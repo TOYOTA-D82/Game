@@ -304,6 +304,18 @@ function World.buildTower(layout: TowerLayout.Result, accent: Color3?): Tower
 			local pad = makePart({ Size = size, CFrame = cf, Color = Color3.fromRGB(60, 240, 255), Material = Enum.Material.Neon })
 			pad:SetAttribute("Boost", piece.boost or 60)
 			part = pad
+		elseif kind == "current" then
+			local water = makePart({
+				Size = size,
+				CFrame = cf,
+				Color = Color3.fromRGB(50, 150, 255),
+				Material = Enum.Material.Glass,
+				Transparency = 0.25,
+			})
+			water:SetAttribute("FlowX", piece.flowX or 0)
+			water:SetAttribute("FlowZ", piece.flowZ or 0)
+			water:SetAttribute("FlowSpeed", piece.flowSpeed or 10)
+			part = water
 		elseif kind == "vanish" then
 			part = makePart({
 				Size = size,
@@ -336,6 +348,7 @@ function World.buildTower(layout: TowerLayout.Result, accent: Color3?): Tower
 				truss = "Truss",
 				pad = "JumpPad",
 				vanish = "Vanish",
+				current = "Current",
 				core = "Core",
 			})[kind]
 			p.Name = kindName or kind

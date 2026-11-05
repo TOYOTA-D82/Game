@@ -33,7 +33,9 @@ Config.ChainPullStrength = 9 -- how hard a tight chain pulls you back
 Config.ChainDragSpeed = 6
 Config.ClimbSpeed = 9 -- hold Jump while hanging to climb up the chain
 Config.AllFallSeconds = 2.5 -- the team only resets when NOBODY is standing for this long
-Config.LavaBounce = 48 -- chained players touching lava get bounced up instead of resetting
+-- Lava: one touch sets the chain on fire. It runs to each teammate in turn,
+-- then the whole team goes back to the checkpoint.
+Config.BurnHopSeconds = 0.3
 Config.HardLimitFactor = 2.6 -- stretch past chainLength * this = server reset
 Config.SquadMinPlayers = 2 -- squad pad starts with 2+ players after the countdown
 Config.SquadCountdown = 10

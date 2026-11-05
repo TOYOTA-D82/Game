@@ -95,8 +95,13 @@ end
 
 local CHAIN = Color3.fromRGB(70, 70, 80)
 local TIGHT = Color3.fromRGB(255, 70, 50)
+local FIRE = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 230, 80)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 110, 20)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 40, 10)),
+})
 
-local function drawLink(b: Beam, a0: Attachment, a1: Attachment, limit: number)
+local function drawLink(b: Beam, a0: Attachment, a1: Attachment, limit: number, burning: boolean)
 	b.Attachment0 = a0
 	b.Attachment1 = a1
 	b.Enabled = true
@@ -104,6 +109,14 @@ local function drawLink(b: Beam, a0: Attachment, a1: Attachment, limit: number)
 	local slack = math.max(0, limit - d)
 	b.CurveSize0 = slack * 0.35
 	b.CurveSize1 = -slack * 0.35
+	if burning then
+		b.Color = FIRE
+		b.LightEmission = 1
+		b.Width0, b.Width1 = 0.6, 0.6
+		return
+	end
+	b.LightEmission = 0
+	b.Width0, b.Width1 = 0.35, 0.35
 	local stretch = math.clamp((d / math.max(limit, 1) - 0.75) / 0.35, 0, 1)
 	b.Color = ColorSequence.new(CHAIN:Lerp(TIGHT, stretch))
 end
@@ -163,6 +176,8 @@ local function updateVisuals()
 		local visual = v :: Visual
 		local mode = folder:GetAttribute("Mode")
 		local members = membersOf(folder)
+		local burnUntil = folder:GetAttribute("BurnUntil")
+		local burning = type(burnUntil) == "number" and burnUntil > Workspace:GetServerTimeNow()
 		if isUnchained(folder) or #members < 2 then
 			hide(visual)
 			continue
@@ -181,7 +196,7 @@ local function updateVisuals()
 
 		if mode == "duo" then
 			local length = folder:GetAttribute("Length") :: number
-			drawLink(beam(visual, 1), chainAttachment(roots[1]), chainAttachment(roots[2]), length)
+			drawLink(beam(visual, 1), chainAttachment(roots[1]), chainAttachment(roots[2]), length, burning)
 			for i = 2, #visual.beams do
 				visual.beams[i].Enabled = false
 			end
@@ -199,7 +214,7 @@ local function updateVisuals()
 			ball.Transparency = 0
 			ball.CFrame = ball.CFrame:Lerp(CFrame.new(center), 0.35)
 			for i, r in roots do
-				drawLink(beam(visual, i), chainAttachment(r), visual.ballAtt :: Attachment, radius)
+				drawLink(beam(visual, i), chainAttachment(r), visual.ballAtt :: Attachment, radius, burning)
 			end
 			for i = #roots + 1, #visual.beams do
 				visual.beams[i].Enabled = false
@@ -341,36 +356,41 @@ local function applyChain(dt: number)
 	end
 end
 
--- Lava: solo players are reset by the server. Chained players bounce up instead,
--- so the team can drag them out.
-local lastLava = 0
-local function lavaBounce(hitPart: Instance, me: BasePart)
-	local folder = Chains.myTeam()
-	if not folder or folder:GetAttribute("Mode") == "solo" or os.clock() - lastLava < 0.4 then
+-- Water currents push you along their flow (you own your character's physics,
+-- so this runs here). Walking against it is slow; get swept off and the chain
+-- catches you.
+local function currentPush(hitPart: Instance, me: BasePart, dt: number)
+	if hitPart:GetAttribute("Kind") ~= "Current" then
 		return
 	end
-	if hitPart:GetAttribute("Kind") == "Kill" then
-		lastLava = os.clock()
-		local v = me.AssemblyLinearVelocity
-		me.AssemblyLinearVelocity = Vector3.new(v.X * 0.5, Config.LavaBounce, v.Z * 0.5)
-		hint("hintLava")
+	local fx = hitPart:GetAttribute("FlowX") :: number? or 0
+	local fz = hitPart:GetAttribute("FlowZ") :: number? or 0
+	local speed = hitPart:GetAttribute("FlowSpeed") :: number? or 10
+	local flow = Vector3.new(fx :: number, 0, fz :: number)
+	if flow.Magnitude < 0.1 then
+		return
 	end
+	me.CFrame += flow.Unit * (speed :: number) * dt
+	hint("hintCurrent")
 end
 
 local padParams = RaycastParams.new()
 padParams.FilterType = Enum.RaycastFilterType.Include
 local lastPad = 0
 
-local function jumpPads()
+local function surfaces(dt: number)
 	local me = rootOf(player)
 	local tower = Workspace:FindFirstChild("Tower")
-	if not me or not tower or os.clock() - lastPad < 0.3 then
+	if not me or not tower then
 		return
 	end
 	padParams.FilterDescendantsInstances = { tower }
 	local hit = Workspace:Raycast(me.Position, Vector3.new(0, -4, 0), padParams)
 	if hit then
-		lavaBounce(hit.Instance, me)
+		currentPush(hit.Instance, me, dt)
+	end
+	if os.clock() - lastPad < 0.3 then
+		return
 	end
 	if hit and hit.Instance:GetAttribute("Kind") == "JumpPad" then
 		lastPad = os.clock()
@@ -384,10 +404,76 @@ local function jumpPads()
 	end
 end
 
+-- White foam lines sliding along each water current (local visual only).
+type Foam = { part: BasePart, origin: Vector3, dir: Vector3, span: number, speed: number, offset: number }
+local foams: { Foam } = {}
+
+local function buildFoam(tower: Instance)
+	for _, f in foams do
+		f.part:Destroy()
+	end
+	table.clear(foams)
+	for _, water in tower:GetChildren() do
+		if not water:IsA("BasePart") or water:GetAttribute("Kind") ~= "Current" then
+			continue
+		end
+		local fx = water:GetAttribute("FlowX") :: number? or 0
+		local fz = water:GetAttribute("FlowZ") :: number? or 0
+		local flow = Vector3.new(fx :: number, 0, fz :: number)
+		if flow.Magnitude < 0.1 then
+			continue
+		end
+		flow = flow.Unit
+		local alongX = math.abs(flow.X) > 0.5
+		local span = if alongX then water.Size.X else water.Size.Z
+		local cross = if alongX then water.Size.Z else water.Size.X
+		local origin = water.Position + Vector3.new(0, water.Size.Y / 2 + 0.06, 0) - flow * span / 2
+		for k = 0, 2 do
+			local foam = Instance.new("Part")
+			foam.Size = if alongX then Vector3.new(0.35, 0.1, cross - 0.2) else Vector3.new(cross - 0.2, 0.1, 0.35)
+			foam.Color = Color3.new(1, 1, 1)
+			foam.Material = Enum.Material.Neon
+			foam.Transparency = 0.45
+			foam.Anchored = true
+			foam.CanCollide = false
+			foam.CanQuery = false
+			foam.CanTouch = false
+			foam.Parent = visuals
+			table.insert(foams, {
+				part = foam,
+				origin = origin,
+				dir = flow,
+				span = span,
+				speed = (water:GetAttribute("FlowSpeed") :: number?) or 10,
+				offset = k / 3 * span,
+			})
+		end
+	end
+end
+
+local function animateFoam()
+	local t = os.clock()
+	for _, f in foams do
+		local d = (f.offset + t * f.speed) % f.span
+		f.part.CFrame = CFrame.new(f.origin + f.dir * d)
+	end
+end
+
 function Chains.start()
+	Workspace.ChildAdded:Connect(function(child)
+		if child.Name == "Tower" then
+			task.wait(0.5) -- let the parts replicate
+			buildFoam(child)
+		end
+	end)
+	local existing = Workspace:FindFirstChild("Tower")
+	if existing then
+		task.defer(buildFoam, existing)
+	end
+	RunService.RenderStepped:Connect(animateFoam)
 	RunService.Heartbeat:Connect(function(dt)
 		applyChain(dt)
-		jumpPads()
+		surfaces(dt)
 	end)
 	RunService.RenderStepped:Connect(updateVisuals)
 end

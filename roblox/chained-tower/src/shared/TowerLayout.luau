@@ -32,6 +32,9 @@ export type Piece = {
 	boost: number?, -- jump pad upward speed
 	spinSpeed: number?, -- spinner angular speed (rad/s)
 	alongX: boolean?, -- spinner: true if the bar starts along world X
+	flowX: number?, -- water current: push direction (world) and speed
+	flowZ: number?,
+	flowSpeed: number?,
 }
 
 export type Surface = {
@@ -239,6 +242,15 @@ local function hurdle(ctx: Ctx, minX: number, maxX: number, zMid: number, thick:
 	table.insert(ctx.out.hurdles, { height = height, before = before, after = after })
 end
 
+-- Water that pushes you toward the outside edge of the tower.
+local function waterStrip(ctx: Ctx, minZ: number, maxZ: number, top: number, speed: number)
+	local id, piece = platform(ctx, -LANE, LANE, minZ, maxZ, top, "current")
+	local dir = DIRS[ctx.side + 1]
+	piece.flowX, piece.flowZ = dir[2], -dir[1] -- local +x = outward
+	piece.flowSpeed = speed
+	return id
+end
+
 local function lava(ctx: Ctx, zFrom: number, zTo: number)
 	add(ctx, "kill", -LANE, LANE, -3, -2, zFrom, zTo)
 end
@@ -377,6 +389,28 @@ local builders: { Builder } = {
 			end
 			ctx.rise = pickRise(ctx, 7, 8)
 			run(ctx, 36, Z1, 2, ctx.rise)
+		end,
+	},
+	{
+		-- Wide steps with strips of rushing water that sweep you off the edge.
+		-- Get swept off and you hang on the chain while your team holds on.
+		name = "Rapids",
+		minDiff = 2,
+		maxDiff = 3,
+		build = function(ctx)
+			ctx.rise = pickRise(ctx, 7, 8)
+			local steps = 4
+			local length = (Z1 - Z0) / steps
+			local speed = if ctx.diff >= 3 then 13 else 10
+			local strip = if ctx.diff >= 3 then 5 else 4
+			for i = 0, steps - 1 do
+				local near = Z0 + i * length
+				local top = ctx.rise * (i + 1) / (steps + 1)
+				local dry = (length - strip) / 2
+				platform(ctx, -LANE, LANE, near, near + dry, top)
+				waterStrip(ctx, near + dry, near + dry + strip, top, speed)
+				platform(ctx, -LANE, LANE, near + dry + strip, near + length, top)
+			end
 		end,
 	},
 	{
