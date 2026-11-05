@@ -625,24 +625,6 @@ local function animateFoam()
 end
 
 -- Reward wings flap gently (on every character that has them).
-local function flapWings()
-	local t = os.clock()
-	for _, p in Players:GetPlayers() do
-		local wings = p.Character and p.Character:FindFirstChild("CT_Wings")
-		if wings then
-			for _, weld in wings:GetDescendants() do
-				if weld:IsA("Weld") and weld.Name == "FlapWeld" then
-					local base = weld:GetAttribute("BaseC0")
-					local side = weld:GetAttribute("Side")
-					if typeof(base) == "CFrame" and type(side) == "number" then
-						weld.C0 = base * CFrame.Angles(0, side * math.sin(t * 3) * 0.3, 0)
-					end
-				end
-			end
-		end
-	end
-end
-
 function Chains.start()
 	-- set up foam and moving platforms for every level (incl. daily rebuilds)
 	Ambience.onArea(function(folder)
@@ -652,7 +634,6 @@ function Chains.start()
 		end
 	end)
 	RunService.RenderStepped:Connect(animateFoam)
-	RunService.RenderStepped:Connect(flapWings)
 	RunService.Heartbeat:Connect(function(dt)
 		applyChain(dt)
 		surfaces(dt)

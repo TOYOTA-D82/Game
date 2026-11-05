@@ -12,6 +12,7 @@ local Calendar = require(Shared.Calendar)
 local Config = require(Shared.Config)
 local Ranking = require(Shared.Ranking)
 local Cosmetics = require(script.Parent.Cosmetics)
+local TrailFx = require(script.Parent.TrailFx)
 local Data = require(script.Parent.Data)
 local Net = require(script.Parent.Net)
 
@@ -368,60 +369,8 @@ function Progress.applyCosmetics(player: Player)
 	if not p or not character then
 		return
 	end
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if not root then
-		return
-	end
-	for _, child in root:GetChildren() do
-		if child.Name == "CT_Trail" or child.Name == "CT_A0" or child.Name == "CT_A1" or child.Name == "CT_Sparkle" then
-			child:Destroy()
-		end
-	end
-
 	local id = if Progress.ownsTrail(player, p.equipped) then p.equipped else "Basic"
-	local trail = trailById[id]
-	if trail then
-		local a0 = Instance.new("Attachment")
-		a0.Name = "CT_A0"
-		a0.Position = Vector3.new(0, 0.7, 0.4)
-		a0.Parent = root
-		local a1 = Instance.new("Attachment")
-		a1.Name = "CT_A1"
-		a1.Position = Vector3.new(0, -1.1, 0.4)
-		a1.Parent = root
-
-		local keypoints = {}
-		for i, c in trail.colors do
-			table.insert(keypoints, ColorSequenceKeypoint.new((i - 1) / math.max(1, #trail.colors - 1), c))
-		end
-		if #keypoints == 1 then
-			table.insert(keypoints, ColorSequenceKeypoint.new(1, trail.colors[1]))
-		end
-		local t = Instance.new("Trail")
-		t.Name = "CT_Trail"
-		t.Attachment0 = a0
-		t.Attachment1 = a1
-		t.Color = ColorSequence.new(keypoints)
-		t.Lifetime = 0.55
-		t.LightEmission = 0.7
-		t.FaceCamera = true
-		t.WidthScale = NumberSequence.new((trail.width or 1), 0.1)
-		t.Transparency = NumberSequence.new(0.1, 1)
-		t.Parent = root
-
-		if trail.sparkles then
-			local e = Instance.new("ParticleEmitter")
-			e.Name = "CT_Sparkle"
-			e.Color = ColorSequence.new(keypoints)
-			e.Rate = 18
-			e.Lifetime = NumberRange.new(0.4, 0.8)
-			e.Speed = NumberRange.new(1, 3)
-			e.SpreadAngle = Vector2.new(180, 180)
-			e.Size = NumberSequence.new(0.35, 0)
-			e.LightEmission = 0.8
-			e.Parent = a1
-		end
-	end
+	TrailFx.apply(character, id)
 
 	local daily = Progress.activeReward(player)
 	local weekly = Progress.activeWeekly(player)

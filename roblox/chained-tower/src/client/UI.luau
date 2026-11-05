@@ -839,7 +839,7 @@ local function refresh()
 			local active = p.event and p.event.trail == trail.id
 			action, color = if active then T("claim") else "🔒", if active then COLORS.green else COLORS.gray
 		end
-		desc = ""
+		desc = T("td_" .. trail.id)
 		c.desc.Text = desc
 		c.action.Text = action
 		c.action.BackgroundColor3 = color

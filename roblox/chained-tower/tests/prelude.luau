@@ -7,7 +7,7 @@ local shared = roblox.Instance.new("Folder")
 shared.Name = "Shared"
 shared.Parent = env.game:GetService("ReplicatedStorage")
 for _, name in { "Instance", "Vector3", "Vector2", "CFrame", "Color3", "UDim", "UDim2", "Enum", "ColorSequence",
-	"ColorSequenceKeypoint", "NumberSequence", "NumberRange", "PhysicalProperties", "BrickColor" } do
+	"ColorSequenceKeypoint", "NumberSequence", "NumberSequenceKeypoint", "NumberRange", "PhysicalProperties", "BrickColor" } do
 	env[name] = roblox[name]
 end
 -- Random stand-in

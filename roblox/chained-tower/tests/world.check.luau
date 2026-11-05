@@ -67,3 +67,41 @@ do
 	assert(not character:FindFirstChild("CT_Wings"), "cleared")
 	print("reward cosmetics: wings x4 looks, halo and crown attach and clear correctly")
 end
+
+-- Every trail builds its own look on a (fake) character
+do
+	local TrailFx = require("./TrailFx")
+	local Config = require("./Config")
+	local Instance = env.Instance
+	local character = Instance.new("Model")
+	local root = Instance.new("Part")
+	root.Name = "HumanoidRootPart"
+	root.Parent = character
+	local seen: { [string]: string } = {}
+	for _, trail in Config.Trails do
+		assert(TrailFx.Looks[trail.id], "trail " .. trail.id .. " has its own look")
+		local ribbon = TrailFx.apply(character, trail.id)
+		assert(ribbon and ribbon.Attachment0 and ribbon.Attachment1, trail.id .. " ribbon")
+		assert(character:GetAttribute("TrailFx") == trail.id, trail.id .. " tells the client which effect to run")
+		local emitters = 0
+		local sig = {}
+		for _, d in root:GetDescendants() do
+			if d.ClassName == "ParticleEmitter" then
+				emitters += 1
+				assert(d:GetAttribute("MoveRate") ~= nil, "emitter has a running rate")
+				table.insert(sig, d.Texture .. d.Parent.Name)
+			end
+		end
+		assert(trail.id == "Basic" or emitters > 0, trail.id .. " has particles")
+		table.sort(sig)
+		local key = table.concat(sig, "|") .. tostring(ribbon.Lifetime) .. tostring(ribbon.WidthScale)
+		assert(not seen[key], trail.id .. " looks the same as " .. tostring(seen[key]))
+		seen[key] = trail.id
+	end
+	local chain = Instance.new("Attachment")
+	chain.Name = "CT_Chain"
+	chain.Parent = root
+	TrailFx.clear(root)
+	assert(#root:GetChildren() == 1 and root:FindFirstChild("CT_Chain"), "trail cleared, chain attachment kept")
+	print(("trails: %d distinct looks build and clear correctly"):format(#Config.Trails))
+end

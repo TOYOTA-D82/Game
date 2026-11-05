@@ -16,8 +16,10 @@ Strings.setLocale(locale)
 
 local Ambience = require(script.Parent.Ambience)
 local Chains = require(script.Parent.Chains)
+local Effects = require(script.Parent.Effects)
 local UI = require(script.Parent.UI)
 
 Ambience.start()
 Chains.start()
+Effects.start()
 UI.start()
