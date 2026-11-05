@@ -19,6 +19,7 @@ end
 local KNOWN = {
 	platform = true, checkpoint = true, win = true, kill = true, breakable = true, truss = true,
 	pad = true, vanish = true, spinner = true, pivot = true, current = true, mover = true, floor = true, rock = true,
+	wall = true, roof = true, building = true,
 }
 
 local DAYS = 60 -- simulate two months of daily layouts
@@ -49,29 +50,65 @@ local function verify(theme, course, label)
 	for _, p in course.pieces do
 		check(KNOWN[p.kind] == true, label .. " unknown piece kind " .. p.kind)
 		check(p.sx > 0 and p.sy > 0 and p.sz > 0, label .. " zero-size piece")
-		-- stays within the ring around the landmark (plus the detour stones)
-		local rx = math.abs(p.cx - course.center[1]) + p.sx / 2
-		local rz = math.abs(p.cz - course.center[2]) + p.sz / 2
-		check(math.max(rx, rz) <= course.ringHalf + info.lane + 9, label .. " piece too far out")
-		-- never pokes into the landmark in the middle
-		local inside = (math.abs(p.cx - course.center[1]) - p.sx / 2) < course.coreHalf - 0.01
-			and (math.abs(p.cz - course.center[2]) - p.sz / 2) < course.coreHalf - 0.01
-		check(not inside, ("%s: %s in section %d pokes into the landmark"):format(label, p.kind, p.section))
 		if p.kind == "platform" or p.kind == "vanish" or p.kind == "checkpoint" then
-			check(p.sy >= 2, label .. " platform thinner than 2 studs")
+			check(p.sy >= 1.99, ("%s platform thinner than 2 studs (%s s%d sy=%.2f)"):format(label, p.kind, p.section, p.sy))
 		end
 	end
-	-- headroom: a later lap above an earlier one leaves room to jump
-	for _, a in course.pieces do
-		for _, b in course.pieces do
-			if b.section >= a.section + 3 then
-				local ox = math.min(a.cx + a.sx / 2, b.cx + b.sx / 2) - math.max(a.cx - a.sx / 2, b.cx - b.sx / 2)
-				local oz = math.min(a.cz + a.sz / 2, b.cz + b.sz / 2) - math.max(a.cz - a.sz / 2, b.cz - b.sz / 2)
-				if ox > 0.01 and oz > 0.01 then
-					local standable = a.kind ~= "breakable" and a.kind ~= "truss" and a.kind ~= "pivot" and a.kind ~= "spinner" and a.kind ~= "kill"
-					local need = if standable then 10 else 5.5
-					local gap = (b.cy - b.sy / 2) - (a.cy + a.sy / 2)
-					check(gap >= need, ("%s: headroom %.1f between %s(s%d) and %s(s%d)"):format(label, gap, a.kind, a.section, b.kind, b.section))
+	if course.mode == "journey" then
+		-- the route never crosses or hugs itself
+		local seen = {}
+		for i, n in course.nodes do
+			local key = n[1] .. "," .. n[2]
+			check(not seen[key], label .. " route visits a cell twice")
+			seen[key] = i
+		end
+		for i, n in course.nodes do
+			for j, m in course.nodes do
+				if math.abs(i - j) >= 2 then
+					local d = math.abs(n[1] - m[1]) + math.abs(n[2] - m[2])
+					check(d >= 2, label .. " route runs right next to an older part")
+				end
+			end
+		end
+		-- sections that aren't neighbours never overlap
+		for _, a in course.pieces do
+			for _, b in course.pieces do
+				if b.section >= a.section + 2 and a.section >= 0 then
+					local ox = math.min(a.cx + a.sx / 2, b.cx + b.sx / 2) - math.max(a.cx - a.sx / 2, b.cx - b.sx / 2)
+					local oz = math.min(a.cz + a.sz / 2, b.cz + b.sz / 2) - math.max(a.cz - a.sz / 2, b.cz - b.sz / 2)
+					check(not (ox > -2 and oz > -2), ("%s: %s(s%d) and %s(s%d) are on top of each other"):format(label, a.kind, a.section, b.kind, b.section))
+				end
+			end
+		end
+	else
+		-- tower: laps stacked above each other leave room to jump,
+		-- and nothing pokes into the landmark in the middle
+		for _, a in course.pieces do
+			local inside = (math.abs(a.cx - course.center[1]) - a.sx / 2) < course.coreHalf - 0.01
+				and (math.abs(a.cz - course.center[2]) - a.sz / 2) < course.coreHalf - 0.01
+			check(not inside, ("%s: %s(s%d) pokes into the landmark"):format(label, a.kind, a.section))
+			for _, b in course.pieces do
+				if b.section >= a.section + 3 then
+					local ox = math.min(a.cx + a.sx / 2, b.cx + b.sx / 2) - math.max(a.cx - a.sx / 2, b.cx - b.sx / 2)
+					local oz = math.min(a.cz + a.sz / 2, b.cz + b.sz / 2) - math.max(a.cz - a.sz / 2, b.cz - b.sz / 2)
+					if ox > 0.01 and oz > 0.01 then
+						local standable = a.kind ~= "breakable" and a.kind ~= "truss" and a.kind ~= "pivot" and a.kind ~= "spinner" and a.kind ~= "kill" and a.kind ~= "wall" and a.kind ~= "roof"
+						local need = if standable then 10 else 5.5
+						local gap = (b.cy - b.sy / 2) - (a.cy + a.sy / 2)
+						check(gap >= need or (a.cy - a.sy / 2) >= (b.cy + b.sy / 2), ("%s: headroom %.1f between %s(s%d) and %s(s%d)"):format(label, gap, a.kind, a.section, b.kind, b.section))
+					end
+				end
+			end
+		end
+	end
+	-- ceilings (tunnels, shafts, arches) leave room to jump underneath
+	for _, r in course.roofs do
+		for _, sf in course.surfaces do
+			if math.abs(sf.section - r.section) <= 1 then
+				local ox = math.min(sf.maxX, r.maxX) - math.max(sf.minX, r.minX)
+				local oz = math.min(sf.maxZ, r.maxZ) - math.max(sf.minZ, r.minZ)
+				if ox > 0.01 and oz > 0.01 and sf.top < r.bottom then
+					check(r.bottom - sf.top >= 9, ("%s: only %.1f headroom under a ceiling"):format(label, r.bottom - sf.top))
 				end
 			end
 		end

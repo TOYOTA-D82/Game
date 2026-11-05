@@ -150,8 +150,9 @@ end
 -- Each level course sits far away from the others so every one feels like its own world.
 function World.levelOrigin(theme: Themes.Theme): { number }
 	local o = hubOrigin(theme.world)
+	-- solo levels line up to the north, team levels to the south, 1800 apart
 	local dir = if theme.world == "solo" then 1 else -1
-	return { o.X + dir * (theme.level - 4.5) * 700, o.Y + 40, o.Z + 500 }
+	return { o.X, o.Y + 40, dir * (4000 + theme.level * 1800) }
 end
 
 ----------------------------------------------------------------------
@@ -777,6 +778,9 @@ local KIND_NAMES = {
 	platform = "Platform",
 	floor = "Platform",
 	rock = "Platform",
+	building = "Platform",
+	wall = "Wall",
+	roof = "Roof",
 	checkpoint = "Checkpoint",
 	win = "Win",
 	kill = "Kill",
@@ -802,6 +806,12 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 
 	local slippery = if theme.slippery then PhysicalProperties.new(0.9, 0.04, 0, 100, 1) else nil
 
+	local midX, midZ = 0, 0
+	for _, c in layout.checkpoints do
+		midX += c[1] / #layout.checkpoints
+		midZ += c[3] / #layout.checkpoints
+	end
+
 	local pivots: { Course.Piece } = {}
 	for _, piece in layout.pieces do
 		if piece.kind == "pivot" then
@@ -816,7 +826,31 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 		local part: BasePart? = nil
 		local color = theme.colors[((piece.section - 1) % #theme.colors) + 1]
 
-		if kind == "rock" then
+		if kind == "building" then
+			-- a building: themed walls, a flat roof you land on, rows of windows
+			local b = makePart({ Size = size, CFrame = cf, Color = theme.landmark.colors[1]:Lerp(color, 0.3), Material = theme.landmark.material })
+			part = b
+			local roofTop = piece.cy + piece.sy / 2
+			decorPart(folder, {
+				Size = Vector3.new(piece.sx + 0.6, 0.5, piece.sz + 0.6),
+				CFrame = CFrame.new(piece.cx, roofTop - 0.2, piece.cz),
+				Color = color,
+				Material = theme.material,
+			})
+			for row = 1, math.floor((piece.sy - 4) / 5) do
+				decorPart(folder, {
+					Size = Vector3.new(piece.sx + 0.1, 1.2, piece.sz + 0.1),
+					CFrame = CFrame.new(piece.cx, roofTop - 2 - row * 5, piece.cz),
+					Color = Color3.fromRGB(255, 235, 170),
+					Material = Enum.Material.Neon,
+					Transparency = 0.55,
+				})
+			end
+		elseif kind == "wall" then
+			part = makePart({ Size = size, CFrame = cf, Color = theme.landmark.colors[1], Material = theme.landmark.material })
+		elseif kind == "roof" then
+			part = makePart({ Size = size, CFrame = cf, Color = theme.landmark.colors[2], Material = theme.landmark.material })
+		elseif kind == "rock" then
 			part = makePart({ Size = size, CFrame = cf, Color = color:Lerp(Color3.fromRGB(80, 75, 85), 0.35), Material = Enum.Material.Rock })
 		elseif kind == "platform" or kind == "floor" then
 			part = makePart({ Size = size, CFrame = cf, Color = color, Material = theme.material })
@@ -849,8 +883,8 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 				trim:SetAttribute("Index", piece.index)
 			end
 			if not isWin then
-				local sx = if piece.cx >= layout.center[1] then 1 else -1
-				local sz = if piece.cz >= layout.center[2] then 1 else -1
+				local sx = if piece.cx >= midX then 1 else -1
+				local sz = if piece.cz >= midZ then 1 else -1
 				local base = Vector3.new(piece.cx + sx * (halfX - 0.8), topY, piece.cz + sz * (halfZ - 0.8))
 				decorPart(folder, {
 					Shape = Enum.PartType.Cylinder,
@@ -940,37 +974,90 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 		end
 	end
 
-	-- Scenery around the climb
+	-- Scenery along the route. Anything that would get in the way of the
+	-- route (or hide a platform) is left out.
 	local decor = Instance.new("Folder")
 	decor.Name = "Decor"
 	decor.Parent = folder
+	local boxes = {}
+	for _, piece in layout.pieces do
+		table.insert(boxes, {
+			piece.cx - piece.sx / 2 - 8,
+			piece.cx + piece.sx / 2 + 8,
+			piece.cy - piece.sy / 2 - 10,
+			piece.cy + piece.sy / 2 + 14,
+			piece.cz - piece.sz / 2 - 8,
+			piece.cz + piece.sz / 2 + 8,
+		})
+	end
+	local function blocksRoute(part: BasePart): boolean
+		local p, h = part.CFrame.Position, part.Size / 2
+		local r = math.max(h.X, h.Y, h.Z) -- rotated parts: use a safe radius
+		for _, b in boxes do
+			if p.X + r > b[1] and p.X - r < b[2] and p.Y + r > b[3] and p.Y - r < b[4] and p.Z + r > b[5] and p.Z - r < b[6] then
+				return true
+			end
+		end
+		return false
+	end
+	local function prune(container: Instance)
+		for _, d in container:GetDescendants() do
+			if d:IsA("BasePart") and blocksRoute(d) then
+				d:Destroy()
+			end
+		end
+	end
+
 	local decorate = decorators[theme.decor]
 	local rng = Random.new(theme.seed + 7)
 	local lane = Themes.Worlds[theme.world].lane
-	local center = Vector3.new(layout.center[1], 0, layout.center[2])
-	local height = layout.top - layout.bottom
 	if decorate then
-		for i = 0, 27 do
-			local a = i / 28 * math.pi * 2 + rng:NextNumber(-0.1, 0.1)
-			local r = layout.ringHalf + lane + rng:NextNumber(14, 42)
-			local y = layout.bottom + rng:NextNumber(-8, height + 4)
-			decorate(decor, center + Vector3.new(math.cos(a) * r, y, math.sin(a) * r), rng)
+		for i = 1, #layout.checkpoints - 1 do
+			local a, b = layout.checkpoints[i], layout.checkpoints[i + 1]
+			local along = Vector3.new(b[1] - a[1], 0, b[3] - a[3])
+			local right = Vector3.new(along.Z, 0, -along.X).Unit
+			for _, t in { 0.25, 0.75 } do
+				local base = Vector3.new(a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t)
+				-- tower levels: only on the outside (the landmark fills the inside)
+				for _, side in (if layout.mode == "tower" then { 1 } else { -1, 1 }) do
+					local pos = base + right * side * rng:NextNumber(lane + 16, lane + 32) + Vector3.new(0, rng:NextNumber(-16, -4), 0)
+					decorate(decor, pos, rng)
+				end
+			end
 		end
+		prune(decor)
+	end
+	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
+	for _, c in layout.checkpoints do
+		minX, maxX = math.min(minX, c[1]), math.max(maxX, c[1])
+		minZ, maxZ = math.min(minZ, c[3]), math.max(maxZ, c[3])
 	end
 	if theme.floor then
 		decorPart(decor, {
 			Name = "Backdrop",
-			Size = Vector3.new(layout.ringHalf * 2 + 320, 2, layout.ringHalf * 2 + 320),
-			CFrame = CFrame.new(center + Vector3.new(0, layout.bottom - 45, 0)),
+			Size = Vector3.new(maxX - minX + 400, 2, maxZ - minZ + 400),
+			CFrame = CFrame.new((minX + maxX) / 2, layout.bottom - 45, (minZ + maxZ) / 2),
 			Color = theme.floor.color,
 			Material = theme.floor.material,
 			Transparency = theme.floor.transparency or 0,
 		})
 	end
 
-	-- The landmark you climb around (solid, so nobody cuts through the middle)
+	-- The landmark you're heading for: a big mountain / station / tower just
+	-- past the finish, visible from far away.
 	local lm = theme.landmark
-	local coreHalf = layout.coreHalf
+	local win = layout.checkpoints[#layout.checkpoints]
+	local fd = Vector3.new(layout.finishDir[1], 0, layout.finishDir[2])
+	local tower = layout.mode == "tower"
+	-- tower levels: the landmark is in the middle of the spiral;
+	-- journeys: it waits just past the finish
+	local coreHalf = if tower then layout.coreHalf elseif theme.world == "team" then 22 else 18
+	local center = if tower
+		then Vector3.new(layout.center[1], 0, layout.center[2])
+		else Vector3.new(win[1], 0, win[3]) + fd * (coreHalf + 16)
+	local landmark = Instance.new("Folder")
+	landmark.Name = "Landmark"
+	landmark.Parent = decor
 	local baseY = layout.bottom - 30
 	local function chunk(y0: number, y1: number, half: number, color: Color3, material: Enum.Material)
 		local h = y1 - y0
@@ -983,14 +1070,13 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 			props.Size = Vector3.new(half * 2, h, half * 2)
 			props.CFrame = CFrame.new(center + Vector3.new(0, (y0 + y1) / 2, 0))
 		end
-		-- not solid: you can't stand on its ledges to skip the route
-		local part = decorPart(decor, props)
+		local part = decorPart(landmark, props)
 		part.Name = "Landmark"
 	end
 	if lm.shape == "taper" then
 		-- mountain / pyramid / cake: tiers getting smaller towards the top
 		local tiers = 7
-		local topY = layout.top + 18
+		local topY = win[2] + 30
 		for t = 0, tiers - 1 do
 			local y0 = baseY + (topY - baseY) * t / tiers
 			local y1 = baseY + (topY - baseY) * (t + 1) / tiers
@@ -1003,7 +1089,7 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 		end
 	else
 		-- tower / lighthouse / station: a striped column with a lit top
-		local topY = layout.top + 10
+		local topY = win[2] + 24
 		local band = 12
 		local y0 = baseY
 		local i = 0
@@ -1013,7 +1099,7 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 			y0 = y1
 			i += 1
 		end
-		decorPart(decor, {
+		decorPart(landmark, {
 			Shape = Enum.PartType.Ball,
 			Size = Vector3.new(coreHalf, coreHalf, coreHalf),
 			CFrame = CFrame.new(center + Vector3.new(0, topY + coreHalf * 0.3, 0)),
@@ -1022,11 +1108,13 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 			Transparency = 0.2,
 		})
 	end
+	if not tower then
+		prune(landmark)
+	end
 
 	-- What waits at the top (on the finish pad)
-	local win = layout.checkpoints[#layout.checkpoints]
 	local goalPos = Vector3.new(win[1], win[2], win[3])
-	local outward = (goalPos - Vector3.new(center.X, goalPos.Y, center.Z)).Unit
+	local outward = if tower then (goalPos - Vector3.new(center.X, goalPos.Y, center.Z)).Unit else fd
 	local goalBase = goalPos + outward * 3
 	if lm.goal == "flag" then
 		decorPart(decor, {

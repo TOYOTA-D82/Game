@@ -442,6 +442,35 @@ local function animateMovers(): { [BasePart]: Vector3 }
 	return deltas
 end
 
+-- Spinner bars knock you flying when they hit you.
+local hitParams = OverlapParams.new()
+hitParams.FilterType = Enum.RaycastFilterType.Include
+local lastFling = 0
+
+local function spinnerHits(me: BasePart, levelsFolder: Instance)
+	if os.clock() - lastFling < 1.2 then
+		return
+	end
+	hitParams.FilterDescendantsInstances = { levelsFolder }
+	for _, part in Workspace:GetPartBoundsInBox(me.CFrame, Vector3.new(4, 6, 4), hitParams) do
+		if part.Name == "Spinner" and not part:GetAttribute("Broken") then
+			lastFling = os.clock()
+			local away = me.Position - part.Position
+			away = Vector3.new(away.X, 0, away.Z)
+			if away.Magnitude < 0.1 then
+				away = Vector3.new(1, 0, 0)
+			end
+			local humanoid = (me.Parent :: Model):FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+			end
+			me.AssemblyLinearVelocity = away.Unit * Config.SpinnerFling + Vector3.new(0, Config.SpinnerFling * 0.7, 0)
+			hint("hintFlung")
+			return
+		end
+	end
+end
+
 local function surfaces(dt: number)
 	local deltas = animateMovers()
 	local me = rootOf(player)
@@ -449,6 +478,7 @@ local function surfaces(dt: number)
 	if not me or not levelsFolder then
 		return
 	end
+	spinnerHits(me, levelsFolder)
 	padParams.FilterDescendantsInstances = { levelsFolder }
 	local hit = Workspace:Raycast(me.Position, Vector3.new(0, -4, 0), padParams)
 	if hit then

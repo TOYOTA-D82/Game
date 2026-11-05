@@ -554,48 +554,87 @@ for i = 1, Config.ChallengesPerDay + 1 do
 end
 
 ----------------------------------------------------------------------
--- Popups: offer skip / out of items
+-- Offer card: slides in from the right side (never blocks the screen),
+-- closes itself after a while, and each kind of offer shows at most once
+-- every few minutes so it never nags.
 ----------------------------------------------------------------------
-local popup = make("Frame", {
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.6),
-	Size = UDim2.fromOffset(380, 150),
-	BackgroundColor3 = COLORS.panel,
-	Visible = false,
-	Parent = gui,
-}, { corner(16), stroke(COLORS.gold, 3) })
-local popupText = text({ Position = UDim2.fromOffset(16, 12), Size = UDim2.new(1, -32, 0, 70), TextWrapped = true, Text = "", Parent = popup })
-local popupYes: () -> () = function() end
-button({
-	Position = UDim2.new(0, 16, 1, -54),
-	Size = UDim2.new(0.5, -24, 0, 42),
-	BackgroundColor3 = COLORS.green,
-	Text = T("buy"),
-	Name = "Yes",
-	Parent = popup,
-}, function()
-	popup.Visible = false
-	popupYes()
-end)
-button({
-	Position = UDim2.new(0.5, 8, 1, -54),
-	Size = UDim2.new(0.5, -24, 0, 42),
-	BackgroundColor3 = COLORS.gray,
-	Text = T("notNow"),
-	Parent = popup,
-}, function()
-	popup.Visible = false
-end)
-local yesButton = popup:FindFirstChild("Yes") :: TextButton
+local OFFER_COOLDOWN = 8 * 60
+local OFFER_SECONDS = 20
+local offerShownAt: { [string]: number } = {}
 
-local function showPopup(message: string, yesLabel: string, onYes: () -> ())
-	popupText.Text = message
-	yesButton.Text = yesLabel
-	popupYes = onYes
-	popup.Visible = true
-	task.delay(8, function()
-		if popupText.Text == message then
-			popup.Visible = false
+local offer = make("Frame", {
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(1, 10, 0.42, 0), -- hidden off-screen to the right
+	Size = UDim2.fromOffset(250, 128),
+	BackgroundColor3 = COLORS.panel,
+	BackgroundTransparency = 0.05,
+	Parent = gui,
+}, { corner(14), stroke(COLORS.gold, 2) })
+local offerTitle = text({ Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -44, 0, 26), TextXAlignment = Enum.TextXAlignment.Left, Text = "", TextColor3 = COLORS.gold, Parent = offer })
+local offerText = text({
+	Position = UDim2.fromOffset(12, 34),
+	Size = UDim2.new(1, -24, 0, 40),
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top,
+	TextWrapped = true,
+	Font = Enum.Font.GothamMedium,
+	TextStrokeTransparency = 1,
+	Text = "",
+	Parent = offer,
+})
+local offerBar = make("Frame", {
+	Position = UDim2.new(0, 12, 1, -6),
+	Size = UDim2.new(1, -24, 0, 3),
+	BackgroundColor3 = COLORS.gold,
+	BorderSizePixel = 0,
+	Parent = offer,
+})
+local offerAction: () -> () = function() end
+local offerButton = button({
+	Position = UDim2.new(0, 12, 1, -46),
+	Size = UDim2.new(1, -24, 0, 34),
+	BackgroundColor3 = COLORS.green,
+	Text = "",
+	Parent = offer,
+}, function()
+	offerAction()
+end)
+
+local offerId = 0
+local function hideOffer()
+	offerId += 1
+	TweenService:Create(offer, TweenInfo.new(0.3), { Position = UDim2.new(1, 10, 0.42, 0) }):Play()
+end
+button({
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -6, 0, 6),
+	Size = UDim2.fromOffset(28, 28),
+	BackgroundColor3 = COLORS.gray,
+	Text = "✕",
+	Parent = offer,
+}, hideOffer)
+
+local function showOffer(kind: string, title: string, message: string, actionLabel: string, onAction: () -> ())
+	local now = os.clock()
+	if offerShownAt[kind] and now - offerShownAt[kind] < OFFER_COOLDOWN then
+		return -- shown recently: don't nag
+	end
+	offerShownAt[kind] = now
+	offerId += 1
+	local myId = offerId
+	offerTitle.Text = title
+	offerText.Text = message
+	offerButton.Text = actionLabel
+	offerAction = function()
+		hideOffer()
+		onAction()
+	end
+	offerBar.Size = UDim2.new(1, -24, 0, 3)
+	TweenService:Create(offer, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Position = UDim2.new(1, -262, 0.42, 0) }):Play()
+	TweenService:Create(offerBar, TweenInfo.new(OFFER_SECONDS, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 0, 3) }):Play()
+	task.delay(OFFER_SECONDS, function()
+		if offerId == myId then
+			hideOffer()
 		end
 	end)
 end
@@ -955,7 +994,7 @@ local function onMessage(kind: string, payload: any)
 		showRules(payload.mode, payload.level)
 	elseif kind == "offerSkip" then
 		local hasSkip = (profile.skip or 0) > 0
-		showPopup(T("offerSkip"), if hasSkip then T("skip") else robux(priceOf("product", "Skip")), function()
+		showOffer("skip", "⏭ " .. T("p_Skip"), T("offerSkip"), if hasSkip then T("skip") else robux(priceOf("product", "Skip")), function()
 			toServer:FireServer("useSkip")
 		end)
 	elseif kind == "promptProduct" then
@@ -966,7 +1005,8 @@ local function onMessage(kind: string, payload: any)
 		if not profile.starterBought then
 			key = "StarterPack"
 		end
-		showPopup(T("noItems", T(if isUnchain then "unchain" else "smash")) .. "\n" .. T("p_" .. key), robux(priceOf("product", key)), function()
+		UI.toast(T("noItems", T(if isUnchain then "unchain" else "smash")))
+		showOffer("items", "💡 " .. T("p_" .. key), T("p_" .. key .. "_d"), robux(priceOf("product", key)), function()
 			UI.buy("product", key)
 		end)
 	elseif kind == "points" then

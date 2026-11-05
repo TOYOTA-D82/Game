@@ -3,13 +3,13 @@
 -- instances, so the tests can build thousands of courses and prove each one is
 -- beatable WITHOUT buying anything.
 --
--- A course is a climb: it spirals up around a big landmark in the middle (a
--- mountain, a space station, a lighthouse...). Every section runs along one
--- side of the square around the landmark, from one corner checkpoint to the
--- next, turning 90 degrees and climbing as it goes. Inside a section we use
--- local coordinates:
---   z: forward along the side, 0 = start corner, SECTION = end corner
---   x: sideways, -lane..lane is the path, + is away from the landmark
+-- A course is a journey to a goal (a mountain top, a space station...). The
+-- route wanders across a grid: each section goes from one checkpoint to the
+-- next, going straight or turning left/right, up or down, and passes through
+-- set pieces (tunnels, rooftops, shafts, arches...). The route never crosses
+-- itself. Inside a section we use local coordinates:
+--   z: forward, 0 = start checkpoint, SECTION = end checkpoint
+--   x: sideways, -lane..lane is the path (+ = right-hand side)
 --   y: height above the start pad
 
 local Themes = require(script.Parent.Themes)
@@ -89,13 +89,16 @@ export type Result = {
 	winSurface: number,
 	builders: { string },
 	walls: { number }, -- heights of the smashable walls (tests check you can't just jump them)
+	roofs: { { minX: number, maxX: number, minZ: number, maxZ: number, bottom: number, section: number } }, -- ceilings (tests check headroom)
 	movers: { { gapBefore: number, gapAfter: number, size: number } },
 	minWidth: number, -- narrowest standable thing (tests check it's not too thin)
 	bottom: number, -- lowest point of the course
-	top: number, -- height of the finish
-	center: { number }, -- x, z of the landmark in the middle
-	coreHalf: number, -- half size of the landmark's solid square
-	ringHalf: number, -- half size of the square the path runs around
+	top: number, -- highest point of the course
+	finishDir: { number }, -- direction of the last section (the goal landmark sits beyond it)
+	nodes: { { number } }, -- grid cell of every checkpoint (tests check the route never crosses itself)
+	mode: string, -- "journey" (wander across the map) or "tower" (spiral up around a landmark)
+	center: { number }, -- tower mode: x, z of the landmark in the middle
+	coreHalf: number, -- tower mode: half size of the landmark's square
 }
 
 Course.Thickness = 2 -- platforms are chunky, not thin slabs
@@ -120,7 +123,7 @@ type Ctx = {
 	ux: number, -- world direction of local +x (away from the landmark)
 	uz: number,
 	oy: number,
-	minRise: number, -- keeps a full lap tall enough so laps never bump heads
+	minRise: number,
 	lane: number,
 	widthScale: number,
 	z0: number, -- where section content starts / ends (pads take the rest)
@@ -210,6 +213,7 @@ type RunOpts = {
 	zigzag: number?, -- alternate x = ±zigzag instead of random jitter
 	kind: string?,
 	pillar: boolean?, -- extend platforms down into tall pillars
+	depth: number?, -- how far pillars go down (default 6)
 	extra: number?, -- add up to this many extra hops
 }
 
@@ -264,7 +268,7 @@ local function run(ctx: Ctx, zFrom: number, zTo: number, yFrom: number, yTo: num
 		local k = o.kind or "platform"
 		table.insert(hops, { x = x, near = near, far = near + s, top = top, width = width })
 		if o.pillar then
-			local piece = add(ctx, k, x - width / 2, x + width / 2, -6, top, near, near + s)
+			local piece = add(ctx, k, x - width / 2, x + width / 2, top - (o.depth or (6 + top)), top, near, near + s)
 			addSurface(ctx.out, piece, k)
 		else
 			platform(ctx, x - width / 2, x + width / 2, near, near + s, top, k)
@@ -444,6 +448,112 @@ builder("Climb", 1, 20, function(ctx)
 	run(ctx, last, ctx.z1, top, ctx.rise, { size = w(ctx, 4.5), maxGap = 3 + ctx.diff * 0.5 })
 end)
 
+-- A ceiling over part of the section (tunnels, shafts, arches).
+local function roof(ctx: Ctx, minX: number, maxX: number, minZ: number, maxZ: number, y: number)
+	local piece = add(ctx, "roof", minX, maxX, y, y + 1.5, minZ, maxZ)
+	table.insert(ctx.out.roofs, {
+		minX = piece.cx - piece.sx / 2,
+		maxX = piece.cx + piece.sx / 2,
+		minZ = piece.cz - piece.sz / 2,
+		maxZ = piece.cz + piece.sz / 2,
+		bottom = piece.cy - piece.sy / 2,
+		section = ctx.section,
+	})
+end
+
+-- Walls with window gaps along both sides of a stretch.
+local function sideWalls(ctx: Ctx, minZ: number, maxZ: number, y0: number, y1: number)
+	local L = ctx.lane
+	local z = minZ
+	while z < maxZ do
+		local z2 = math.min(maxZ, z + 6)
+		for _, side in { -1, 1 } do
+			add(ctx, "wall", if side < 0 then -L - 1.5 else L, if side < 0 then -L else L + 1.5, y0, y1, z, z2)
+		end
+		-- a window: only the lower and upper parts of the wall
+		local w2 = math.min(maxZ, z2 + 3)
+		if w2 > z2 then
+			for _, side in { -1, 1 } do
+				local a, b = if side < 0 then -L - 1.5 else L, if side < 0 then -L else L + 1.5
+				add(ctx, "wall", a, b, y0, y0 + 3.5, z2, w2)
+				add(ctx, "wall", a, b, y1 - 3, y1, z2, w2)
+			end
+		end
+		z = w2
+	end
+end
+
+-- Through a building: walls with windows, a roof, and jumps inside.
+builder("Tunnel", 1, 6, function(ctx)
+	ctx.rise = pickRise(ctx, 2, 5)
+	local inside0, inside1 = 10, ctx.z1 - 6
+	local L = ctx.lane
+	platform(ctx, -L, L, ctx.z0, inside0 + 2, 0)
+	local hops = run(ctx, inside0 + 2, inside1, 0, ctx.rise, { size = w(ctx, 5), maxGap = 3 + ctx.diff * 0.5 })
+	platform(ctx, -L, L, inside1, ctx.z1, ctx.rise)
+	local ceiling = math.max(0, ctx.rise) + 11
+	sideWalls(ctx, inside0, inside1, -2, ceiling)
+	roof(ctx, -L - 1.5, L + 1.5, inside0, inside1, ceiling)
+	if ctx.diff >= 2 and #hops >= 3 then
+		-- a spinner in the middle of the hall
+		local mid = hops[math.ceil(#hops / 2)]
+		local zc = (mid.near + mid.far) / 2
+		local radius = math.min((mid.far - mid.near) / 2 + 2, L - math.abs(mid.x) - 0.5)
+		add(ctx, "pivot", mid.x - 0.6, mid.x + 0.6, mid.top, mid.top + 2.2, zc - 0.6, zc + 0.6)
+		local bar = add(ctx, "spinner", mid.x - 0.5, mid.x + 0.5, mid.top + 0.9, mid.top + 1.9, zc - radius, zc + radius)
+		bar.spinSpeed = 1.6 + ctx.diff * 0.4
+	end
+end)
+
+-- Jumping from roof to roof across a row of buildings of different heights.
+builder("Rooftops", 1, 10, function(ctx)
+	ctx.rise = pickRise(ctx, -2, 8)
+	local size = w(ctx, ({ 7, 6, 5 })[ctx.diff])
+	run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = size, width = w(ctx, 7.5), maxGap = 3 + ctx.diff * 0.6, kind = "building", pillar = true, depth = 22 })
+end)
+
+-- Into a tall shaft through a doorway, up the ladder inside, out at the top.
+builder("Shaft", 2, 18, function(ctx)
+	local L = ctx.lane
+	local top = 14
+	local front, back = 14, 24
+	local aId = platform(ctx, -L, L, ctx.z0, front + 4, 0)
+	add(ctx, "truss", -1, 1, 0, top, front + 4, front + 6)
+	local uId = platform(ctx, -L, L, front + 6, 32, top)
+	link(ctx, aId, uId)
+	-- walls: the front has a doorway at the bottom, the back an opening at the top
+	add(ctx, "wall", -L - 1.5, -L, -2, top + 10, front, back) -- left
+	add(ctx, "wall", L, L + 1.5, -2, top + 10, front, back) -- right
+	add(ctx, "wall", -L, L, 8, top + 10, front, front + 1) -- above the doorway
+	add(ctx, "wall", -L, L, -2, top - Course.Thickness, back - 1, back) -- below the exit
+	roof(ctx, -L - 1.5, L + 1.5, front, back, top + 10)
+	ctx.rise = pickRise(ctx, 15, 18)
+	run(ctx, 32, ctx.z1, top, ctx.rise, { size = w(ctx, 4.5) })
+end)
+
+-- Under a row of arches, over stepping stones.
+builder("Gateway", 1, 8, function(ctx)
+	ctx.rise = pickRise(ctx, 3, 7)
+	local hops = run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = w(ctx, 5.5), maxGap = 3 + ctx.diff * 0.6, extra = 1 })
+	local L = ctx.lane
+	for i, h in hops do
+		if i % 2 == 1 then
+			local zc = (h.near + h.far) / 2
+			for _, side in { -1, 1 } do
+				local x0 = if side < 0 then -L - 2.5 else L + 1
+				add(ctx, "wall", x0, x0 + 1.5, h.top - 8, h.top + 11, zc - 0.75, zc + 0.75)
+			end
+			roof(ctx, -L - 2.5, L + 2.5, zc - 0.75, zc + 0.75, h.top + 11)
+		end
+	end
+end)
+
+-- Going down: jumps onto smaller and smaller ledges below.
+builder("Drop", 1, 0, function(ctx)
+	ctx.rise = -pickRise(ctx, 6, 10)
+	run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = w(ctx, ({ 5, 4.5, 4 })[ctx.diff]), maxGap = 4 + ctx.diff * 0.5, extra = 1 })
+end)
+
 -- Floating rocks scattered at different heights.
 builder("Asteroids", 1, 16, function(ctx)
 	ctx.rise = pickRise(ctx, 7, 9)
@@ -534,14 +644,65 @@ function Course.dailySeed(theme: Themes.Theme, day: number): number
 	return theme.seed + day * 101
 end
 
-local LAP_RISE = 34 -- one full lap (4 sections) climbs at least this much
+local DIRS = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } } -- N, E, S, W on the grid
+local LAP_RISE = 34 -- tower mode: one full lap (4 sections) climbs at least this much
+
+-- The route on the grid: a walk that mostly goes straight, sometimes turns,
+-- never visits a cell twice and never runs right next to itself.
+function Course.walk(count: number, rng: Rng): ({ { number } }, { number })
+	for _ = 1, 200 do
+		local nodes = { { 0, 0 } }
+		local headings = {}
+		local used = { ["0,0"] = true }
+		local heading = 1
+		local ok = true
+		for i = 1, count do
+			local options = {}
+			for _, turn in { 0, 0, 0, 1, -1 } do -- straight is 3x more likely
+				local h = ((heading - 1 + turn) % 4) + 1
+				local last = nodes[#nodes]
+				local nx, nz = last[1] + DIRS[h][1], last[2] + DIRS[h][2]
+				local free = not used[nx .. "," .. nz]
+				-- keep away from older parts of the route (not just the cell itself)
+				for _, d in DIRS do
+					local key = (nx + d[1]) .. "," .. (nz + d[2])
+					if used[key] and not (nx + d[1] == last[1] and nz + d[2] == last[2]) then
+						free = false
+					end
+				end
+				if free then
+					table.insert(options, h)
+				end
+			end
+			if #options == 0 then
+				ok = false
+				break
+			end
+			heading = options[rng:NextInteger(1, #options)]
+			local last = nodes[#nodes]
+			local node = { last[1] + DIRS[heading][1], last[2] + DIRS[heading][2] }
+			table.insert(nodes, node)
+			used[node[1] .. "," .. node[2]] = true
+			headings[i] = heading
+		end
+		if ok then
+			return nodes, headings
+		end
+	end
+	-- (practically never) fall back to a straight line
+	local nodes, headings = { { 0, 0 } }, {}
+	for i = 1, count do
+		table.insert(nodes, { 0, i })
+		headings[i] = 1
+	end
+	return nodes, headings
+end
 
 function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed: number?, sequence: { string }?): Result
 	local sections = sequence or Course.sequenceFor(theme, 0)
 	local worldInfo = Themes.Worlds[theme.world]
 	local cpHalf = worldInfo.checkpoint
 	local SECTION = worldInfo.section
-	local S = SECTION / 2 -- corners of the square are at (±S, ±S) around the landmark
 	local lane = worldInfo.lane
 	local out: Result = {
 		theme = theme,
@@ -555,29 +716,52 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 		winSurface = 0,
 		builders = {},
 		walls = {},
+		roofs = {},
 		movers = {},
 		minWidth = math.huge,
 		bottom = origin[2],
 		top = origin[2],
+		finishDir = { 0, 1 },
+		nodes = {},
+		mode = if theme.layout == "tower" then "tower" else "journey",
 		center = { origin[1], origin[3] },
-		coreHalf = S - lane - 1,
-		ringHalf = S,
+		coreHalf = SECTION / 2 - lane - 4,
 	}
 
-	-- corners go round counter-clockwise; side k runs from corner k to corner k+1
-	local corners = { { -S, -S }, { S, -S }, { S, S }, { -S, S } }
-	local dirs = { { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 } }
+	local count = #sections
+	local tower = out.mode == "tower"
+	local nodes, headings
+	if tower then
+		-- round the four corners of a square around the landmark, again and again
+		local corners = { { -0.5, -0.5 }, { 0.5, -0.5 }, { 0.5, 0.5 }, { -0.5, 0.5 } }
+		local turn = { 2, 1, 4, 3 } -- E, N, W, S
+		nodes, headings = {}, {}
+		for i = 0, count do
+			table.insert(nodes, corners[(i % 4) + 1])
+			if i > 0 then
+				headings[i] = turn[((i - 1) % 4) + 1]
+			end
+		end
+	else
+		nodes, headings = Course.walk(count, rng)
+	end
+	out.nodes = nodes
+
+	local function nodePos(i: number): (number, number)
+		local n = nodes[i + 1]
+		return origin[1] + n[1] * SECTION, origin[3] + n[2] * SECTION
+	end
 
 	local function checkpoint(index: number, top: number, kind: string): number
 		local half = if kind == "win" then cpHalf + 1 else cpHalf
-		local corner = corners[(index % 4) + 1]
+		local x, z = nodePos(index)
 		local piece: Piece = {
 			kind = kind,
 			section = index,
 			index = index,
-			cx = origin[1] + corner[1],
+			cx = x,
 			cy = top - Course.Thickness / 2,
-			cz = origin[3] + corner[2],
+			cz = z,
 			sx = half * 2,
 			sy = Course.Thickness,
 			sz = half * 2,
@@ -589,34 +773,32 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 
 	local y = origin[2]
 	out.startSurface = checkpoint(0, y, "checkpoint")
-	local count = #sections
 	local half = math.ceil(count / 2)
 	local rises: { number } = {}
 	for i = 1, count do
 		local diff = math.clamp(if i <= half then theme.diff[1] else theme.diff[2], 1, 3)
-		local lastThree = 0
-		for back = 1, 3 do
-			lastThree += rises[i - back] or 0
-		end
-		local minRise = if i >= 4 then math.max(0, LAP_RISE - lastThree) else 0
 		local chosen = builders[sections[i]] or builders.Stones
+		-- tower mode: each lap must climb enough that laps never bump heads
+		local minRise = 0
+		if tower and i >= 4 then
+			local lastThree = rises[i - 1] + rises[i - 2] + rises[i - 3]
+			minRise = math.max(0, LAP_RISE - lastThree)
+		end
 		if chosen.maxRise < minRise then
 			chosen = builders.Climb -- this one can always climb high enough
 		end
 		table.insert(out.builders, chosen.name)
-
-		local side = (i - 1) % 4
-		local corner = corners[side + 1]
-		local dir = dirs[side + 1]
+		local x, z = nodePos(i - 1)
+		local dir = DIRS[headings[i]]
 		local ctx: Ctx = {
 			rng = rng,
 			diff = diff,
 			section = i,
-			cx = origin[1] + corner[1],
-			cz = origin[3] + corner[2],
+			cx = x,
+			cz = z,
 			dx = dir[1],
 			dz = dir[2],
-			ux = dir[2], -- outward = direction rotated 90 degrees
+			ux = dir[2], -- right-hand side
 			uz = -dir[1],
 			oy = y,
 			minRise = minRise,
@@ -635,11 +817,12 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 		local id = checkpoint(i, y, kind)
 		if i == count then
 			out.winSurface = id
+			out.finishDir = { dir[1], dir[2] }
 		end
 	end
-	out.top = y
 	for _, p in out.pieces do
 		out.bottom = math.min(out.bottom, p.cy - p.sy / 2)
+		out.top = math.max(out.top, p.cy + p.sy / 2)
 	end
 	return out
 end

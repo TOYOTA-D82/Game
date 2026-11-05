@@ -99,6 +99,7 @@ Config.UnchainSeconds = 12 -- 解除束縛: the whole team is free for this long
 Config.SmashRange = 18 -- 破壞錘: how far in front of you it reaches
 Config.SmashMaxParts = 3
 Config.SmashRespawnSeconds = 12 -- smashed parts grow back after this long
+Config.SpinnerFling = 70 -- how hard a spinner bar knocks you away (sideways speed; up is 70% of it)
 
 -- Free items every day (UTC). VIP gets the bonus on top.
 Config.Daily = {
@@ -115,7 +116,7 @@ Config.Daily = {
 Config.CoinsPerSection = 5
 Config.CoinsForFinish = 50
 Config.VipCoinMultiplier = 2
-Config.OfferSkipAfterFails = 3 -- fail the same section 3 times = offer a skip
+Config.OfferSkipAfterFails = 5 -- fail the same section 5 times = a small skip offer slides in at the side
 
 ----------------------------------------------------------------------
 -- Monetization. Prices here are only shown as a fallback; the real price
