@@ -890,13 +890,11 @@ local function refresh()
 	if (p.weekRewardRank or 0) > 0 and (p.weekRewardLeft or 0) > 0 then
 		table.insert(pointLines, T("weekRewardActive", p.weekRewardRank, Ranking.formatLeft(p.weekRewardLeft)))
 	end
-	local rank = player:GetAttribute("PointsRank")
-	if type(rank) == "number" and rank > 0 then
-		local rates = Config.Points.perMinute
-		table.insert(pointLines, T("rateLine", rank, rates[math.min(rank, #rates)]))
-		if rank < #rates then
-			table.insert(pointLines, T("rateNext", rank + 1, rates[rank + 1]))
-		end
+	local place = player:GetAttribute("PointsPlace")
+	if type(place) == "number" and place > 0 then
+		table.insert(pointLines, T("rateLine", place, Ranking.minuteRate(place)))
+	elseif type(place) == "number" then
+		table.insert(pointLines, T("rateNone", Ranking.minuteRate(nil), Ranking.minuteRate(1)))
 	end
 	if #pointLines == 2 then
 		table.insert(pointLines, T("howToEarn"))

@@ -28,6 +28,40 @@ function Ranking.checkpointPoints(mode: string): number
 	return math.floor(Config.Points.checkpoint * (Config.Points.modeMultiplier[mode] or 1) + 0.5)
 end
 
+-- Points per minute for yesterday's final place (nil / 0 = not placed).
+function Ranking.minuteRate(place: number?): number
+	if place and place > 0 then
+		for _, tier in Config.Points.perMinuteByPlace do
+			if place <= tier.upTo then
+				return tier.points
+			end
+		end
+	end
+	return Config.Points.perMinuteDefault
+end
+
+-- Leaderboard values carry a tie-breaker: same points -> whoever reached
+-- that score earlier in the day/week ranks higher, so there are no ties.
+--   value = points * SCALE + (SCALE - 1 - seconds since the period started)
+local SCALE = 1000000
+function Ranking.encodeScore(points: number, reachedAt: number, periodStart: number): number
+	local elapsed = math.clamp(math.floor(reachedAt - periodStart), 0, SCALE - 1)
+	return math.floor(points) * SCALE + (SCALE - 1 - elapsed)
+end
+
+function Ranking.decodeScore(value: number): number
+	return value // SCALE
+end
+
+-- When a day / week starts (UTC seconds). Matches Calendar.dayNumber/weekNumber.
+function Ranking.dayStart(day: number): number
+	return day * 86400
+end
+
+function Ranking.weekStart(week: number): number
+	return (week * 7 - 3) * 86400
+end
+
 -- Reward for a finishing rank, or nil.
 function Ranking.dailyReward(rank: number?): typeof(Config.DailyRewards[1])?
 	if not rank then

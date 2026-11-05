@@ -31,10 +31,18 @@ Config.StudioUnlockAll = true
 Config.Points = {
 	-- Main source: time. Once you've cleared at least 1 level today, every
 	-- minute gives you points - anywhere in the game, even standing still.
-	-- How many depends on your rank = the highest level you have ever cleared
-	-- (either world): perMinute[1] after clearing level 1 ... perMinute[8].
+	-- How many depends on your FINAL PLACE ON YESTERDAY'S daily board
+	-- (first row that fits; not in yesterday's top 100 = perMinuteDefault).
 	interval = 60,
-	perMinute = { 2, 3, 4, 5, 6, 7, 8, 10 },
+	perMinuteByPlace = {
+		{ upTo = 1, points = 10 },
+		{ upTo = 2, points = 9 },
+		{ upTo = 3, points = 8 },
+		{ upTo = 10, points = 7 },
+		{ upTo = 50, points = 6 },
+		{ upTo = 100, points = 5 },
+	},
+	perMinuteDefault = 4,
 	-- Time away also counts: when you come back you get your rank's points
 	-- for every minute you were gone, up to offlineMaxMinutes per day (so the
 	-- daily ranking isn't just "who left the game open longest").

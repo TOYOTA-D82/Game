@@ -32,18 +32,21 @@ export type Profile = {
 	-- today's daily challenge (reset every UTC day)
 	today: { day: number, solo: WorldDay, team: WorldDay },
 	points: number, -- all points ever earned (just a stat)
-	dayPoints: { id: number, points: number }, -- today's points (id = day number)
-	weekPoints: { id: number, points: number }, -- this week's points (id = week number)
+	dayPoints: PeriodPoints, -- today's points (id = day number)
+	weekPoints: PeriodPoints, -- this week's points (id = week number)
 	pending: { { kind: string, id: number } }, -- days/weeks waiting to be ranked ("day"/"week")
 	rewardRank: number, -- daily top-3 reward rank while active
 	rewardUntil: number, -- os.time() when it ends
 	weekRewardRank: number, -- weekly top-10 reward (wings) rank while active
 	weekRewardUntil: number,
-	bestLevel: number, -- highest level ever cleared (either world) = time-points rank
+	prevDay: { id: number, place: number }, -- final place on a finished day's board (0 = not top 100)
 	lastSeen: number, -- os.time() of the last time-points tick (for time away)
 	lastRate: number, -- points per minute you were earning at that moment (0 = none)
 	offline: { id: number, minutes: number }, -- minutes of time away credited today
 }
+
+-- at: os.time() when `points` was reached (leaderboard tie-breaker)
+export type PeriodPoints = { id: number, points: number, at: number? }
 
 -- cleared: levels cleared in order today; times: best time (seconds) per level
 export type WorldDay = { cleared: number, times: { [string]: number } }
@@ -84,7 +87,7 @@ local function defaults(): Profile
 		rewardUntil = 0,
 		weekRewardRank = 0,
 		weekRewardUntil = 0,
-		bestLevel = 0,
+		prevDay = { id = -1, place = 0 },
 		lastSeen = 0,
 		lastRate = 0,
 		offline = { id = -1, minutes = 0 },

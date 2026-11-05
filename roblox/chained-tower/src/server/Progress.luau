@@ -209,6 +209,8 @@ function Progress.addPoints(player: Player, amount: number, reason: string?)
 	end
 	p.dayPoints.points += amount
 	p.weekPoints.points += amount
+	p.dayPoints.at = os.time()
+	p.weekPoints.at = os.time()
 	p.points += amount
 	addPending(p, "day", d)
 	addPending(p, "week", w)
@@ -225,7 +227,8 @@ local function store(name: string): OrderedDataStore?
 end
 
 local function boardName(kind: string, id: number): string
-	return (if kind == "day" then "Points_Day_%d" else "Points_Week_%d"):format(id)
+	-- V2: values carry a tie-breaker (see Ranking.encodeScore)
+	return (if kind == "day" then "PointsV2_Day_%d" else "PointsV2_Week_%d"):format(id)
 end
 
 -- Upload changed points to the leaderboards every 30 seconds (kind to the limits).
@@ -235,12 +238,14 @@ local function postPoints(player: Player)
 		return
 	end
 	for _, entry in { { "day", p.dayPoints }, { "week", p.weekPoints } } do
-		local kind, rec = entry[1] :: string, entry[2] :: { id: number, points: number }
+		local kind, rec = entry[1] :: string, entry[2] :: Data.PeriodPoints
 		local board = store(boardName(kind, rec.id))
 		if board and rec.points > 0 then
+			local start = if kind == "day" then Ranking.dayStart(rec.id) else Ranking.weekStart(rec.id)
+			local value = Ranking.encodeScore(rec.points, rec.at or os.time(), start)
 			pcall(function()
 				board:UpdateAsync(tostring(player.UserId), function(old)
-					return math.max(old or 0, rec.points)
+					return math.max(old or 0, value)
 				end)
 			end)
 		end
@@ -262,9 +267,6 @@ function Progress.recordClear(player: Player, world: string, level: number, seco
 	local isNew = wd.times[key] == nil
 	if level == wd.cleared + 1 then
 		wd.cleared = level
-	end
-	if level > p.bestLevel then
-		p.bestLevel = level
 	end
 	local best = wd.times[key]
 	if best == nil or seconds < best then
@@ -320,6 +322,9 @@ function Progress.settle(player: Player)
 		local rank = rankOf(entry.kind, entry.id, player.UserId)
 		changed = true
 		local now = os.time()
+		if entry.kind == "day" and entry.id > p.prevDay.id then
+			p.prevDay = { id = entry.id, place = rank or 0 }
+		end
 		if entry.kind == "day" then
 			local reward = Ranking.dailyReward(rank)
 			if reward and rank then
@@ -342,6 +347,7 @@ function Progress.settle(player: Player)
 	end
 	p.pending = remaining
 	if changed then
+		Progress.timeTick(player, false) -- yesterday's place sets today's points per minute
 		Data.markDirty(player)
 		Progress.applyCosmetics(player)
 	end
@@ -482,7 +488,7 @@ local function topOf(kind: string, id: number, count: number): { { name: string,
 	end
 	local list = {}
 	for _, e in (pages :: DataStorePages):GetCurrentPage() do
-		table.insert(list, { name = nameOf(tonumber(e.key) or 0), value = e.value })
+		table.insert(list, { name = nameOf(tonumber(e.key) or 0), value = Ranking.decodeScore(e.value) })
 	end
 	return list
 end
@@ -614,20 +620,27 @@ end
 ----------------------------------------------------------------------
 -- Time points: rank-based points per minute, also for time away
 ----------------------------------------------------------------------
--- Points per minute right now (0 until you clear a level today).
+-- Points per minute right now (0 until you clear a level today), set by
+-- yesterday's final place.
 function Progress.timeRate(player: Player): number
 	local p = Data.get(player)
 	if not p then
 		return 0
 	end
 	Data.refreshDaily(player)
-	-- profiles from before ranks existed: today's clears still count
-	p.bestLevel = math.max(p.bestLevel, p.today.solo.cleared, p.today.team.cleared)
-	if p.today.solo.cleared + p.today.team.cleared <= 0 or p.bestLevel <= 0 then
+	if p.today.solo.cleared + p.today.team.cleared <= 0 then
 		return 0
 	end
-	local rates = Config.Points.perMinute
-	return rates[math.min(p.bestLevel, #rates)]
+	return Ranking.minuteRate(Progress.yesterdayPlace(player))
+end
+
+-- Final place on yesterday's daily board (0 = not in the top 100 / didn't play).
+function Progress.yesterdayPlace(player: Player): number
+	local p = Data.get(player)
+	if p and p.prevDay.id == today() - 1 then
+		return p.prevDay.place
+	end
+	return 0
 end
 
 -- Shows the rate on the HUD and remembers it for time away.
@@ -643,7 +656,7 @@ function Progress.timeTick(player: Player, award: boolean)
 	p.lastSeen = os.time()
 	p.lastRate = rate
 	player:SetAttribute("PointsRate", rate)
-	player:SetAttribute("PointsRank", p.bestLevel)
+	player:SetAttribute("PointsPlace", Progress.yesterdayPlace(player))
 	Data.markDirty(player)
 end
 
