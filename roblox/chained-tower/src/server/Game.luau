@@ -242,6 +242,7 @@ local function finish(team: Team)
 	for _, m in team.members do
 		local got = Progress.addCoins(m, Config.CoinsForFinish * mult, true)
 		local isNew, best = Progress.recordClear(m, theme.world, theme.level, seconds)
+		Progress.timeTick(m, false) -- the HUD shows the new points-per-minute right away
 		local points, fast = Ranking.clearPoints(theme.level, team.mode, seconds, sections, isNew)
 		Progress.addPoints(m, points, if fast then "fast" elseif isNew then "first" else "clear")
 		local p = Data.get(m)
@@ -956,43 +957,18 @@ function Game.start(theLobby: World.Lobby)
 		end
 	end)
 
-	-- Time points: every interval in a level, each player who actually moved
-	-- gets points (standing still / AFK earns nothing). Clients show a countdown.
+	-- Time points: every minute, everyone who has cleared a level today gets
+	-- their rank's points - lobby or level, moving or not (time away is paid
+	-- when they come back, see Progress.creditTimeAway). Clients show a countdown.
 	task.spawn(function()
-		local lastPos: { [Player]: Vector3 } = {}
-		local moved: { [Player]: number } = {}
 		local nextAt = now() + Config.Points.interval
 		Workspace:SetAttribute("NextPointsAt", nextAt)
 		while true do
 			task.wait(1)
-			-- add up how far each player in a level walked
-			for _, team in teams do
-				for _, m in team.members do
-					local root = rootOf(m)
-					if root then
-						local last = lastPos[m]
-						if last then
-							local step = (root.Position - last).Magnitude
-							if step < 40 then -- ignore teleports
-								moved[m] = (moved[m] or 0) + step
-							end
-						end
-						lastPos[m] = root.Position
-					end
-				end
-			end
 			if now() >= nextAt then
-				for _, team in teams do
-					if not team.finished then
-						for _, m in team.members do
-							if (moved[m] or 0) >= Config.Points.minMovePerInterval then
-								Progress.addPoints(m, Config.Points.perInterval, "time")
-							end
-						end
-					end
+				for _, player in Players:GetPlayers() do
+					Progress.timeTick(player, true)
 				end
-				table.clear(moved)
-				table.clear(lastPos)
 				nextAt = now() + Config.Points.interval
 				Workspace:SetAttribute("NextPointsAt", nextAt)
 			end

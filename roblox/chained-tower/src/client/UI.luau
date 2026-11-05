@@ -890,6 +890,14 @@ local function refresh()
 	if (p.weekRewardRank or 0) > 0 and (p.weekRewardLeft or 0) > 0 then
 		table.insert(pointLines, T("weekRewardActive", p.weekRewardRank, Ranking.formatLeft(p.weekRewardLeft)))
 	end
+	local rank = player:GetAttribute("PointsRank")
+	if type(rank) == "number" and rank > 0 then
+		local rates = Config.Points.perMinute
+		table.insert(pointLines, T("rateLine", rank, rates[math.min(rank, #rates)]))
+		if rank < #rates then
+			table.insert(pointLines, T("rateNext", rank + 1, rates[rank + 1]))
+		end
+	end
 	if #pointLines == 2 then
 		table.insert(pointLines, T("howToEarn"))
 	end
@@ -953,11 +961,14 @@ local function tick()
 	elseif type(started) == "number" then
 		clock = "  ⏱ " .. Ranking.formatTime(Workspace:GetServerTimeNow() - started)
 	end
-	-- countdown to the next time points while in a level
+	-- countdown to the next time points (anywhere, once a level is cleared today)
 	local nextAt = Workspace:GetAttribute("NextPointsAt")
+	local rate = player:GetAttribute("PointsRate")
 	local base = T("pointsHud", profile.dayPoints or 0, profile.weekPoints or 0)
-	if inTower and type(nextAt) == "number" then
-		pointsLabel.Text = base .. "  " .. T("nextPoints", Config.Points.perInterval, math.max(0, math.ceil(nextAt - Workspace:GetServerTimeNow())))
+	if type(rate) == "number" and rate > 0 and type(nextAt) == "number" then
+		pointsLabel.Text = base .. "  " .. T("nextPoints", rate, math.max(0, math.ceil(nextAt - Workspace:GetServerTimeNow())))
+	elseif type(rate) == "number" then
+		pointsLabel.Text = base .. "  " .. T("pointsLocked")
 	else
 		pointsLabel.Text = base
 	end
@@ -1026,6 +1037,8 @@ local function onMessage(kind: string, payload: any)
 		end)
 	elseif kind == "points" then
 		pointsPop(payload.amount or 0)
+	elseif kind == "awayPoints" then
+		UI.toast(T("awayPoints", payload.minutes or 0, payload.points or 0), true)
 	elseif kind == "rankResult" then
 		local which = if payload.kind == "week" then T("rankWeek") else T("rankDay")
 		if payload.rank then

@@ -263,6 +263,9 @@ function Progress.recordClear(player: Player, world: string, level: number, seco
 	if level == wd.cleared + 1 then
 		wd.cleared = level
 	end
+	if level > p.bestLevel then
+		p.bestLevel = level
+	end
 	local best = wd.times[key]
 	if best == nil or seconds < best then
 		wd.times[key] = math.floor(seconds * 10 + 0.5) / 10
@@ -608,6 +611,65 @@ function Progress.start()
 end
 
 -- Upload any unsent points right away (called before a player's data is released).
+----------------------------------------------------------------------
+-- Time points: rank-based points per minute, also for time away
+----------------------------------------------------------------------
+-- Points per minute right now (0 until you clear a level today).
+function Progress.timeRate(player: Player): number
+	local p = Data.get(player)
+	if not p then
+		return 0
+	end
+	Data.refreshDaily(player)
+	-- profiles from before ranks existed: today's clears still count
+	p.bestLevel = math.max(p.bestLevel, p.today.solo.cleared, p.today.team.cleared)
+	if p.today.solo.cleared + p.today.team.cleared <= 0 or p.bestLevel <= 0 then
+		return 0
+	end
+	local rates = Config.Points.perMinute
+	return rates[math.min(p.bestLevel, #rates)]
+end
+
+-- Shows the rate on the HUD and remembers it for time away.
+function Progress.timeTick(player: Player, award: boolean)
+	local p = Data.get(player)
+	if not p then
+		return
+	end
+	local rate = Progress.timeRate(player)
+	if award and rate > 0 then
+		Progress.addPoints(player, rate, "time")
+	end
+	p.lastSeen = os.time()
+	p.lastRate = rate
+	player:SetAttribute("PointsRate", rate)
+	player:SetAttribute("PointsRank", p.bestLevel)
+	Data.markDirty(player)
+end
+
+-- On join: points for the minutes you were away, at the rate you had when
+-- you left, capped at Config.Points.offlineMaxMinutes per day.
+function Progress.creditTimeAway(player: Player)
+	local p = Data.get(player)
+	if not p then
+		return
+	end
+	local away = if p.lastSeen > 0 then math.floor((os.time() - p.lastSeen) / 60) else 0
+	if away >= 1 and p.lastRate > 0 then
+		local d = today()
+		if p.offline.id ~= d then
+			p.offline = { id = d, minutes = 0 }
+		end
+		local minutes = math.min(away, Config.Points.offlineMaxMinutes - p.offline.minutes)
+		if minutes > 0 then
+			p.offline.minutes += minutes
+			Progress.addPoints(player, minutes * p.lastRate, "away")
+			Net.send(player, "awayPoints", { minutes = minutes, points = minutes * p.lastRate, rate = p.lastRate })
+		end
+	end
+	Progress.timeTick(player, false)
+end
+
 function Progress.flush(player: Player)
 	if postDirty[player] then
 		postDirty[player] = nil

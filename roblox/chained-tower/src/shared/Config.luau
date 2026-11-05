@@ -29,11 +29,16 @@ Config.StudioUnlockAll = true
 -- separate from the shop: they can't be bought.
 ----------------------------------------------------------------------
 Config.Points = {
-	-- Main source: time played. Every `interval` seconds in a level you get
-	-- `perInterval` points, as long as you actually moved (no AFK farming).
+	-- Main source: time. Once you've cleared at least 1 level today, every
+	-- minute gives you points - anywhere in the game, even standing still.
+	-- How many depends on your rank = the highest level you have ever cleared
+	-- (either world): perMinute[1] after clearing level 1 ... perMinute[8].
 	interval = 60,
-	perInterval = 5,
-	minMovePerInterval = 25, -- studs you must move during the interval
+	perMinute = { 2, 3, 4, 5, 6, 7, 8, 10 },
+	-- Time away also counts: when you come back you get your rank's points
+	-- for every minute you were gone, up to offlineMaxMinutes per day (so the
+	-- daily ranking isn't just "who left the game open longest").
+	offlineMaxMinutes = 8 * 60,
 	-- Bonuses on top:
 	checkpoint = 5, -- each checkpoint you reach
 	clearBase = 20, -- clearing a level: clearBase + clearPerLevel x level

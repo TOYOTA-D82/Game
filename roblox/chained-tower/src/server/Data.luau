@@ -39,6 +39,10 @@ export type Profile = {
 	rewardUntil: number, -- os.time() when it ends
 	weekRewardRank: number, -- weekly top-10 reward (wings) rank while active
 	weekRewardUntil: number,
+	bestLevel: number, -- highest level ever cleared (either world) = time-points rank
+	lastSeen: number, -- os.time() of the last time-points tick (for time away)
+	lastRate: number, -- points per minute you were earning at that moment (0 = none)
+	offline: { id: number, minutes: number }, -- minutes of time away credited today
 }
 
 -- cleared: levels cleared in order today; times: best time (seconds) per level
@@ -80,6 +84,10 @@ local function defaults(): Profile
 		rewardUntil = 0,
 		weekRewardRank = 0,
 		weekRewardUntil = 0,
+		bestLevel = 0,
+		lastSeen = 0,
+		lastRate = 0,
+		offline = { id = -1, minutes = 0 },
 	}
 end
 

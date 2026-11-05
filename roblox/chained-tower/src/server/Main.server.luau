@@ -27,6 +27,7 @@ local function onPlayer(player: Player)
 		return
 	end
 	Shop.checkPasses(player)
+	Progress.creditTimeAway(player)
 	Progress.sync(player)
 	task.spawn(Progress.settle, player) -- points/rewards for days that ended since last visit
 
@@ -47,6 +48,7 @@ for _, player in Players:GetPlayers() do
 end
 
 Players.PlayerRemoving:Connect(function(player)
+	Progress.timeTick(player, false) -- time away starts now
 	Progress.flush(player)
 	Data.release(player)
 end)
