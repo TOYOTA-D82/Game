@@ -27,6 +27,13 @@ Config.Modes = {
 	squad = { maxPlayers = 4, coinMultiplier = 2.0, zoneRadius = 14 },
 }
 Config.ChainPullStrength = 9 -- how hard a tight chain pulls you back
+-- When a teammate hangs off an edge, players still standing get dragged toward
+-- the edge at this speed (studs/s). Walking the other way (16 studs/s) beats it
+-- and hauls the hanging player back up.
+Config.ChainDragSpeed = 6
+Config.ClimbSpeed = 9 -- hold Jump while hanging to climb up the chain
+Config.AllFallSeconds = 2.5 -- the team only resets when NOBODY is standing for this long
+Config.LavaBounce = 48 -- chained players touching lava get bounced up instead of resetting
 Config.HardLimitFactor = 2.6 -- stretch past chainLength * this = server reset
 Config.SquadMinPlayers = 2 -- squad pad starts with 2+ players after the countdown
 Config.SquadCountdown = 10
@@ -42,8 +49,8 @@ Config.SmashRespawnSeconds = 12 -- smashed parts grow back after this long
 
 -- Free items every day (UTC). VIP gets the bonus on top.
 Config.Daily = {
-	unchain = 3,
-	smash = 2,
+	unchain = 2,
+	smash = 1,
 	vipBonusUnchain = 2,
 	vipBonusSmash = 1,
 	premiumBonusUnchain = 1, -- Roblox Premium members also earn you Premium Payouts

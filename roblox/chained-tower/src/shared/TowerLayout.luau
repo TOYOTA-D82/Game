@@ -58,6 +58,9 @@ export type Result = {
 	winSurface: number,
 	height: number,
 	builders: { string },
+	-- breakable obstacles that sit ON the normal route. Each must be jumpable
+	-- (tests check height and run-up room); smashing just makes it easy.
+	hurdles: { { height: number, before: number, after: number } },
 }
 
 local S = Config.TowerHalfSize
@@ -174,7 +177,10 @@ type RunOpts = {
 -- Fill the space between zFrom (far edge of what came before) and zTo (near edge
 -- of what comes next) with hops climbing from yFrom to yTo. Built so every gap
 -- is <= maxGap and every rise <= maxRise, which keeps it beatable by design.
-local function run(ctx: Ctx, zFrom: number, zTo: number, yFrom: number, yTo: number, opts: RunOpts?)
+type Hop = { x: number, near: number, far: number, top: number, width: number }
+
+local function run(ctx: Ctx, zFrom: number, zTo: number, yFrom: number, yTo: number, opts: RunOpts?): { Hop }
+	local hops: { Hop } = {}
 	local o: RunOpts = opts or {}
 	local size = o.size or 5
 	local width = o.width or size
@@ -183,7 +189,7 @@ local function run(ctx: Ctx, zFrom: number, zTo: number, yFrom: number, yTo: num
 	local length = zTo - zFrom
 	local dy = yTo - yFrom
 	if length <= 0 then
-		return
+		return hops
 	end
 
 	local n = math.max(0, math.ceil((length - maxGap) / (size + maxGap)))
@@ -197,7 +203,7 @@ local function run(ctx: Ctx, zFrom: number, zTo: number, yFrom: number, yTo: num
 		end
 	end
 	if n == 0 then
-		return
+		return hops
 	end
 
 	local s = size
@@ -216,6 +222,7 @@ local function run(ctx: Ctx, zFrom: number, zTo: number, yFrom: number, yTo: num
 			x = ctx.rng:NextNumber(-jitter, jitter)
 		end
 		local k = o.kind or "platform"
+		table.insert(hops, { x = x, near = near, far = near + s, top = top, width = width })
 		if o.pillar then
 			local piece = add(ctx, k, x - width / 2, x + width / 2, -6, top, near, near + s)
 			addSurface(ctx.out, piece, k)
@@ -223,6 +230,13 @@ local function run(ctx: Ctx, zFrom: number, zTo: number, yFrom: number, yTo: num
 			platform(ctx, x - width / 2, x + width / 2, near, near + s, top, k)
 		end
 	end
+	return hops
+end
+
+-- A breakable block standing on the route. Players jump over it — or smash it.
+local function hurdle(ctx: Ctx, minX: number, maxX: number, zMid: number, thick: number, top: number, height: number, before: number, after: number)
+	add(ctx, "breakable", minX, maxX, top, top + height, zMid - thick / 2, zMid + thick / 2)
+	table.insert(ctx.out.hurdles, { height = height, before = before, after = after })
 end
 
 local function lava(ctx: Ctx, zFrom: number, zTo: number)
@@ -263,7 +277,16 @@ local builders: { Builder } = {
 		build = function(ctx)
 			ctx.rise = pickRise(ctx, 7, 9)
 			local width = ({ 2.2, 1.8, 1.5 })[ctx.diff]
-			run(ctx, Z0, Z1, 0, ctx.rise, { size = 7, width = width, zigzag = 1.8, maxGap = 2.5, maxRise = 2 })
+			local hops = run(ctx, Z0, Z1, 0, ctx.rise, { size = 7, width = width, zigzag = 1.8, maxGap = 2.5, maxRise = 2 })
+			if ctx.diff >= 2 then
+				-- a post in the middle of every other beam: hop over it, or smash it
+				for i, h in hops do
+					if i % 2 == 0 and h.far - h.near >= 6 then
+						local mid = (h.near + h.far) / 2
+						hurdle(ctx, h.x - 0.6, h.x + 0.6, mid, 1.2, h.top, 2.5 + ctx.diff * 0.5, mid - h.near - 0.6, h.far - mid - 0.6)
+					end
+				end
+			end
 		end,
 	},
 	{
@@ -316,25 +339,25 @@ local builders: { Builder } = {
 		end,
 	},
 	{
-		-- A wall of crates. Climb the ladder and go over the top — or smash it.
-		name = "CrateWall",
+		-- Long planks over lava with a crate on each one. Jump the crates —
+		-- or smash them if the jump is too hard for you.
+		name = "Hurdles",
 		minDiff = 2,
 		maxDiff = 3,
 		build = function(ctx)
-			run(ctx, Z0, 14, 0, 2)
-			local aId = platform(ctx, -LANE, LANE, 14, 24, 2)
-			for _, col in { { -LANE, 0 }, { 0, LANE } } do
-				for _, row in { { 2, 7 }, { 7, 12 } } do
-					blocker(ctx, add(ctx, "breakable", col[1], col[2], row[1], row[2], 24, 28))
-				end
-			end
-			local capId = platform(ctx, -LANE, LANE, 24, 28, 13)
-			add(ctx, "truss", -1, 1, 2, 12, 22, 24)
-			link(ctx, aId, capId)
-			add(ctx, "floor", -LANE, LANE, 1, 2, 24, 28)
-			platform(ctx, -LANE, LANE, 28, 38, 2)
 			ctx.rise = pickRise(ctx, 7, 8)
-			run(ctx, 38, Z1, 2, ctx.rise)
+			lava(ctx, Z0, Z1)
+			local count = 3
+			local length = 9
+			local gap = ((Z1 - Z0) - count * length) / (count + 1)
+			local height = if ctx.diff >= 3 then 4.5 else 3.5
+			for i = 1, count do
+				local near = Z0 + gap * i + length * (i - 1)
+				local top = ctx.rise * i / (count + 1)
+				platform(ctx, -3, 3, near, near + length, top)
+				local mid = near + length / 2
+				hurdle(ctx, -3, 3, mid, 2, top, height, length / 2 - 1, length / 2 - 1)
+			end
 		end,
 	},
 	{
@@ -395,6 +418,7 @@ function Layout.generate(seed: number, rng: Rng, sections: number?): Result
 		winSurface = 0,
 		height = 0,
 		builders = {},
+		hurdles = {},
 	}
 
 	local function checkpoint(index: number, side: number, top: number, kind: string): number

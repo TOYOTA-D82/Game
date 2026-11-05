@@ -34,6 +34,7 @@ local function check(cond: boolean, msg: string)
 end
 
 local usage = {}
+local hurdleCount = 0
 local SEEDS = 600
 local minH, maxH = math.huge, 0
 for seed = 1, SEEDS do
@@ -46,6 +47,14 @@ for seed = 1, SEEDS do
 	-- 1. Beatable with no items: start -> win without smashing anything
 	local ok = Layout.reachable(t)
 	check(ok, ("seed %d not beatable (%s)"):format(seed, table.concat(t.builders, ",")))
+
+	-- 1b. Every breakable obstacle on the route can be jumped by a normal player:
+	--     at most 5 studs tall (jump height is 7.2) with run-up and landing room.
+	for _, h in t.hurdles do
+		check(h.height <= 5, ("seed %d: hurdle too tall (%.1f)"):format(seed, h.height))
+		check(h.before >= 2.5 and h.after >= 2.5, ("seed %d: no room around hurdle"):format(seed))
+	end
+	hurdleCount += #t.hurdles
 
 	-- 2. Checkpoint count
 	check(#t.checkpoints == Config.SectionsPerTower + 1, "checkpoint count seed " .. seed)
@@ -149,6 +158,8 @@ end
 table.sort(names)
 print(("towers: %d, height %d..%d studs"):format(SEEDS, minH, maxH))
 print("section types used: " .. table.concat(names, ", "))
+print(("jumpable breakable obstacles: %d (%.1f per tower)"):format(hurdleCount, hurdleCount / SEEDS))
+check(hurdleCount > SEEDS, "towers should have breakable obstacles on the route")
 if failures > 0 then
 	print(("%d check(s) failed"):format(failures))
 	error("tests failed")

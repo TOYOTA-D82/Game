@@ -297,9 +297,7 @@ function World.buildTower(layout: TowerLayout.Result, accent: Color3?): Tower
 				Color = Color3.fromRGB(190, 120, 70),
 				Material = Enum.Material.Cobblestone,
 			})
-			if math.max(piece.sx, piece.sy, piece.sz) >= 5 then
-				crackIcon(part :: BasePart)
-			end
+			crackIcon(part :: BasePart) -- every smashable block shows a 🔨
 		elseif kind == "truss" then
 			part = makePart({ Size = size, CFrame = cf, Color = Color3.fromRGB(200, 200, 210), Material = Enum.Material.Metal }, "TrussPart")
 		elseif kind == "pad" then

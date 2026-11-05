@@ -27,6 +27,7 @@ type Team = {
 	fails: { [number]: number },
 	finished: boolean,
 	graceUntil: number, -- skip fall checks right after a teleport
+	unsafeSince: number?, -- when the last teammate stopped standing on something
 }
 
 local tower: World.Tower = nil :: any
@@ -241,7 +242,7 @@ local function advance(team: Team, index: number, reward: boolean)
 	end
 end
 
-local function resetTeam(team: Team, who: Player)
+local function resetTeam(team: Team, _who: Player)
 	if team.finished or now() - team.lastReset < Config.SecondsBetweenResets then
 		return
 	end
@@ -250,7 +251,7 @@ local function resetTeam(team: Team, who: Player)
 	local cp = team.checkpoint
 	team.fails[cp] = (team.fails[cp] or 0) + 1
 	if team.mode ~= "solo" then
-		toastTeam(team, "teamFell", { who.DisplayName })
+		toastTeam(team, "teamFell")
 	end
 	if team.fails[cp] % Config.OfferSkipAfterFails == 0 and cp + 1 < tower.winIndex then
 		for _, m in team.members do
@@ -495,10 +496,12 @@ local function wireTower(t: World.Tower)
 		end
 		local kind = part:GetAttribute("Kind")
 		if kind == "Kill" then
+			-- Solo players reset on lava. Chained players bounce (client side) and
+			-- only fail when the whole team is down.
 			part.Touched:Connect(function(hit)
 				local player = Players:GetPlayerFromCharacter(hit.Parent)
 				local team = player and teamOf[player]
-				if player and team then
+				if player and team and team.mode == "solo" then
 					resetTeam(team, player)
 				end
 			end)
@@ -604,35 +607,75 @@ end
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Include
 
+local trussParams = OverlapParams.new()
+trussParams.FilterType = Enum.RaycastFilterType.Include
+
+-- Is this player standing on something (or climbing a ladder)?
+-- Returns "safe", "air" (jumping / hanging on the chain / in lava) or "fallen"
+-- (landed somewhere below the team's checkpoint, which means the chain gave way).
+local function footing(team: Team, root: BasePart, unchained: boolean): string
+	if root.Position.Y < -30 then
+		return "fallen"
+	end
+	local hit = Workspace:Raycast(root.Position, Vector3.new(0, -5, 0), rayParams)
+	if hit then
+		local kind = hit.Instance:GetAttribute("Kind")
+		local section = hit.Instance:GetAttribute("Section")
+		if kind == "Ground" then
+			return "fallen"
+		end
+		if kind == "Kill" then
+			return if team.mode == "solo" then "fallen" else "air"
+		end
+		if not unchained and type(section) == "number" and section >= 0 and section < team.checkpoint then
+			return "fallen"
+		end
+		return "safe"
+	end
+	for _, part in Workspace:GetPartBoundsInRadius(root.Position, 3, trussParams) do
+		if part:GetAttribute("Kind") == "Truss" then
+			return "safe"
+		end
+	end
+	return "air"
+end
+
 local function fallTick()
 	rayParams.FilterDescendantsInstances = { tower.folder, Workspace:FindFirstChild("Lobby") :: Instance }
+	trussParams.FilterDescendantsInstances = { tower.folder }
 	local t = now()
 	for _, team in teams do
 		if team.finished or t < team.graceUntil then
 			continue
 		end
 		local unchained = team.unchainUntil > t
+		local anySafe = false
+		local fallenBy: Player? = nil
 		for _, m in team.members do
 			local root = rootOf(m)
 			if not root then
+				anySafe = true -- respawning; don't count it as a fall
 				continue
 			end
-			if root.Position.Y < -30 then
-				resetTeam(team, m)
-				break
+			local state = footing(team, root, unchained)
+			if state == "safe" then
+				anySafe = true
+			elseif state == "fallen" then
+				fallenBy = m
 			end
-			local hit = Workspace:Raycast(root.Position, Vector3.new(0, -5, 0), rayParams)
-			if hit then
-				local kind = hit.Instance:GetAttribute("Kind")
-				local section = hit.Instance:GetAttribute("Section")
-				if kind == "Kill" or kind == "Ground" then
-					resetTeam(team, m)
-					break
-				end
-				if not unchained and type(section) == "number" and section >= 0 and section < team.checkpoint then
-					resetTeam(team, m)
-					break
-				end
+		end
+		if fallenBy then
+			team.unsafeSince = nil
+			resetTeam(team, fallenBy)
+		elseif #team.members >= 2 then
+			-- one player hanging off an edge is fine; everyone down is a fail
+			if anySafe then
+				team.unsafeSince = nil
+			elseif team.unsafeSince == nil then
+				team.unsafeSince = t
+			elseif t - (team.unsafeSince :: number) >= Config.AllFallSeconds then
+				team.unsafeSince = nil
+				resetTeam(team, team.members[1])
 			end
 		end
 		if team.unchainUntil > 0 and not unchained then

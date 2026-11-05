@@ -8,6 +8,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Shared.Config)
@@ -229,24 +230,80 @@ local function updateVisuals()
 	end
 end
 
--- Velocity-based rope: if you're further than `limit` from the target, your
--- speed away from it is cancelled and you get pulled back in.
-local function pull(root: BasePart, target: Vector3, limit: number, dt: number)
+-- Hints for the UI ("hold jump to climb", ...). UI listens to this.
+local hintEvent = Instance.new("BindableEvent")
+Chains.Hint = hintEvent.Event
+local lastHint: { [string]: number } = {}
+local function hint(key: string)
+	if os.clock() - (lastHint[key] or -100) > 12 then
+		lastHint[key] = os.clock()
+		hintEvent:Fire(key)
+	end
+end
+
+local lastJumpRequest = -100
+UserInputService.JumpRequest:Connect(function()
+	lastJumpRequest = os.clock()
+end)
+
+local function humanoidOf(root: BasePart): Humanoid?
+	return (root.Parent :: Model):FindFirstChildOfClass("Humanoid")
+end
+
+local function isGrounded(root: BasePart): boolean
+	local humanoid = humanoidOf(root)
+	return humanoid ~= nil and humanoid.FloorMaterial ~= Enum.Material.Air
+end
+
+-- Strong rope: if you're further than `limit` from the target, your speed away
+-- from it is cancelled and you get pulled back in (this is what holds a player
+-- who fell off an edge, so they dangle instead of dropping).
+local function yank(root: BasePart, dir: Vector3, over: number, dt: number)
+	local v = root.AssemblyLinearVelocity
+	local radial = v:Dot(dir)
+	local want = math.min(over * Config.ChainPullStrength, 70)
+	if radial < want then
+		root.AssemblyLinearVelocity = v + dir * (want - radial)
+	end
+	-- the humanoid fights velocity changes on the ground, so also nudge directly
+	if over > 2 then
+		root.CFrame += dir * math.min(over - 2, 4) * dt * 8
+	end
+end
+
+-- One rope between me and a target point (partner, or the squad's iron ball).
+local function rope(root: BasePart, target: Vector3, limit: number, dt: number)
 	local offset = target - root.Position
 	local d = offset.Magnitude
 	if d <= limit or d < 0.01 then
 		return
 	end
 	local dir = offset / d
-	local v = root.AssemblyLinearVelocity
-	local radial = v:Dot(dir)
-	local want = math.min((d - limit) * Config.ChainPullStrength, 70)
-	if radial < want then
-		root.AssemblyLinearVelocity = v + dir * (want - radial)
+	local over = d - limit
+	local grounded = isGrounded(root)
+	local targetBelow = target.Y < root.Position.Y - 2
+
+	if grounded and targetBelow and over < 6 then
+		-- Someone is hanging off an edge: their weight drags me slowly toward it.
+		-- Walking the other way is faster than the drag, which hauls them back up.
+		local flat = Vector3.new(dir.X, 0, dir.Z)
+		if flat.Magnitude > 0.05 then
+			root.CFrame += flat.Unit * Config.ChainDragSpeed * dt
+		end
+		hint("hintAnchor")
+		return
 	end
-	-- the humanoid fights velocity changes on the ground, so also nudge directly
-	if d > limit + 2 then
-		root.CFrame += dir * math.min(d - limit - 2, 4) * dt * 8
+
+	yank(root, dir, over, dt)
+	if not grounded and target.Y > root.Position.Y + 1 then
+		-- I'm the one hanging: hold Jump to climb up the chain
+		hint("hintHanging")
+		if os.clock() - lastJumpRequest < 0.3 then
+			local v = root.AssemblyLinearVelocity
+			if v:Dot(dir) < Config.ClimbSpeed then
+				root.AssemblyLinearVelocity = v + dir * (Config.ClimbSpeed - v:Dot(dir))
+			end
+		end
 	end
 end
 
@@ -264,7 +321,7 @@ local function applyChain(dt: number)
 			if m ~= player then
 				local r = rootOf(m)
 				if r then
-					pull(me, r.Position, length, dt)
+					rope(me, r.Position, length, dt)
 				end
 			end
 		end
@@ -279,8 +336,24 @@ local function applyChain(dt: number)
 			end
 		end
 		if n >= 2 then
-			pull(me, sum / n, radius, dt)
+			rope(me, sum / n, radius, dt)
 		end
+	end
+end
+
+-- Lava: solo players are reset by the server. Chained players bounce up instead,
+-- so the team can drag them out.
+local lastLava = 0
+local function lavaBounce(hitPart: Instance, me: BasePart)
+	local folder = Chains.myTeam()
+	if not folder or folder:GetAttribute("Mode") == "solo" or os.clock() - lastLava < 0.4 then
+		return
+	end
+	if hitPart:GetAttribute("Kind") == "Kill" then
+		lastLava = os.clock()
+		local v = me.AssemblyLinearVelocity
+		me.AssemblyLinearVelocity = Vector3.new(v.X * 0.5, Config.LavaBounce, v.Z * 0.5)
+		hint("hintLava")
 	end
 end
 
@@ -291,11 +364,14 @@ local lastPad = 0
 local function jumpPads()
 	local me = rootOf(player)
 	local tower = Workspace:FindFirstChild("Tower")
-	if not me or not tower or os.clock() - lastPad < 0.5 then
+	if not me or not tower or os.clock() - lastPad < 0.3 then
 		return
 	end
 	padParams.FilterDescendantsInstances = { tower }
 	local hit = Workspace:Raycast(me.Position, Vector3.new(0, -4, 0), padParams)
+	if hit then
+		lavaBounce(hit.Instance, me)
+	end
 	if hit and hit.Instance:GetAttribute("Kind") == "JumpPad" then
 		lastPad = os.clock()
 		local boost = hit.Instance:GetAttribute("Boost")

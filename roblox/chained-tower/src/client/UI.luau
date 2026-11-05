@@ -726,6 +726,9 @@ end
 function UI.start()
 	local toClient = net:WaitForChild("ToClient") :: RemoteEvent
 	toClient.OnClientEvent:Connect(onMessage)
+	Chains.Hint:Connect(function(key: string)
+		UI.toast(T(key))
+	end)
 
 	local lobby = Workspace:WaitForChild("Lobby", 30)
 	if lobby then
