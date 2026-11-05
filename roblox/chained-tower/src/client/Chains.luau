@@ -396,19 +396,48 @@ end
 -- Water currents push you along their flow (you own your character's physics,
 -- so this runs here). Walking against it is slow; get swept off and the chain
 -- catches you.
-local function currentPush(hitPart: Instance, me: BasePart, dt: number)
-	if hitPart:GetAttribute("Kind") ~= "Current" then
+-- Once your middle is pushed past the edge the floor ray misses, but your
+-- feet would still hold you on the rim. So the push keeps going for a
+-- moment after you leave (CARRY_SECONDS) and you slide off and fall, unless
+-- you jumped (then you're in control) or you landed on something else.
+local CARRY_SECONDS = 0.6
+local carry: { flow: Vector3, untilAt: number }? = nil
+
+local function currentPush(hitPart: Instance?, me: BasePart, dt: number)
+	local onCurrent = hitPart ~= nil and hitPart:GetAttribute("Kind") == "Current"
+	if onCurrent then
+		local part = hitPart :: Instance
+		local fx = part:GetAttribute("FlowX") :: number? or 0
+		local fz = part:GetAttribute("FlowZ") :: number? or 0
+		local speed = part:GetAttribute("FlowSpeed") :: number? or 10
+		local flow = Vector3.new(fx :: number, 0, fz :: number)
+		if flow.Magnitude < 0.1 then
+			return
+		end
+		local push = flow.Unit * (speed :: number)
+		carry = { flow = push, untilAt = os.clock() + CARRY_SECONDS }
+		me.CFrame += push * dt
+		hint("hintCurrent")
 		return
 	end
-	local fx = hitPart:GetAttribute("FlowX") :: number? or 0
-	local fz = hitPart:GetAttribute("FlowZ") :: number? or 0
-	local speed = hitPart:GetAttribute("FlowSpeed") :: number? or 10
-	local flow = Vector3.new(fx :: number, 0, fz :: number)
-	if flow.Magnitude < 0.1 then
+	local c = carry
+	if not c then
 		return
 	end
-	me.CFrame += flow.Unit * (speed :: number) * dt
-	hint("hintCurrent")
+	local humanoid = (me.Parent :: Model):FindFirstChildOfClass("Humanoid")
+	local jumped = humanoid ~= nil and humanoid:GetState() == Enum.HumanoidStateType.Jumping
+		or me.AssemblyLinearVelocity.Y > 4
+	if hitPart ~= nil or jumped or os.clock() > c.untilAt then
+		carry = nil -- standing on something else, jumped away, or long gone
+		return
+	end
+	-- sliding off the edge: keep being carried out over it
+	me.CFrame += c.flow * dt
+	local v = me.AssemblyLinearVelocity
+	local along = v:Dot(c.flow.Unit)
+	if along < c.flow.Magnitude then
+		me.AssemblyLinearVelocity = v + c.flow.Unit * (c.flow.Magnitude - along)
+	end
 end
 
 local padParams = RaycastParams.new()
@@ -526,8 +555,8 @@ local function surfaces(dt: number)
 	padParams.FilterDescendantsInstances = { levelsFolder }
 	local hit = Workspace:Raycast(me.Position, Vector3.new(0, -4, 0), padParams)
 	slide(me, hit ~= nil and hit.Instance:GetAttribute("Slippery") == true, dt)
+	currentPush(if hit then hit.Instance else nil, me, dt)
 	if hit then
-		currentPush(hit.Instance, me, dt)
 		local delta = deltas[hit.Instance :: BasePart]
 		if delta and delta.Magnitude < 5 then
 			me.CFrame += delta -- ride the moving platform
