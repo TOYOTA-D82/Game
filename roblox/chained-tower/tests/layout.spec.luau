@@ -19,7 +19,7 @@ end
 local KNOWN = {
 	platform = true, checkpoint = true, win = true, kill = true, breakable = true, truss = true,
 	pad = true, vanish = true, spinner = true, pivot = true, current = true, mover = true, floor = true, rock = true,
-	wall = true, roof = true, building = true,
+	wall = true, roof = true, building = true, crumble = true, fragile = true, slide = true, sweeper = true,
 }
 
 local DAYS = 60 -- simulate two months of daily layouts
@@ -42,6 +42,16 @@ local function verify(theme, course, label)
 		check(h >= jump + 2, ("%s: wall %.1f is jumpable (jump %.1f)"):format(label, h, jump))
 	end
 	walls += #course.walls
+	-- the long way round a smashable wall really is long
+	for _, hops in course.detours do
+		check(hops >= 7, label .. " detour too short")
+	end
+	-- sliding walls: the low one can be jumped, the tall one must be dodged
+	for _, sw in course.sweepers do
+		if sw.low then
+			check(sw.height <= 3, label .. " low sliding wall too tall to jump")
+		end
+	end
 	for _, m in course.movers do
 		check(m.gapBefore <= 2 and m.gapAfter <= 2, label .. " mover too far from the platforms")
 		check(m.size >= 6, label .. " mover too small")
@@ -73,10 +83,19 @@ local function verify(theme, course, label)
 		-- sections that aren't neighbours never overlap
 		for _, a in course.pieces do
 			for _, b in course.pieces do
-				if b.section >= a.section + 2 and a.section >= 0 then
+				local shared = a.kind == "checkpoint" or a.kind == "win" or b.kind == "checkpoint" or b.kind == "win"
+			local apart = b.section >= a.section + 2 or (b.section == a.section + 1 and not shared)
+			if apart and a.section >= 0 then
 					local ox = math.min(a.cx + a.sx / 2, b.cx + b.sx / 2) - math.max(a.cx - a.sx / 2, b.cx - b.sx / 2)
 					local oz = math.min(a.cz + a.sz / 2, b.cz + b.sz / 2) - math.max(a.cz - a.sz / 2, b.cz - b.sz / 2)
+					if b.section >= a.section + 2 then
+					-- far apart in the route: never above/below each other at all
 					check(not (ox > -2 and oz > -2), ("%s: %s(s%d) and %s(s%d) are on top of each other"):format(label, a.kind, a.section, b.kind, b.section))
+				else
+					-- neighbours (around a turn): may pass above/below, but never touch
+					local oy = math.min(a.cy + a.sy / 2, b.cy + b.sy / 2) - math.max(a.cy - a.sy / 2, b.cy - b.sy / 2)
+					check(not (ox > 0 and oz > 0 and oy > -3), ("%s: %s(s%d) and %s(s%d) touch"):format(label, a.kind, a.section, b.kind, b.section))
+				end
 				end
 			end
 		end

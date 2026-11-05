@@ -442,6 +442,50 @@ local function animateMovers(): { [BasePart]: Vector3 }
 	return deltas
 end
 
+-- Ice: on slippery floors you keep your momentum. A LinearVelocity on your
+-- root takes over your sideways speed: it only slowly turns towards where
+-- you want to go, so you slide on for a few studs.
+local slideForce: LinearVelocity? = nil
+local slideVel = Vector3.zero
+
+local function slide(me: BasePart, onIce: boolean, dt: number)
+	if not slideForce or slideForce.Parent ~= me then
+		if slideForce then
+			slideForce:Destroy()
+		end
+		local att = me:FindFirstChild("CT_SlideAtt") :: Attachment? or Instance.new("Attachment")
+		;(att :: Attachment).Name = "CT_SlideAtt"
+		;(att :: Attachment).Parent = me
+		local f = Instance.new("LinearVelocity")
+		f.Name = "CT_Slide"
+		f.Attachment0 = att :: Attachment
+		f.RelativeTo = Enum.ActuatorRelativeTo.World
+		f.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+		f.PrimaryTangentAxis = Vector3.xAxis
+		f.SecondaryTangentAxis = Vector3.zAxis
+		f.MaxForce = 1e6
+		f.Enabled = false
+		f.Parent = me
+		slideForce = f
+	end
+	local f = slideForce :: LinearVelocity
+	if not onIce then
+		f.Enabled = false
+		local v = me.AssemblyLinearVelocity
+		slideVel = Vector3.new(v.X, 0, v.Z)
+		return
+	end
+	local humanoid = (me.Parent :: Model):FindFirstChildOfClass("Humanoid")
+	local wish = if humanoid then humanoid.MoveDirection * humanoid.WalkSpeed * 1.25 else Vector3.zero
+	if wish.Magnitude > 0.1 then
+		slideVel = slideVel:Lerp(wish, math.min(1, dt * 1.6)) -- slow to turn or speed up
+	else
+		slideVel *= math.max(0, 1 - dt * 0.35) -- and very slow to stop
+	end
+	f.PlaneVelocity = Vector2.new(slideVel.X, slideVel.Z)
+	f.Enabled = true
+end
+
 -- Spinner bars knock you flying when they hit you.
 local hitParams = OverlapParams.new()
 hitParams.FilterType = Enum.RaycastFilterType.Include
@@ -453,7 +497,7 @@ local function spinnerHits(me: BasePart, levelsFolder: Instance)
 	end
 	hitParams.FilterDescendantsInstances = { levelsFolder }
 	for _, part in Workspace:GetPartBoundsInBox(me.CFrame, Vector3.new(4, 6, 4), hitParams) do
-		if part.Name == "Spinner" and not part:GetAttribute("Broken") then
+		if (part.Name == "Spinner" or part.Name == "Sweeper") and not part:GetAttribute("Broken") then
 			lastFling = os.clock()
 			local away = me.Position - part.Position
 			away = Vector3.new(away.X, 0, away.Z)
@@ -481,6 +525,7 @@ local function surfaces(dt: number)
 	spinnerHits(me, levelsFolder)
 	padParams.FilterDescendantsInstances = { levelsFolder }
 	local hit = Workspace:Raycast(me.Position, Vector3.new(0, -4, 0), padParams)
+	slide(me, hit ~= nil and hit.Instance:GetAttribute("Slippery") == true, dt)
 	if hit then
 		currentPush(hit.Instance, me, dt)
 		local delta = deltas[hit.Instance :: BasePart]
@@ -513,7 +558,8 @@ local function buildFoam(levelFolder: Instance)
 		if not water:IsA("BasePart") then
 			continue
 		end
-		if water:GetAttribute("Kind") == "Mover" then
+		local moving = water:GetAttribute("Kind")
+		if moving == "Mover" or moving == "Sweeper" then
 			local m: Mover = {
 				part = water,
 				base = water:GetAttribute("BasePos") :: Vector3,

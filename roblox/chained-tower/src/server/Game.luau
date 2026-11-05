@@ -616,6 +616,65 @@ local function wireLevel(t: World.Level)
 					burnTeam(team, player)
 				end
 			end)
+		elseif kind == "Crumble" then
+			-- cracks, shakes, then falls apart about a second after someone steps on it
+			local busy = false
+			local original = part.Color
+			local home = part.CFrame
+			part.Touched:Connect(function(hit)
+				if busy or not Players:GetPlayerFromCharacter(hit.Parent) then
+					return
+				end
+				busy = true
+				part.Color = Color3.fromRGB(255, 120, 60)
+				for i = 1, 6 do
+					part.CFrame = home * CFrame.new(math.random(-10, 10) / 60, 0, math.random(-10, 10) / 60)
+					task.wait(0.15)
+					if i == 6 then
+						part.CFrame = home
+					end
+				end
+				part.Transparency = 1
+				part.CanCollide = false
+				task.wait(4)
+				part.Color = original
+				part.Transparency = 0
+				part.CanCollide = true
+				busy = false
+			end)
+		elseif kind == "Fragile" then
+			-- holds two different people; the third one to step on breaks it
+			local stepped: { [Player]: boolean } = {}
+			local count = 0
+			local broken = false
+			local capacity = (part:GetAttribute("Capacity") :: number?) or 2
+			local labelText = part:FindFirstChild("CapacityLabel", true) :: TextLabel?
+			local function show()
+				if labelText then
+					labelText.Text = "👣 " .. tostring(math.max(0, capacity - count))
+				end
+			end
+			part.Touched:Connect(function(hit)
+				local player = Players:GetPlayerFromCharacter(hit.Parent)
+				if broken or not player or stepped[player] then
+					return
+				end
+				stepped[player] = true
+				count += 1
+				show()
+				if count > capacity then
+					broken = true
+					part.Transparency = 1
+					part.CanCollide = false
+					task.wait(6)
+					table.clear(stepped)
+					count = 0
+					part.Transparency = 0.2
+					part.CanCollide = true
+					broken = false
+					show()
+				end
+			end)
 		elseif kind == "Vanish" then
 			local busy = false
 			part.Touched:Connect(function(hit)
@@ -761,6 +820,9 @@ local function footing(team: Team, root: BasePart, unchained: boolean): string
 		local section = hit.Instance:GetAttribute("Section")
 		if kind == "Kill" then
 			return "lava"
+		end
+		if kind == "Scenery" then
+			return "fallen" -- off the route (mountains, trees, buildings in the background)
 		end
 		if not unchained and type(section) == "number" and section >= 0 and section < team.checkpoint then
 			return "fallen"

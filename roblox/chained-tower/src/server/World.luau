@@ -779,6 +779,10 @@ local KIND_NAMES = {
 	floor = "Platform",
 	rock = "Platform",
 	building = "Platform",
+	crumble = "Crumble",
+	fragile = "Fragile",
+	slide = "Slide",
+	sweeper = "Sweeper",
 	wall = "Wall",
 	roof = "Roof",
 	checkpoint = "Checkpoint",
@@ -855,7 +859,8 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 		elseif kind == "platform" or kind == "floor" then
 			part = makePart({ Size = size, CFrame = cf, Color = color, Material = theme.material })
 			if slippery then
-				(part :: BasePart).CustomPhysicalProperties = slippery
+				(part :: BasePart).CustomPhysicalProperties = slippery;
+				(part :: BasePart):SetAttribute("Slippery", true) -- clients add ice momentum
 			end
 		elseif kind == "checkpoint" or kind == "win" then
 			local isWin = kind == "win"
@@ -943,6 +948,41 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 			p:SetAttribute("FlowZ", piece.flowZ or 0)
 			p:SetAttribute("FlowSpeed", piece.flowSpeed or 10)
 			p:SetAttribute("Style", piece.style or "water")
+			part = p
+		elseif kind == "crumble" then
+			-- cracked stone: breaks a moment after you step on it
+			part = makePart({ Size = size, CFrame = cf, Color = color:Lerp(Color3.fromRGB(150, 110, 80), 0.6), Material = Enum.Material.Slate })
+		elseif kind == "fragile" then
+			-- holds two people: the number on top shows how many more it can take
+			local p = makePart({ Size = size, CFrame = cf, Color = Color3.fromRGB(170, 230, 255), Material = Enum.Material.Glass, Transparency = 0.2 })
+			p:SetAttribute("Capacity", 2)
+			local gui = surfaceGui(p, Enum.NormalId.Top, 20)
+			gui.LightInfluence = 0
+			local l = label(gui, "👣 2", 1, Color3.fromRGB(40, 80, 140))
+			l.Name = "CapacityLabel"
+			part = p
+		elseif kind == "slide" then
+			-- slippery ice: you keep sliding
+			local p = makePart({ Size = size, CFrame = cf, Color = Color3.fromRGB(190, 235, 255), Material = Enum.Material.Ice })
+			p:SetAttribute("Slippery", true)
+			part = p
+		elseif kind == "sweeper" then
+			-- a wall that slides at you (low: jump it, tall: step aside)
+			local low = piece.sy <= 3
+			local p = makePart({
+				Size = size,
+				CFrame = cf,
+				Color = if low then Color3.fromRGB(255, 170, 40) else Color3.fromRGB(230, 60, 60),
+				Material = Enum.Material.SmoothPlastic,
+				CanCollide = false, -- hits are handled by knocking you away
+			})
+			local base = Vector3.new(piece.cx, piece.cy, piece.cz)
+			local dir = Vector3.new(piece.moveX or 0, 0, piece.moveZ or 1)
+			p:SetAttribute("Travel", piece.travel or 0)
+			p:SetAttribute("Period", piece.period or 6)
+			p:SetAttribute("BasePos", base)
+			p:SetAttribute("MoveDir", dir)
+			table.insert(movers, { part = p, base = base, dir = dir, travel = piece.travel or 0, period = piece.period or 6 })
 			part = p
 		elseif kind == "mover" then
 			local p = makePart({ Size = size, CFrame = cf, Color = color:Lerp(Color3.fromRGB(255, 220, 90), 0.5), Material = theme.material })
@@ -1075,7 +1115,7 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 	end
 	if lm.shape == "taper" then
 		-- mountain / pyramid / cake: tiers getting smaller towards the top
-		local tiers = 7
+		local tiers = 12
 		local topY = win[2] + 30
 		for t = 0, tiers - 1 do
 			local y0 = baseY + (topY - baseY) * t / tiers
@@ -1108,9 +1148,31 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 			Transparency = 0.2,
 		})
 	end
-	if not tower then
-		prune(landmark)
+	-- rocky landmarks get extra boulders on their slopes so they look natural
+	local boulders = Instance.new("Folder")
+	boulders.Name = "Boulders"
+	boulders.Parent = landmark
+	if lm.shape == "taper" and lm.round then
+		local lrng = Random.new(theme.seed + 99)
+		local topY = win[2] + 30
+		for _ = 1, 14 do
+			local t = lrng:NextNumber(0.05, 0.8)
+			local y = baseY + (topY - baseY) * t
+			local r = coreHalf * (1 - t * 0.7)
+			local a = lrng:NextNumber(0, math.pi * 2)
+			local size = lrng:NextNumber(5, 10)
+			local rr = math.max(0, r - size * 0.6) -- tucked into the slope, not sticking out
+			decorPart(boulders, {
+				Size = Vector3.new(size, size * 0.8, size),
+				CFrame = CFrame.new(center + Vector3.new(math.cos(a) * rr, y, math.sin(a) * rr))
+					* CFrame.Angles(lrng:NextNumber(-0.6, 0.6), a, lrng:NextNumber(-0.6, 0.6)),
+				Color = lm.colors[1]:Lerp(lm.colors[2], t),
+				Material = lm.material,
+			})
+		end
 	end
+	-- never in the way of the route (a tower's core sits right next to it by design)
+	prune(if tower then boulders else landmark)
 
 	-- What waits at the top (on the finish pad)
 	local goalPos = Vector3.new(win[1], win[2], win[3])
@@ -1188,6 +1250,16 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 			Color = Color3.fromRGB(255, 220, 110),
 			Material = Enum.Material.Neon,
 		})
+	end
+
+	-- Scenery is solid (no walking through mountains or falling through trees).
+	-- Standing on it counts as leaving the route, so it can't be used as a shortcut.
+	for _, d in decor:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CanCollide = true
+			d.CanQuery = true
+			d:SetAttribute("Kind", "Scenery")
+		end
 	end
 
 	folder.Parent = parent

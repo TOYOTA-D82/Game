@@ -60,7 +60,7 @@ export type Piece = {
 	style: string?, -- "water" | "belt"
 	travel: number?, -- mover: distance it slides back and forth
 	period: number?, -- mover: seconds for a full back-and-forth
-	moveX: number?, -- mover: direction it slides (world)
+	moveX: number?, -- mover / sweeper: direction it slides (world)
 	moveZ: number?,
 }
 
@@ -91,6 +91,8 @@ export type Result = {
 	walls: { number }, -- heights of the smashable walls (tests check you can't just jump them)
 	roofs: { { minX: number, maxX: number, minZ: number, maxZ: number, bottom: number, section: number } }, -- ceilings (tests check headroom)
 	movers: { { gapBefore: number, gapAfter: number, size: number } },
+	sweepers: { { height: number, low: boolean } }, -- walls that slide at you (low = jump over)
+	detours: { number }, -- how many extra hops the long way round a smashable wall takes
 	minWidth: number, -- narrowest standable thing (tests check it's not too thin)
 	bottom: number, -- lowest point of the course
 	top: number, -- highest point of the course
@@ -124,6 +126,7 @@ type Ctx = {
 	uz: number,
 	oy: number,
 	minRise: number,
+	freeSide: number, -- which side (+1 right / -1 left) has room for a detour loop
 	lane: number,
 	widthScale: number,
 	z0: number, -- where section content starts / ends (pads take the rest)
@@ -378,63 +381,142 @@ builder("Conveyor", 1, 8, function(ctx)
 end)
 
 -- A cracked wall blocks the path. Go round over small stones — or smash it.
-builder("Detour", 2, 8, function(ctx)
+-- The long way round a smashable wall: a big loop of stepping stones out to
+-- the side, forward, and back in — 7 jumps (harder ones crumble or vanish)
+-- against one swing of the hammer.
+local function loopAround(ctx: Ctx, fromZ: number, landZ0: number, landZ1: number, tops: { number })
 	local L = ctx.lane
-	run(ctx, ctx.z0, 14, 0, 3)
-	platform(ctx, -L, L, 14, 24, 3)
-	add(ctx, "floor", -L, L, 3 - Course.Thickness, 3, 24, 26)
-	local h = wallHeight(ctx)
-	blocker(ctx, add(ctx, "breakable", -L, L, 3, 3 + h, 24, 26))
-	table.insert(ctx.out.walls, h)
-	platform(ctx, -L, L, 26, 36, 3)
-	-- the way round: small stones out over the drop (smaller and vanishing when harder)
 	local hard = ctx.diff >= 3
 	local s = w(ctx, if hard then 3 else 3.5)
-	local kind = if hard then "vanish" else "platform"
-	local x0 = L + (if hard then 3 else 2)
-	platform(ctx, x0, x0 + s, 17.5, 17.5 + s, 5, kind)
-	platform(ctx, x0 + 1.5, x0 + 1.5 + s, 23.5, 23.5 + s, 7, kind)
-	platform(ctx, x0, x0 + s, 29.5, 29.5 + s, 5, kind)
-	ctx.rise = pickRise(ctx, 6, 7)
-	run(ctx, 36, ctx.z1, 3, ctx.rise, { size = w(ctx, 5) })
+	local g = 3 + ctx.diff * 0.4 -- gap between stones
+	local step = s + g
+	local x0 = L + g + s / 2
+	local cells = { { 0, 0 }, { 1, 0 }, { 2, 0 }, { 2, 1 }, { 2, 2 }, { 2, 3 }, { 1, 3 }, { 0, 3 } }
+	local side = ctx.freeSide
+	for i, c in cells do
+		local x = side * (x0 + c[1] * step)
+		local z = fromZ + c[2] * step
+		local kind = "platform"
+		if hard and (i == 3 or i == 6) then
+			kind = "crumble"
+		elseif hard and i == 4 then
+			kind = "vanish"
+		end
+		platform(ctx, math.min(x - s / 2, x + s / 2), math.max(x - s / 2, x + s / 2), z - s / 2, z + s / 2, tops[i], kind)
+	end
+	local _ = landZ0 + landZ1
+	table.insert(ctx.out.detours, #cells)
+	return fromZ + 3 * step
+end
+
+-- A cracked wall blocks the path. Smash it — or take the long loop round.
+builder("Detour", 2, 3, function(ctx)
+	local L = ctx.lane
+	local s = w(ctx, if ctx.diff >= 3 then 3 else 3.5)
+	local step = s + 3 + ctx.diff * 0.4
+	local wallZ = 10 + step * 1.5 -- halfway along the loop: far from where it starts and ends
+	platform(ctx, -L, L, ctx.z0, wallZ, 0)
+	local h = wallHeight(ctx)
+	blocker(ctx, add(ctx, "breakable", -L - 3, L + 3, 0, h, wallZ, wallZ + 2)) -- wider than the path: no sneaking round its ends
+	table.insert(ctx.out.walls, h)
+	add(ctx, "floor", -L, L, -Course.Thickness, 0, wallZ, wallZ + 2)
+	local backZ = loopAround(ctx, 10, wallZ + 2, 32, { 1.5, 3, 4.5, 6, 6, 4.5, 3, 1.5 })
+	local _ = backZ
+	platform(ctx, -L, L, wallZ + 2, ctx.z1, 0) -- the landing runs on to the next checkpoint
+	ctx.rise = pickRise(ctx, 1, 3)
 end)
 
--- A narrow bridge blocked by a tall crate wall. Climb the ledges on the
--- outside, go round high up and drop down behind it — or smash it.
-builder("Barricade", 2, 7, function(ctx)
+-- A crate wall on a bridge. Smash it — or climb the long loop up round it.
+builder("Barricade", 2, 3, function(ctx)
 	local L = ctx.lane
-	local h = wallHeight(ctx)
-	platform(ctx, -L, L, ctx.z0, 22, 0)
-	blocker(ctx, add(ctx, "breakable", -L, L, 0, h, 22, 24))
-	table.insert(ctx.out.walls, h)
-	add(ctx, "floor", -L, L, -Course.Thickness, 0, 22, 24)
-	platform(ctx, -L, L, 24, 32, 0)
-	-- ledges zig-zagging up the outside, then a high ledge past the wall
 	local s = w(ctx, if ctx.diff >= 3 then 3 else 3.5)
-	local x = L + 1.5
-	local top = 0
-	local z = 10
-	local depth = 3.4 * ctx.widthScale
-	for i = 1, 3 do
-		top += 2.5
-		local near = 6 + i * (depth + 0.6)
-		local xi = if i % 2 == 1 then x else x + 2
-		platform(ctx, xi, xi + s, near, near + depth, top)
-		z = near + depth
+	local step = s + 3 + ctx.diff * 0.4
+	local wallZ = 10 + step * 1.5
+	local h = wallHeight(ctx)
+	platform(ctx, -L, L, ctx.z0, wallZ, 0)
+	blocker(ctx, add(ctx, "breakable", -L - 3, L + 3, 0, h, wallZ, wallZ + 2)) -- wider than the path: no sneaking round its ends
+	table.insert(ctx.out.walls, h)
+	add(ctx, "floor", -L, L, -Course.Thickness, 0, wallZ, wallZ + 2)
+	local backZ = loopAround(ctx, 10, wallZ + 2, 32, { 2.5, 5, 7.5, 10, 10, 7.5, 5, 2.5 })
+	local _ = backZ
+	platform(ctx, -L, L, wallZ + 2, ctx.z1, 0) -- the landing runs on to the next checkpoint
+	ctx.rise = pickRise(ctx, 1, 3)
+end)
+
+-- Tiles that crumble a moment after you step on them.
+builder("Crumble", 2, 14, function(ctx)
+	ctx.rise = pickRise(ctx, 5, 8)
+	lava(ctx, ctx.z0, ctx.z1)
+	run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = w(ctx, 4.5), maxGap = 3.5 + ctx.diff * 0.3, kind = "crumble" })
+end)
+
+-- Team tiles: each holds two people — the third one to step on breaks it.
+-- Two tiles side by side, so a squad has to split up.
+builder("Fragile", 2, 10, function(ctx)
+	ctx.rise = pickRise(ctx, 4, 7)
+	local s = w(ctx, 3.5)
+	local g = 3 + ctx.diff * 0.3
+	local length = ctx.z1 - ctx.z0
+	local n = math.max(1, math.ceil((length - g) / (s + g)))
+	local gap = (length - n * s) / (n + 1)
+	for i = 1, n do
+		local near = ctx.z0 + gap * i + s * (i - 1)
+		local top = ctx.rise * i / (n + 1)
+		for _, side in { -1, 1 } do
+			local x = side * (s / 2 + 0.6)
+			platform(ctx, x - s / 2, x + s / 2, near, near + s, top, "fragile")
+		end
 	end
-	-- a high ledge past the wall, then drop back down onto the bridge
-	local highStart = z + 1.5
-	platform(ctx, x, x + s, highStart, math.max(highStart + depth, 30), top)
-	ctx.rise = pickRise(ctx, 5, 7)
-	run(ctx, 32, ctx.z1, 0, ctx.rise, { size = w(ctx, 4.5) })
+end)
+
+-- Ice: one step and you slide on for a few studs. Mind the holes.
+builder("Slide", 1, 6, function(ctx)
+	ctx.rise = pickRise(ctx, 2, 5)
+	local L = ctx.lane
+	local strips = 4
+	local hole = 2.5 + ctx.diff * 0.5
+	local length = (ctx.z1 - ctx.z0 - (strips - 1) * hole) / strips
+	for i = 1, strips do
+		local near = ctx.z0 + (i - 1) * (length + hole)
+		local top = ctx.rise * i / (strips + 1)
+		if i % 2 == 0 then
+			-- a hole in the middle: slide down one side or the other
+			local side = (2 * L - hole) / 2
+			platform(ctx, -L, -L + side, near, near + length, top, "slide")
+			platform(ctx, L - side, L, near, near + length, top, "slide")
+		else
+			platform(ctx, -L, L, near, near + length, top, "slide")
+		end
+	end
+end)
+
+-- A long platform with walls sliding at you: jump the low one, dodge the tall one.
+builder("WallRun", 2, 3, function(ctx)
+	local L = ctx.lane
+	ctx.rise = pickRise(ctx, 1, 3)
+	platform(ctx, -L, L, ctx.z0, ctx.z1, 0)
+	local function sweeper(minX: number, maxX: number, height: number, speed: number)
+		local startZ = ctx.z1 - 4
+		local travel = (ctx.z1 - 4) - (ctx.z0 + 6)
+		local piece = add(ctx, "sweeper", minX, maxX, 0.3, 0.3 + height, startZ - 0.75, startZ + 0.75)
+		piece.travel = travel
+		piece.period = travel / speed * 2
+		piece.moveX, piece.moveZ = -ctx.dx, -ctx.dz -- towards the player
+		table.insert(ctx.out.sweepers, { height = height, low = height <= 3 })
+	end
+	sweeper(-L, L, 2.4, 8 + ctx.diff * 2) -- low: jump over it
+	local side = if ctx.rng:NextInteger(0, 1) == 0 then -1 else 1
+	sweeper(if side < 0 then -L else 0.5, if side < 0 then -0.5 else L, 8, 6 + ctx.diff * 2) -- tall: step aside
 end)
 
 -- A rock wall: ledges zig-zag steeply up, then a short run to the next pad.
-builder("Climb", 1, 20, function(ctx)
+builder("Climb", 1, 33, function(ctx)
 	local L = ctx.lane
 	local s = w(ctx, ({ 4.5, 4, 3.6 })[ctx.diff])
 	local xs = { -(L - s / 2), L - s / 2 }
-	local steps = 5
+	local target = pickRise(ctx, 14, 16)
+	-- more ledges when it has to climb higher (never squeezed thinner)
+	local steps = math.clamp(math.ceil((target - 3) / 2.5), 5, 12)
 	local top = 0
 	local depth = 3 * ctx.widthScale
 	for i = 1, steps do
@@ -444,7 +526,7 @@ builder("Climb", 1, 20, function(ctx)
 		platform(ctx, x - s / 2, x + s / 2, near, near + depth, top)
 	end
 	local last = ctx.z0 + 1 + (steps - 1) * 2.4 + depth
-	ctx.rise = math.max(pickRise(ctx, 14, 16), top + 1)
+	ctx.rise = math.max(target, top + 1)
 	run(ctx, last, ctx.z1, top, ctx.rise, { size = w(ctx, 4.5), maxGap = 3 + ctx.diff * 0.5 })
 end)
 
@@ -537,7 +619,8 @@ builder("Gateway", 1, 8, function(ctx)
 	local hops = run(ctx, ctx.z0, ctx.z1, 0, ctx.rise, { size = w(ctx, 5.5), maxGap = 3 + ctx.diff * 0.6, extra = 1 })
 	local L = ctx.lane
 	for i, h in hops do
-		if i % 2 == 1 then
+		-- arches stay away from both ends, where the route may turn a corner
+		if i % 2 == 1 and h.near >= ctx.z0 + L + 2 and h.far <= ctx.z1 - L - 2 then
 			local zc = (h.near + h.far) / 2
 			for _, side in { -1, 1 } do
 				local x0 = if side < 0 then -L - 2.5 else L + 1
@@ -718,6 +801,8 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 		walls = {},
 		roofs = {},
 		movers = {},
+		sweepers = {},
+		detours = {},
 		minWidth = math.huge,
 		bottom = origin[2],
 		top = origin[2],
@@ -802,6 +887,8 @@ function Course.generate(theme: Themes.Theme, origin: { number }, rng: Rng, seed
 			uz = -dir[1],
 			oy = y,
 			minRise = minRise,
+			-- after a right turn the previous section lies on our right: loop left
+			freeSide = if not tower and i > 1 and headings[i] == (headings[i - 1] % 4) + 1 then -1 else 1,
 			lane = lane,
 			widthScale = worldInfo.widthScale,
 			z0 = cpHalf,
