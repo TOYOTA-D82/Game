@@ -12,6 +12,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Ambience = require(script.Parent.Ambience)
 
 local Chains = {}
 
@@ -476,12 +477,9 @@ end
 type Foam = { part: BasePart, origin: Vector3, dir: Vector3, span: number, speed: number, offset: number }
 local foams: { Foam } = {}
 
-local function buildFoam(levelsFolder: Instance)
-	for _, f in foams do
-		f.part:Destroy()
-	end
-	table.clear(foams)
-	for _, water in levelsFolder:GetDescendants() do
+-- Called for each level (also the ones rebuilt every day).
+local function buildFoam(levelFolder: Instance)
+	for _, water in levelFolder:GetDescendants() do
 		if not water:IsA("BasePart") then
 			continue
 		end
@@ -523,7 +521,7 @@ local function buildFoam(levelsFolder: Instance)
 			foam.CanCollide = false
 			foam.CanQuery = false
 			foam.CanTouch = false
-			foam.Parent = visuals
+			foam.Parent = levelFolder -- hidden together with its level
 			table.insert(foams, {
 				part = foam,
 				origin = origin,
@@ -538,22 +536,46 @@ end
 
 local function animateFoam()
 	local t = os.clock()
-	for _, f in foams do
+	for i = #foams, 1, -1 do
+		local f = foams[i]
+		if not f.part.Parent then
+			table.remove(foams, i) -- its level was rebuilt
+			continue
+		end
 		local d = (f.offset + t * f.speed) % f.span
 		f.part.CFrame = CFrame.new(f.origin + f.dir * d)
 	end
 end
 
+-- Reward wings flap gently (on every character that has them).
+local function flapWings()
+	local t = os.clock()
+	for _, p in Players:GetPlayers() do
+		local wings = p.Character and p.Character:FindFirstChild("CT_Wings")
+		if wings then
+			for _, weld in wings:GetDescendants() do
+				if weld:IsA("Weld") and weld.Name == "FlapWeld" then
+					local base = weld:GetAttribute("BaseC0")
+					local side = weld:GetAttribute("Side")
+					if typeof(base) == "CFrame" and type(side) == "number" then
+						weld.C0 = base * CFrame.Angles(0, side * math.sin(t * 3) * 0.3, 0)
+					end
+				end
+			end
+		end
+	end
+end
+
 function Chains.start()
-	-- the levels are built once when the server starts
-	task.spawn(function()
-		local levelsFolder = Workspace:WaitForChild("Levels", 60)
-		if levelsFolder then
+	-- set up foam and moving platforms for every level (incl. daily rebuilds)
+	Ambience.onArea(function(folder)
+		if string.sub(folder.Name, 1, 6) == "Level_" then
 			task.wait(1) -- let the parts replicate
-			buildFoam(levelsFolder)
+			buildFoam(folder)
 		end
 	end)
 	RunService.RenderStepped:Connect(animateFoam)
+	RunService.RenderStepped:Connect(flapWings)
 	RunService.Heartbeat:Connect(function(dt)
 		applyChain(dt)
 		surfaces(dt)

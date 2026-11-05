@@ -144,30 +144,44 @@ end
 check(Calendar.weekNumber(at(2027, 3, 1)) == Calendar.weekNumber(at(2027, 3, 7)), "Mon..Sun same week")
 check(Calendar.weekNumber(at(2027, 3, 7)) ~= Calendar.weekNumber(at(2027, 3, 8)), "new week on Monday")
 
--- Ranking maths
+-- Points and rewards maths
 local Ranking = require("./Ranking")
 do
-	-- more levels beats a faster time
-	check(Ranking.encode(3, 900) > Ranking.encode(2, 60), "more levels ranks higher")
-	-- same levels: faster is higher
-	check(Ranking.encode(5, 300.2) > Ranking.encode(5, 300.3), "faster ranks higher")
-	-- round trip
-	for _, case in { { 1, 12.3 }, { 8, 1834.7 }, { 4, 0 }, { 8, 999999.9 } } do
-		local c, t = Ranking.decode(Ranking.encode(case[1], case[2]))
-		check(c == case[1] and math.abs(t - case[2]) < 0.051, ("decode %d/%.1f -> %d/%.1f"):format(case[1], case[2], c, t))
+	local P = Config.Points
+	-- harder levels are worth more
+	check(Ranking.clearPoints(8, "solo", 999, 6, false) > Ranking.clearPoints(1, "solo", 999, 4, false), "level 8 worth more than level 1")
+	-- first clear of the day doubles
+	local normal = Ranking.clearPoints(3, "solo", 999, 5, false)
+	local first = Ranking.clearPoints(3, "solo", 999, 5, true)
+	check(first == normal * P.firstClearMultiplier, "first clear doubles")
+	-- beating par adds the fast bonus
+	local slow, slowFast = Ranking.clearPoints(3, "solo", 999, 5, false)
+	local fast, isFast = Ranking.clearPoints(3, "solo", 10, 5, false)
+	check(isFast and not slowFast and fast > slow, "fast bonus")
+	-- teams earn a bit more
+	check(Ranking.clearPoints(2, "squad", 999, 4, false) > Ranking.clearPoints(2, "duo", 999, 4, false), "squad > duo")
+	check(Ranking.clearPoints(2, "duo", 999, 4, false) > Ranking.clearPoints(2, "solo", 999, 4, false), "duo > solo")
+	check(Ranking.checkpointPoints("solo") == P.checkpoint, "checkpoint points")
+	-- rewards
+	check(Ranking.dailyReward(1) ~= nil and Ranking.dailyReward(3) ~= nil and Ranking.dailyReward(4) == nil, "daily top 3")
+	check((Ranking.weeklyReward(1) :: any).wings == "Angel", "weekly #1 angel wings")
+	check((Ranking.weeklyReward(7) :: any).wings == "Fairy", "weekly #7 fairy wings")
+	check(Ranking.weeklyReward(11) == nil and Ranking.weeklyReward(nil) == nil, "no wings after 10")
+	for _, r in Config.WeeklyRewards do
+		check(Config.Wings[r.wings] ~= nil, "wing look exists: " .. r.wings)
 	end
-	check(Ranking.encode(0, 50) == 0, "nothing cleared scores 0")
-	-- points go down with rank and never below participation
-	local last = math.huge
-	for rank = 1, 120 do
-		local pts = Ranking.pointsFor(rank)
-		check(pts <= last, "points must not go up with a worse rank (rank " .. rank .. ")")
-		check(pts >= Config.DailyParticipationPoints, "points at least participation")
-		last = pts
+	for _, r in Config.DailyRewards do
+		local found = false
+		for _, t in Config.Trails do
+			if t.id == r.trail and t.source == "reward" then
+				found = true
+			end
+		end
+		check(found, "daily reward trail exists and can't be bought: " .. r.trail)
 	end
-	check(Ranking.pointsFor(1) == 100 and Ranking.pointsFor(2) == 80 and Ranking.pointsFor(3) == 65, "top 3 points")
-	check(Ranking.pointsFor(nil) == Config.DailyParticipationPoints, "participation points")
 	check(Ranking.formatTime(83.4) == "1:23.4", "time format " .. Ranking.formatTime(83.4))
+	check(Ranking.formatLeft(3 * 3600 + 20 * 60) == "3h 20m", "left format " .. Ranking.formatLeft(12000))
+	check(Ranking.formatLeft(5 * 86400 + 4 * 3600) == "5d 4h", "left days")
 end
 
 local names = {}

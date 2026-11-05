@@ -11,6 +11,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage.Shared
 local Calendar = require(Shared.Calendar)
 local Config = require(Shared.Config)
+local Ranking = require(Shared.Ranking)
 local Themes = require(Shared.Themes)
 local Data = require(script.Parent.Data)
 local Net = require(script.Parent.Net)
@@ -33,7 +34,8 @@ type Team = {
 	unsafeSince: number?, -- when the last teammate stopped standing on something
 	burning: boolean, -- lava fire is running along the chain
 	level: World.Level,
-	startedAt: number, -- server time the run started (for the daily ranking)
+	startedAt: number, -- server time the run started
+	lastProgressAt: number, -- last checkpoint reached (active-minute points)
 }
 
 local lobby: World.Lobby = nil :: any
@@ -149,6 +151,7 @@ local function formTeam(players: { Player }, mode: string, level: World.Level)
 		burning = false,
 		level = level,
 		startedAt = now(),
+		lastProgressAt = now(),
 	}
 	folder:SetAttribute("StartedAt", team.startedAt)
 	teams[team.id] = team
@@ -221,9 +224,12 @@ local function finish(team: Team)
 	local mult = Config.Modes[team.mode].coinMultiplier
 	local theme = team.level.theme
 	local hasNext = Themes.forLevel(theme.world, theme.level + 1) ~= nil
+	local sections = team.level.winIndex
 	for _, m in team.members do
 		local got = Progress.addCoins(m, Config.CoinsForFinish * mult, true)
 		local isNew, best = Progress.recordClear(m, theme.world, theme.level, seconds)
+		local points, fast = Ranking.clearPoints(theme.level, team.mode, seconds, sections, isNew)
+		Progress.addPoints(m, points, if fast then "fast" elseif isNew then "first" else "clear")
 		local p = Data.get(m)
 		if p then
 			p.wins += 1
@@ -243,6 +249,7 @@ local function finish(team: Team)
 			coins = got,
 			seconds = seconds,
 			best = best,
+			points = points,
 			unlocked = if isNew and hasNext then (Themes.forLevel(theme.world, theme.level + 1) :: Themes.Theme).id else nil,
 		})
 	end
@@ -259,10 +266,14 @@ local function advance(team: Team, index: number, reward: boolean)
 	end
 	team.checkpoint = index
 	team.fails = {}
+	team.lastProgressAt = now()
 	if reward then
 		local mult = Config.Modes[team.mode].coinMultiplier
 		for _, m in team.members do
 			Progress.addCoins(m, Config.CoinsPerSection * mult, true)
+			if index < team.level.winIndex then
+				Progress.addPoints(m, Ranking.checkpointPoints(team.mode), "checkpoint")
+			end
 			Progress.addStat(m, "sections")
 			if team.mode ~= "solo" then
 				Progress.addStat(m, "teamSections")
@@ -755,10 +766,10 @@ local function fallTick()
 	-- players walking around a world hub who fall off the island
 	for _, player in Players:GetPlayers() do
 		local zone = player:GetAttribute("Zone")
-		if not teamOf[player] and (zone == "solo" or zone == "team") then
+		if not teamOf[player] and (zone == "solo" or zone == "team" or zone == "main") then
 			local root = rootOf(player)
-			if root and root.Position.Y < World.hubSpawn(zone).Position.Y - 40 then
-				toHub(player, zone)
+			if root and root.Position.Y < World.hubSpawn(zone).Position.Y - 45 then
+				toHub(player, zone) -- fell off the island
 			end
 		end
 	end
@@ -868,12 +879,45 @@ function Game.start(theLobby: World.Lobby)
 		end
 	end)
 
-	-- Hand out daily points and top-3 rewards for days that have ended
+	-- Time points: every interval in a level, each player who actually moved
+	-- gets points (standing still / AFK earns nothing). Clients show a countdown.
 	task.spawn(function()
+		local lastPos: { [Player]: Vector3 } = {}
+		local moved: { [Player]: number } = {}
+		local nextAt = now() + Config.Points.interval
+		Workspace:SetAttribute("NextPointsAt", nextAt)
 		while true do
-			task.wait(300)
-			for _, player in Players:GetPlayers() do
-				task.spawn(Progress.settle, player)
+			task.wait(1)
+			-- add up how far each player in a level walked
+			for _, team in teams do
+				for _, m in team.members do
+					local root = rootOf(m)
+					if root then
+						local last = lastPos[m]
+						if last then
+							local step = (root.Position - last).Magnitude
+							if step < 40 then -- ignore teleports
+								moved[m] = (moved[m] or 0) + step
+							end
+						end
+						lastPos[m] = root.Position
+					end
+				end
+			end
+			if now() >= nextAt then
+				for _, team in teams do
+					if not team.finished then
+						for _, m in team.members do
+							if (moved[m] or 0) >= Config.Points.minMovePerInterval then
+								Progress.addPoints(m, Config.Points.perInterval, "time")
+							end
+						end
+					end
+				end
+				table.clear(moved)
+				table.clear(lastPos)
+				nextAt = now() + Config.Points.interval
+				Workspace:SetAttribute("NextPointsAt", nextAt)
 			end
 		end
 	end)

@@ -12,21 +12,23 @@ local Shared = ReplicatedStorage.Shared
 local Config = require(Shared.Config)
 local Course = require(Shared.Course)
 local Themes = require(Shared.Themes)
+local Cosmetics = require(script.Parent.Cosmetics)
 
 local World = {}
 
-World.MainSpawn = CFrame.new(0, 3, -115)
+local C = Vector3.new(0, 0, -100) -- centre of the main lobby plaza
+World.MainSpawn = CFrame.lookAt(C + Vector3.new(0, 3, -38), C + Vector3.new(0, 3, 0))
 
 export type Pad = { part: BasePart, mode: string, world: string, level: number }
 export type Portal = { part: BasePart, target: string }
 export type Lobby = {
 	pads: { Pad },
 	portals: { Portal },
-	soloBoard: SurfaceGui, -- today's solo ranking (lobby, left wall)
-	teamBoard: SurfaceGui, -- today's team ranking (lobby, right wall)
-	pointsBoard: SurfaceGui, -- all-time daily points (lobby, behind the spawn)
-	soloHubBoard: SurfaceGui, -- today's solo ranking again, on the solo island
-	teamHubBoard: SurfaceGui, -- today's team ranking again, on the team island
+	dayBoard: SurfaceGui, -- today's points (lobby, west)
+	weekBoard: SurfaceGui, -- this week's points (lobby, east)
+	soloHubBoard: SurfaceGui, -- today's points again, on the solo island
+	teamHubBoard: SurfaceGui, -- today's points again, on the team island
+	podium: { TextLabel }, -- hall of fame name labels: 1st, 2nd, 3rd
 	sign: TextLabel,
 }
 export type Level = {
@@ -150,72 +152,281 @@ function World.buildLobby(): Lobby
 		atmosphere.Parent = Lighting
 	end
 
+	-- Lobby/Main, Lobby/Hub_solo and Lobby/Hub_team are separate areas; each
+	-- player only sees the one they're in (see client Ambience).
 	local folder = Instance.new("Folder")
 	folder.Name = "Lobby"
 	folder.Parent = Workspace
+	local main = Instance.new("Folder")
+	main.Name = "Main"
+	main.Parent = folder
 
-	local ground = makePart({
-		Name = "Ground",
-		Size = Vector3.new(400, 2, 400),
-		CFrame = CFrame.new(0, -1, -40),
-		Color = Color3.fromRGB(110, 190, 95),
-		Material = Enum.Material.Grass,
-	})
-	ground.Parent = folder
+	local function disc(parent: Instance, center: Vector3, diameter: number, thickness: number, color: Color3, material: Enum.Material, solid: boolean): BasePart
+		local part = makePart({
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(thickness, diameter, diameter),
+			CFrame = CFrame.new(center) * CFrame.Angles(0, 0, math.pi / 2),
+			Color = color,
+			Material = material,
+		})
+		if not solid then
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+		end
+		part.Parent = parent
+		return part
+	end
+
+	-- A floating grass island with a stone plaza in the middle
+	disc(main, C + Vector3.new(0, -1, 0), 190, 2, Color3.fromRGB(110, 190, 95), Enum.Material.Grass, true)
+	disc(main, C + Vector3.new(0, -14, 0), 176, 24, Color3.fromRGB(125, 100, 75), Enum.Material.Rock, false)
+	disc(main, C + Vector3.new(0, -36, 0), 120, 24, Color3.fromRGB(105, 85, 65), Enum.Material.Rock, false)
+	disc(main, C + Vector3.new(0, -56, 0), 60, 20, Color3.fromRGB(90, 75, 60), Enum.Material.Rock, false)
+	disc(main, C + Vector3.new(0, 0.1, 0), 80, 0.4, Color3.fromRGB(205, 200, 215), Enum.Material.Pavement, true)
+	disc(main, C + Vector3.new(0, 0.15, 0), 66, 0.4, Color3.fromRGB(235, 232, 240), Enum.Material.Marble, true)
+
+	-- Fountain
+	disc(main, C + Vector3.new(0, 1, 0), 16, 2, Color3.fromRGB(190, 190, 200), Enum.Material.Marble, true)
+	disc(main, C + Vector3.new(0, 1.8, 0), 14, 0.6, Color3.fromRGB(80, 170, 255), Enum.Material.Glass, false).Transparency = 0.2
 	makePart({
-		Name = "Plaza",
-		Size = Vector3.new(90, 0.4, 70),
-		CFrame = CFrame.new(0, 0.2, -100),
-		Color = Color3.fromRGB(220, 220, 230),
-		Material = Enum.Material.Pavement,
-	}).Parent = folder
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(7, 2, 2),
+		CFrame = CFrame.new(C + Vector3.new(0, 5, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		Color = Color3.fromRGB(200, 200, 210),
+		Material = Enum.Material.Marble,
+	}).Parent = main
+	local top = disc(main, C + Vector3.new(0, 8.5, 0), 6, 1, Color3.fromRGB(200, 200, 210), Enum.Material.Marble, true)
+	local spray = Instance.new("ParticleEmitter")
+	spray.Color = ColorSequence.new(Color3.fromRGB(200, 235, 255), Color3.fromRGB(120, 200, 255))
+	spray.Rate = 60
+	spray.Lifetime = NumberRange.new(1, 1.4)
+	spray.Speed = NumberRange.new(12, 16)
+	spray.SpreadAngle = Vector2.new(12, 12)
+	spray.Acceleration = Vector3.new(0, -30, 0)
+	spray.Size = NumberSequence.new(0.5, 0.2)
+	spray.Transparency = NumberSequence.new(0.2, 1)
+	spray.EmissionDirection = Enum.NormalId.Right -- the disc is rotated: +X points up
+	spray.Parent = top
+
+	-- Paths from the plaza to the two portals
+	for _, side in { -1, 1 } do
+		makePart({
+			Size = Vector3.new(8, 0.3, 26),
+			CFrame = CFrame.new(C + Vector3.new(side * 18, 0.15, 42)) * CFrame.Angles(0, side * 0.35, 0),
+			Color = Color3.fromRGB(215, 205, 190),
+			Material = Enum.Material.Pavement,
+		}).Parent = main
+	end
 
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "LobbySpawn"
 	spawn.Anchored = true
 	spawn.Size = Vector3.new(12, 1, 12)
-	spawn.CFrame = CFrame.new(0, 0.5, -115) * CFrame.Angles(0, math.pi, 0)
+	spawn.CFrame = CFrame.new(C + Vector3.new(0, 0.5, -38)) * CFrame.Angles(0, math.pi, 0)
 	spawn.Neutral = true
 	spawn.Duration = 0
 	spawn.Color = Color3.fromRGB(255, 255, 255)
 	spawn.Material = Enum.Material.SmoothPlastic
 	spawn.TopSurface = Enum.SurfaceType.Smooth
-	spawn.Parent = folder
+	spawn.Parent = main
 
 	local portals: { Portal } = {}
-	local function portal(parent: Instance, pos: Vector3, target: string, color: Color3)
-		local pad = gate(parent, pos, 12, color)
+	local function portal(parent: Instance, pos: Vector3, target: string, color: Color3, size: number?)
+		local pad = gate(parent, pos, size or 12, color)
 		pad.Name = "Portal_" .. target
 		pad:SetAttribute("Kind", "Portal")
 		pad:SetAttribute("Target", target)
 		table.insert(portals, { part = pad, target = target })
 	end
-	portal(folder, Vector3.new(-20, 0.5, -86), "solo", Color3.fromRGB(90, 170, 255))
-	portal(folder, Vector3.new(20, 0.5, -86), "team", Color3.fromRGB(180, 90, 255))
+	portal(main, C + Vector3.new(-26, 0.5, 52), "solo", Color3.fromRGB(90, 170, 255), 14)
+	portal(main, C + Vector3.new(26, 0.5, 52), "team", Color3.fromRGB(180, 90, 255), 14)
+	-- glowing rings floating over the portals
+	for _, info in { { -26, Color3.fromRGB(90, 170, 255) }, { 26, Color3.fromRGB(180, 90, 255) } } do
+		local ring = decorPart(main, {
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.6, 16, 16),
+			CFrame = CFrame.new(C + Vector3.new(info[1] :: number, 22, 52)) * CFrame.Angles(0, math.pi / 2, 0),
+			Color = info[2],
+			Material = Enum.Material.Neon,
+			Transparency = 0.35,
+		})
+		ring.Name = "PortalRing"
+	end
 
-	-- Title sign
+	-- Title sign high above the portals
 	local sign = makePart({
 		Name = "Sign",
-		Size = Vector3.new(34, 9, 1),
-		CFrame = CFrame.new(0, 16, -66),
+		Size = Vector3.new(40, 10, 1),
+		CFrame = CFrame.new(C + Vector3.new(0, 30, 62)),
 		Color = Color3.fromRGB(40, 40, 60),
 	})
-	sign.Parent = folder
+	sign.Parent = main
 	local signGui = surfaceGui(sign, Enum.NormalId.Front, 30)
 	label(signGui, "CHAINED TOWER  綁腳塔", 0.6, Color3.fromRGB(255, 220, 90))
 	local eventLine = label(signGui, "", 0.4, Color3.fromRGB(255, 255, 255))
 	eventLine.Position = UDim2.fromScale(0, 0.6)
 
-	-- Two weekly leaderboards: solo on the left wall, teams on the right wall
+	-- How to play (next to the spawn)
+	local howTo = makePart({
+		Name = "HowToPlay",
+		Size = Vector3.new(16, 10, 0.6),
+		CFrame = CFrame.new(C + Vector3.new(-17, 6, -30)) * CFrame.Angles(0, 0.35, 0),
+		Color = Color3.fromRGB(45, 50, 70),
+	})
+	howTo.Parent = main
+	local howGui = surfaceGui(howTo, Enum.NormalId.Front, 25)
+	local howText = label(
+		howGui,
+		"HOW TO PLAY 玩法\n🧍 Blue portal: solo world 單人世界\n🔗 Purple portal: team world 組隊世界\n⭐ Earn points every level 每關都有積分\n👑 Daily top 3 · 🪽 weekly top 10 wings",
+		1,
+		Color3.new(1, 1, 1)
+	)
+	howText.TextWrapped = true
+
+	-- Leaderboards on stands: today (west) and this week (east)
 	local function makeBoard(parent: Instance, name: string, cf: CFrame, size: Vector3, face: Enum.NormalId, color: Color3): SurfaceGui
 		local boardPart = makePart({ Name = name, Size = size, CFrame = cf, Color = color })
 		boardPart.Parent = parent
 		return surfaceGui(boardPart, face, 25)
 	end
-	local sideSize = Vector3.new(1, 14, 18)
-	local soloBoard = makeBoard(folder, "SoloLeaderboard", CFrame.new(-42, 8, -105), sideSize, Enum.NormalId.Right, Color3.fromRGB(25, 45, 70))
-	local teamBoard = makeBoard(folder, "TeamLeaderboard", CFrame.new(42, 8, -105), sideSize, Enum.NormalId.Left, Color3.fromRGB(55, 30, 70))
-	local pointsBoard = makeBoard(folder, "PointsLeaderboard", CFrame.new(0, 9, -134), Vector3.new(20, 14, 1), Enum.NormalId.Back, Color3.fromRGB(60, 45, 20))
+	local function boardStand(x: number, color: Color3, face: Enum.NormalId, name: string): SurfaceGui
+		for _, dz in { -9.5, 9.5 } do
+			makePart({
+				Size = Vector3.new(1.4, 20, 1.4),
+				CFrame = CFrame.new(C + Vector3.new(x, 10, dz)),
+				Color = Color3.fromRGB(90, 80, 70),
+				Material = Enum.Material.Wood,
+			}).Parent = main
+		end
+		return makeBoard(main, name, CFrame.new(C + Vector3.new(x, 11, 0)), Vector3.new(1, 16, 18), face, color)
+	end
+	local dayBoard = boardStand(-46, Color3.fromRGB(30, 45, 80), Enum.NormalId.Right, "DayLeaderboard")
+	local weekBoard = boardStand(46, Color3.fromRGB(60, 35, 80), Enum.NormalId.Left, "WeekLeaderboard")
+
+	-- Hall of fame podium: last week's top 3
+	local podium: { TextLabel } = {}
+	local podiumBase = C + Vector3.new(30, 0, -22)
+	local steps = {
+		{ x = 0, h = 4, color = Color3.fromRGB(255, 205, 60) },
+		{ x = -6, h = 3, color = Color3.fromRGB(205, 210, 225) },
+		{ x = 6, h = 2, color = Color3.fromRGB(215, 140, 80) },
+	}
+	for rank, step in steps do
+		local block = makePart({
+			Size = Vector3.new(6, step.h, 6),
+			CFrame = CFrame.new(podiumBase + Vector3.new(step.x, step.h / 2, 0)),
+			Color = step.color,
+			Material = Enum.Material.Marble,
+		})
+		block.Parent = main
+		local numberGui = surfaceGui(block, Enum.NormalId.Back, 20)
+		label(numberGui, tostring(rank), 1, Color3.fromRGB(60, 40, 20))
+		local bb = Instance.new("BillboardGui")
+		bb.Size = UDim2.fromOffset(160, 60)
+		bb.StudsOffset = Vector3.new(0, step.h / 2 + 3, 0)
+		bb.MaxDistance = 90
+		bb.Parent = block
+		local name = Instance.new("TextLabel")
+		name.BackgroundTransparency = 1
+		name.Size = UDim2.fromScale(1, 1)
+		name.Font = Enum.Font.FredokaOne
+		name.TextScaled = true
+		name.TextColor3 = Color3.new(1, 1, 1)
+		name.TextStrokeTransparency = 0.2
+		name.Text = "—"
+		name.Parent = bb
+		podium[rank] = name
+	end
+	local fameSign = makePart({
+		Size = Vector3.new(18, 3, 0.5),
+		CFrame = CFrame.new(podiumBase + Vector3.new(0, 11, 3)),
+		Color = Color3.fromRGB(60, 45, 20),
+	})
+	fameSign.Parent = main
+	label(surfaceGui(fameSign, Enum.NormalId.Back, 25), "🏆 HALL OF FAME 名人堂", 1, Color3.fromRGB(255, 220, 90))
+
+	-- Reward display: the weekly champion's wings and halo, and the daily crown
+	local showBase = C + Vector3.new(-30, 0, -22)
+	makePart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(3, 6, 6),
+		CFrame = CFrame.new(showBase + Vector3.new(0, 1.5, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		Color = Color3.fromRGB(235, 232, 240),
+		Material = Enum.Material.Marble,
+	}).Parent = main
+	local wingsShow = Cosmetics.buildWings("Angel", CFrame.lookAt(showBase + Vector3.new(0, 6, 0), showBase + Vector3.new(0, 6, -10)) * CFrame.Angles(0, math.pi, 0))
+	Cosmetics.anchor(wingsShow)
+	wingsShow.Name = "WingsDisplay"
+	wingsShow.Parent = main
+	local haloShow = Cosmetics.buildHalo(CFrame.new(showBase + Vector3.new(0, 9, 0)))
+	Cosmetics.anchor(haloShow)
+	haloShow.Parent = main
+	local crownShow = Cosmetics.buildCrown(CFrame.new(showBase + Vector3.new(5, 3.3, 0)))
+	Cosmetics.anchor(crownShow)
+	crownShow.Parent = main
+	makePart({
+		Size = Vector3.new(2, 3, 2),
+		CFrame = CFrame.new(showBase + Vector3.new(5, 1.5, 0)),
+		Color = Color3.fromRGB(235, 232, 240),
+		Material = Enum.Material.Marble,
+	}).Parent = main
+	local showSign = makePart({
+		Size = Vector3.new(18, 3, 0.5),
+		CFrame = CFrame.new(showBase + Vector3.new(0, 12, 3)),
+		Color = Color3.fromRGB(45, 40, 70),
+	})
+	showSign.Parent = main
+	label(surfaceGui(showSign, Enum.NormalId.Back, 25), "🪽 WEEKLY TOP 10 · 👑 DAILY TOP 3", 1, Color3.fromRGB(255, 235, 150))
+
+	-- Trees and lamps around the plaza
+	local rng = Random.new(42)
+	for i = 0, 15 do
+		local a = i / 16 * math.pi * 2 + 0.1
+		local r = rng:NextNumber(60, 84)
+		local pos = C + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+		if math.abs(pos.X) > 18 or pos.Z < C.Z then -- keep the portal side clear
+			local h = rng:NextNumber(10, 16)
+			decorPart(main, {
+				Shape = Enum.PartType.Cylinder,
+				Size = Vector3.new(h, 1.8, 1.8),
+				CFrame = CFrame.new(pos + Vector3.new(0, h / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+				Color = Color3.fromRGB(120, 85, 55),
+				Material = Enum.Material.Wood,
+			})
+			decorPart(main, {
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(10, 10, 10),
+				CFrame = CFrame.new(pos + Vector3.new(0, h + 2, 0)),
+				Color = Color3.fromRGB(80, 170, 80):Lerp(Color3.fromRGB(255, 180, 210), if i % 4 == 0 then 0.6 else 0),
+				Material = Enum.Material.Grass,
+			})
+		end
+	end
+	for i = 0, 7 do
+		local a = i / 8 * math.pi * 2 + math.pi / 8
+		local pos = C + Vector3.new(math.cos(a) * 42, 0, math.sin(a) * 42)
+		decorPart(main, {
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(8, 0.6, 0.6),
+			CFrame = CFrame.new(pos + Vector3.new(0, 4, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+			Color = Color3.fromRGB(50, 50, 60),
+			Material = Enum.Material.Metal,
+		})
+		local bulb = decorPart(main, {
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(1.6, 1.6, 1.6),
+			CFrame = CFrame.new(pos + Vector3.new(0, 8.6, 0)),
+			Color = Color3.fromRGB(255, 230, 160),
+			Material = Enum.Material.Neon,
+		})
+		local light = Instance.new("PointLight")
+		light.Range = 14
+		light.Brightness = 1.2
+		light.Color = Color3.fromRGB(255, 220, 160)
+		light.Parent = bulb
+	end
+
 	local hubBoards: { [string]: SurfaceGui } = {}
 
 	-- World hubs: an island with one gate per level and a portal home
@@ -290,11 +501,11 @@ function World.buildLobby(): Lobby
 	return {
 		pads = pads,
 		portals = portals,
-		soloBoard = soloBoard,
-		teamBoard = teamBoard,
-		pointsBoard = pointsBoard,
+		dayBoard = dayBoard,
+		weekBoard = weekBoard,
 		soloHubBoard = hubBoards.solo,
 		teamHubBoard = hubBoards.team,
+		podium = podium,
 		sign = eventLine,
 	}
 end

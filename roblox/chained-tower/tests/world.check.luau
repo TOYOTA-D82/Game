@@ -32,3 +32,38 @@ for _, a in Themes.List do
 	end
 end
 print(("built lobby, 2 world hubs and 16 levels (%d instances in levels)"):format(parts))
+
+-- Reward cosmetics on a (fake) character
+do
+	local Cosmetics = require("./Cosmetics")
+	local Instance, Vector3, CFrame = env.Instance, env.Vector3, env.CFrame
+	local character = Instance.new("Model")
+	local torso = Instance.new("Part")
+	torso.Name = "UpperTorso"
+	torso.Size = Vector3.new(2, 1.6, 1)
+	torso.CFrame = CFrame.new(0, 5, 0)
+	torso.Parent = character
+	local head = Instance.new("Part")
+	head.Name = "Head"
+	head.Size = Vector3.new(1.2, 1.2, 1.2)
+	head.CFrame = CFrame.new(0, 6.5, 0)
+	head.Parent = character
+	for _, look in { "Angel", "Silver", "Bronze", "Fairy" } do
+		Cosmetics.apply(character, look, look == "Angel", true)
+		local wings = character:FindFirstChild("CT_Wings")
+		assert(wings, look .. " wings attached")
+		local flapWelds = 0
+		for _, d in wings:GetDescendants() do
+			if d.ClassName == "Weld" and d.Name == "FlapWeld" then
+				flapWelds += 1
+				assert(d:GetAttribute("BaseC0") ~= nil, "flap weld remembers its base position")
+			end
+		end
+		assert(flapWelds == 2, "two flapping wings")
+		assert((character:FindFirstChild("CT_Halo") ~= nil) == (look == "Angel"), "halo only for the weekly champion")
+		assert(character:FindFirstChild("CT_Crown"), "crown attached")
+	end
+	Cosmetics.clear(character)
+	assert(not character:FindFirstChild("CT_Wings"), "cleared")
+	print("reward cosmetics: wings x4 looks, halo and crown attach and clear correctly")
+end

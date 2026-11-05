@@ -19,23 +19,52 @@ Config.FirstClearBonus = 20 -- extra coins the first time each day you clear a l
 Config.StudioUnlockAll = true
 
 ----------------------------------------------------------------------
--- Daily challenge & ranking
+-- Daily & weekly points
 -- Every day (UTC 00:00 = 08:00 in Taiwan) the routes change and everyone starts
--- again from level 1. Ranking: most levels cleared today, then the fastest
--- total time. The day after, each player gets daily points by rank, and the
--- top 3 of each world get rewards for 24 hours.
+-- again from level 1. You EARN POINTS while you play: checkpoints, level clears
+-- (more for harder levels, double for the first clear of the day, extra for a
+-- fast time) and every active minute. Daily points reset every day and also
+-- add up into weekly points, which reset every Monday. The best players of each
+-- day and each week get rewards that only last a day / a week. Rewards are
+-- separate from the shop: they can't be bought.
 ----------------------------------------------------------------------
-Config.DailyRankPoints = { 100, 80, 65, 55, 50, 45, 40, 35, 30, 25 } -- rank 1..10
-Config.DailyRankBands = { -- ranks after 10
-	{ upTo = 25, points = 15 },
-	{ upTo = 50, points = 10 },
-	{ upTo = 100, points = 6 },
+Config.Points = {
+	-- Main source: time played. Every `interval` seconds in a level you get
+	-- `perInterval` points, as long as you actually moved (no AFK farming).
+	interval = 60,
+	perInterval = 5,
+	minMovePerInterval = 25, -- studs you must move during the interval
+	-- Bonuses on top:
+	checkpoint = 5, -- each checkpoint you reach
+	clearBase = 20, -- clearing a level: clearBase + clearPerLevel x level
+	clearPerLevel = 10,
+	firstClearMultiplier = 2, -- first time you clear that level today
+	fastBonus = 0.5, -- +50% when you beat the par time
+	parSecondsPerSection = { solo = 25, team = 35 },
+	modeMultiplier = { solo = 1, duo = 1.2, squad = 1.4 }, -- playing together pays a bit more
 }
-Config.DailyParticipationPoints = 3 -- cleared at least one level but not in the top 100
+
+-- Daily top 3: 24 hours
 Config.DailyRewards = {
-	{ title = "Champion", trail = "Champion", coinMultiplier = 2, hours = 24 }, -- 1st
-	{ title = "Silver", trail = "Silver", coinMultiplier = 1.5, hours = 24 }, -- 2nd
-	{ title = "Bronze", trail = "Bronze", coinMultiplier = 1.25, hours = 24 }, -- 3rd
+	{ tag = "👑", trail = "Champion", coinMultiplier = 2, crown = true, hours = 24 }, -- 1st
+	{ tag = "🥈", trail = "Silver", coinMultiplier = 1.5, hours = 24 }, -- 2nd
+	{ tag = "🥉", trail = "Bronze", coinMultiplier = 1.25, hours = 24 }, -- 3rd
+}
+
+-- Weekly top 10: wings for a whole week (rank <= upTo)
+Config.WeeklyRewards = {
+	{ upTo = 1, wings = "Angel", halo = true, tag = "🏆", hours = 168 },
+	{ upTo = 2, wings = "Silver", tag = "🏆", hours = 168 },
+	{ upTo = 3, wings = "Bronze", tag = "🏆", hours = 168 },
+	{ upTo = 10, wings = "Fairy", tag = "✨", hours = 168 },
+}
+
+-- Wing looks (colours of the feathers and of the sparkles)
+Config.Wings = {
+	Angel = { colors = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 225, 120) }, size = 1.25 },
+	Silver = { colors = { Color3.fromRGB(235, 240, 250), Color3.fromRGB(170, 185, 210) }, size = 1.1 },
+	Bronze = { colors = { Color3.fromRGB(255, 215, 170), Color3.fromRGB(205, 130, 70) }, size = 1.05 },
+	Fairy = { colors = { Color3.fromRGB(170, 255, 245), Color3.fromRGB(200, 150, 255) }, size = 0.8 },
 }
 
 ----------------------------------------------------------------------

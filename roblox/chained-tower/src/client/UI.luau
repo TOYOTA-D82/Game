@@ -15,6 +15,7 @@ local Strings = require(Shared:WaitForChild("Strings"))
 local Themes = require(Shared:WaitForChild("Themes"))
 local Ranking = require(Shared:WaitForChild("Ranking"))
 local Chains = require(script.Parent.Chains)
+local Ambience = require(script.Parent.Ambience)
 
 local player = Players.LocalPlayer
 local net = ReplicatedStorage:WaitForChild("Net")
@@ -198,6 +199,32 @@ local coinLabel = text({
 	TextColor3 = COLORS.gold,
 	Parent = gui,
 })
+-- Today's and this week's points, right under the coins
+local pointsLabel = text({
+	Position = UDim2.fromOffset(12, 84),
+	Size = UDim2.fromOffset(260, 26),
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Text = "",
+	TextColor3 = Color3.fromRGB(255, 240, 170),
+	Parent = gui,
+})
+
+-- "+25 ⭐" that floats up when you earn points
+local function pointsPop(amount: number)
+	local pop = text({
+		Position = UDim2.fromOffset(150, 84),
+		Size = UDim2.fromOffset(120, 30),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = ("+%d ⭐"):format(amount),
+		TextColor3 = Color3.fromRGB(255, 230, 90),
+		TextStrokeTransparency = 0.2,
+		Parent = gui,
+	})
+	TweenService:Create(pop, TweenInfo.new(1.4), { Position = UDim2.fromOffset(150, 40), TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+	task.delay(1.5, function()
+		pop:Destroy()
+	end)
+end
 
 -- Toasts
 local toastHolder = make("Frame", {
@@ -798,14 +825,22 @@ local function refresh()
 	todayCard.title.Text = T("todayTitle")
 	todayCard.desc.Text = table.concat(lines, "\n")
 	pointsCard.title.Text = T("pointsTitle")
-	local pointLines = { T("pointsLine", p.points or 0) }
+	local pointLines = {
+		T("dayPointsLine", p.dayPoints or 0, Ranking.formatLeft(p.dayLeft or 0)),
+		T("weekPointsLine", p.weekPoints or 0, Ranking.formatLeft(p.weekLeft or 0)),
+	}
 	if (p.rewardRank or 0) > 0 and (p.rewardLeft or 0) > 0 then
 		local reward = Config.DailyRewards[p.rewardRank]
-		local hours = math.ceil((p.rewardLeft :: number) / 3600)
-		table.insert(pointLines, T("rewardActive", T("reward_" .. p.rewardRank), ("%dh"):format(hours), tostring(reward.coinMultiplier)))
+		table.insert(pointLines, T("rewardActive", T("reward_" .. p.rewardRank), Ranking.formatLeft(p.rewardLeft), tostring(reward.coinMultiplier)))
 	end
-	table.insert(pointLines, T("settleNote"))
+	if (p.weekRewardRank or 0) > 0 and (p.weekRewardLeft or 0) > 0 then
+		table.insert(pointLines, T("weekRewardActive", p.weekRewardRank, Ranking.formatLeft(p.weekRewardLeft)))
+	end
+	if #pointLines == 2 then
+		table.insert(pointLines, T("howToEarn"))
+	end
 	pointsCard.desc.Text = table.concat(pointLines, "\n")
+	pointsLabel.Text = T("pointsHud", p.dayPoints or 0, p.weekPoints or 0)
 
 	local free = ("%s: %d · %s: %d"):format(T("unchain"), p.freeUnchain or 0, T("smash"), p.freeSmash or 0)
 	panels.daily:FindFirstChildOfClass("TextLabel").Text = "📅 " .. T("daily") .. "   (" .. T("free") .. " — " .. free .. ")"
@@ -836,6 +871,14 @@ local function tick()
 		clock = "  ⏱ " .. Ranking.formatTime(finishedIn)
 	elseif type(started) == "number" then
 		clock = "  ⏱ " .. Ranking.formatTime(Workspace:GetServerTimeNow() - started)
+	end
+	-- countdown to the next time points while in a level
+	local nextAt = Workspace:GetAttribute("NextPointsAt")
+	local base = T("pointsHud", profile.dayPoints or 0, profile.weekPoints or 0)
+	if inTower and type(nextAt) == "number" then
+		pointsLabel.Text = base .. "  " .. T("nextPoints", Config.Points.perInterval, math.max(0, math.ceil(nextAt - Workspace:GetServerTimeNow())))
+	else
+		pointsLabel.Text = base
 	end
 	sectionLabel.Text = if inTower and type(section) == "number"
 		then ("[%s]  %s%s"):format(T("mode_" .. tostring(mode)), T("section", section, total), clock)
@@ -899,22 +942,26 @@ local function onMessage(kind: string, payload: any)
 		showPopup(T("noItems", T(if isUnchain then "unchain" else "smash")) .. "\n" .. T("p_" .. key), robux(priceOf("product", key)), function()
 			UI.buy("product", key)
 		end)
-	elseif kind == "dailyResult" then
-		local worldName = T("worldShort_" .. tostring(payload.world))
+	elseif kind == "points" then
+		pointsPop(payload.amount or 0)
+	elseif kind == "rankResult" then
+		local which = if payload.kind == "week" then T("rankWeek") else T("rankDay")
 		if payload.rank then
-			UI.toast(T("dailyResult", worldName, payload.rank, payload.points), true)
-			if payload.rank <= #Config.DailyRewards then
+			UI.toast(T("rankResult", which, payload.rank), true)
+			if payload.kind == "day" and payload.rank <= #Config.DailyRewards then
 				UI.toast(T("rewardWon", T("reward_" .. payload.rank)), true)
+			elseif payload.kind == "week" and payload.rank <= 10 then
+				UI.toast(T("wingsWon"), true)
 			end
 		else
-			UI.toast(T("dailyResultNoRank", worldName, payload.points), true)
+			UI.toast(T("rankResultNone", which), false)
 		end
 	elseif kind == "finish" then
 		if payload.unlocked then
 			UI.toast(T("levelUnlocked", T("lv_" .. payload.unlocked)), true)
 		end
 		banner.Text = if payload.seconds
-			then T("youFinishedTime", Ranking.formatTime(payload.seconds), payload.coins or 0)
+			then T("youFinishedTime", Ranking.formatTime(payload.seconds), payload.points or 0, payload.coins or 0)
 			else T("youFinished", payload.coins or 0)
 		banner.Visible = true
 		task.delay(4, function()
@@ -930,9 +977,12 @@ function UI.start()
 		UI.toast(T(key))
 	end)
 
-	local lobby = Workspace:WaitForChild("Lobby", 30)
-	if lobby then
-		for _, child in lobby:GetDescendants() do
+	-- label the portals and level gates in every lobby area (also hidden ones)
+	Ambience.onArea(function(folder)
+		if string.sub(folder.Name, 1, 6) == "Level_" then
+			return
+		end
+		for _, child in folder:GetDescendants() do
 			if child:IsA("BasePart") then
 				local kind = child:GetAttribute("Kind")
 				if kind == "Pad" then
@@ -942,7 +992,7 @@ function UI.start()
 				end
 			end
 		end
-	end
+	end)
 
 	refresh()
 	task.spawn(function()

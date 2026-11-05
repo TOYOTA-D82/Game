@@ -31,10 +31,14 @@ export type Profile = {
 	receipts: { string },
 	-- today's daily challenge (reset every UTC day)
 	today: { day: number, solo: WorldDay, team: WorldDay },
-	points: number, -- daily points earned from rankings, all time
-	pending: { { day: number, world: string } }, -- days waiting to be ranked
-	rewardRank: number, -- 1..3 while a daily top-3 reward is active
+	points: number, -- all points ever earned (just a stat)
+	dayPoints: { id: number, points: number }, -- today's points (id = day number)
+	weekPoints: { id: number, points: number }, -- this week's points (id = week number)
+	pending: { { kind: string, id: number } }, -- days/weeks waiting to be ranked ("day"/"week")
+	rewardRank: number, -- daily top-3 reward rank while active
 	rewardUntil: number, -- os.time() when it ends
+	weekRewardRank: number, -- weekly top-10 reward (wings) rank while active
+	weekRewardUntil: number,
 }
 
 -- cleared: levels cleared in order today; times: best time (seconds) per level
@@ -69,9 +73,13 @@ local function defaults(): Profile
 		receipts = {},
 		today = freshDay(-1),
 		points = 0,
+		dayPoints = { id = -1, points = 0 },
+		weekPoints = { id = -1, points = 0 },
 		pending = {},
 		rewardRank = 0,
 		rewardUntil = 0,
+		weekRewardRank = 0,
+		weekRewardUntil = 0,
 	}
 end
 
