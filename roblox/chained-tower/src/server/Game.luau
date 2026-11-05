@@ -143,6 +143,7 @@ local function formTeam(players: { Player }, mode: string)
 	teleportTeam(team, 0)
 
 	for _, m in members do
+		Net.send(m, "modeIntro", { mode = mode })
 		if mode == "solo" then
 			Net.send(m, "toast", { key = "soloStart" })
 		else
@@ -204,7 +205,7 @@ local function finish(team: Team)
 			p.wins += 1
 			Data.markDirty(m)
 		end
-		Progress.recordWin(m)
+		Progress.recordWin(m, team.mode ~= "solo")
 		Progress.addStat(m, "finishes")
 		if team.mode ~= "solo" then
 			Progress.addStat(m, "teamFinishes")

@@ -108,6 +108,8 @@ end
 -- Prices from Roblox (fallback: Config)
 ----------------------------------------------------------------------
 local priceCache: { [string]: number } = {}
+local iconCache: { [string]: string } = {} -- the image you uploaded on the Creator Dashboard
+local onInfoLoaded: () -> () = function() end
 local function priceOf(kind: string, key: string): number
 	local cacheKey = kind .. key
 	if priceCache[cacheKey] then
@@ -123,8 +125,14 @@ local function priceOf(kind: string, key: string): number
 					if kind == "pass" then Enum.InfoType.GamePass else Enum.InfoType.Product
 				)
 			end)
-			if ok and info and info.PriceInRobux then
-				priceCache[cacheKey] = info.PriceInRobux
+			if ok and info then
+				if info.PriceInRobux then
+					priceCache[cacheKey] = info.PriceInRobux
+				end
+				if info.IconImageAssetId and info.IconImageAssetId ~= 0 then
+					iconCache[cacheKey] = "rbxassetid://" .. tostring(info.IconImageAssetId)
+				end
+				onInfoLoaded()
 			end
 		end)
 	end
@@ -370,7 +378,7 @@ local function panel(name: string, title: string): ScrollingFrame
 	return list
 end
 
-type Card = { frame: Frame, title: TextLabel, desc: TextLabel, action: TextButton }
+type Card = { frame: Frame, title: TextLabel, desc: TextLabel, action: TextButton, icon: ImageLabel }
 local function card(parent: Instance, order: number, accent: Color3, onClick: () -> ()): Card
 	local frame = make("Frame", { LayoutOrder = order, BackgroundColor3 = COLORS.card, Parent = parent }, { corner(12) })
 	make("Frame", { Size = UDim2.new(0, 6, 1, 0), BackgroundColor3 = accent, BorderSizePixel = 0, Parent = frame }, { corner(3) })
@@ -395,7 +403,14 @@ local function card(parent: Instance, order: number, accent: Color3, onClick: ()
 		Text = "",
 		Parent = frame,
 	}, onClick)
-	return { frame = frame, title = title, desc = desc, action = action }
+	local icon = make("ImageLabel", {
+		Position = UDim2.new(0, 14, 1, -46),
+		Size = UDim2.fromOffset(40, 40),
+		BackgroundTransparency = 1,
+		Image = "",
+		Parent = frame,
+	}, { corner(8) })
+	return { frame = frame, title = title, desc = desc, action = action, icon = icon }
 end
 
 -- Shop
@@ -410,6 +425,9 @@ for i, entry in Config.ShopOrder do
 	local prefix = if isPass then "g_" else "p_"
 	c.title.Text = T(prefix .. entry.key)
 	c.desc.Text = T(prefix .. entry.key .. "_d")
+	if entry.key == "Unchain5" or entry.key == "Unchain20" then
+		c.title.Text ..= " " .. T("teamOnly")
+	end
 	table.insert(shopCards, { card = c, kind = entry.kind, key = entry.key })
 end
 -- trail passes at the end of the shop
@@ -524,6 +542,53 @@ local function showPopup(message: string, yesLabel: string, onYes: () -> ())
 end
 
 ----------------------------------------------------------------------
+-- Rules card shown when a climb starts (different for solo and teams)
+----------------------------------------------------------------------
+local rulesCard = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(460, 260),
+	BackgroundColor3 = COLORS.panel,
+	Visible = false,
+	Parent = gui,
+}, { corner(16), stroke(COLORS.gold, 3), make("UISizeConstraint", { MaxSize = Vector2.new(460, 260) }) })
+local rulesText = text({
+	Position = UDim2.fromOffset(18, 12),
+	Size = UDim2.new(1, -36, 1, -70),
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top,
+	TextWrapped = true,
+	TextScaled = true,
+	Font = Enum.Font.GothamBold,
+	TextStrokeTransparency = 1,
+	Text = "",
+	Parent = rulesCard,
+})
+button({
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -12),
+	Size = UDim2.fromOffset(160, 42),
+	BackgroundColor3 = COLORS.green,
+	Text = T("gotIt"),
+	Parent = rulesCard,
+}, function()
+	rulesCard.Visible = false
+end)
+
+local function showRules(mode: string)
+	local solo = mode == "solo"
+	rulesText.Text = T(if solo then "rules_solo" else "rules_team")
+	rulesCard.BackgroundColor3 = if solo then Color3.fromRGB(25, 45, 70) else Color3.fromRGB(55, 30, 70)
+	rulesCard.Visible = true
+	local shownAt = os.clock()
+	task.delay(7, function()
+		if os.clock() - shownAt >= 6.9 then
+			rulesCard.Visible = false
+		end
+	end)
+end
+
+----------------------------------------------------------------------
 -- Finish banner
 ----------------------------------------------------------------------
 local banner = text({
@@ -552,8 +617,17 @@ local function labelPad(pad: BasePart)
 		Parent = player:WaitForChild("PlayerGui"),
 	})
 	local key = if mode == "solo" then "soloGate" elseif mode == "duo" then "duoPad" else "squadPad"
-	text({ Size = UDim2.new(1, 0, 0.5, 0), Text = T(key), TextStrokeTransparency = 0.2, Parent = bb })
-	local status = text({ Position = UDim2.fromScale(0, 0.5), Size = UDim2.new(1, 0, 0.45, 0), Text = "", TextColor3 = COLORS.gold, TextStrokeTransparency = 0.2, Parent = bb })
+	bb.Size = UDim2.fromOffset(240, 120)
+	text({ Size = UDim2.new(1, 0, 0.4, 0), Text = T(key), TextStrokeTransparency = 0.2, Parent = bb })
+	text({
+		Position = UDim2.fromScale(0, 0.4),
+		Size = UDim2.new(1, 0, 0.25, 0),
+		Text = T("padRule_" .. tostring(mode)),
+		TextColor3 = COLORS.sub,
+		TextStrokeTransparency = 0.2,
+		Parent = bb,
+	})
+	local status = text({ Position = UDim2.fromScale(0, 0.67), Size = UDim2.new(1, 0, 0.3, 0), Text = "", TextColor3 = COLORS.gold, TextStrokeTransparency = 0.2, Parent = bb })
 	local function refresh()
 		local countdown = pad:GetAttribute("Countdown") :: number? or -1
 		if mode == "solo" then
@@ -582,6 +656,7 @@ local function refresh()
 
 	for _, entry in shopCards do
 		local c = entry.card
+		c.icon.Image = iconCache[entry.kind .. entry.key] or ""
 		if entry.kind == "pass" then
 			local owned = p.passes and p.passes[entry.key]
 			c.action.Text = if owned then T("owned") else robux(priceOf("pass", entry.key))
@@ -645,6 +720,10 @@ local function refresh()
 	panels.daily:FindFirstChildOfClass("TextLabel").Text = "📅 " .. T("daily") .. "   (" .. T("free") .. " — " .. free .. ")"
 end
 
+onInfoLoaded = function()
+	task.defer(refresh)
+end
+
 local function formatTime(seconds: number): string
 	seconds = math.max(0, math.floor(seconds))
 	return ("%d:%02d"):format(seconds // 60, seconds % 60)
@@ -659,9 +738,11 @@ local function tick()
 	local inTower = team ~= nil
 	local total = Workspace:GetAttribute("TowerSections") or Config.SectionsPerTower
 	local section = player:GetAttribute("Section")
-	sectionLabel.Text = if inTower and type(section) == "number" then T("section", section, total) else T("lobby")
-
 	local mode = team and team:GetAttribute("Mode")
+	sectionLabel.Text = if inTower and type(section) == "number"
+		then ("[%s]  %s"):format(T("mode_" .. tostring(mode)), T("section", section, total))
+		else T("lobby")
+
 	unchainButton.Visible = inTower and mode ~= "solo"
 	smashButton.Visible = inTower
 	skipButton.Visible = inTower and type(section) == "number" and section + 1 < (total :: number)
@@ -698,6 +779,8 @@ local function onMessage(kind: string, payload: any)
 		refresh()
 	elseif kind == "toast" then
 		UI.toast(T(payload.key, table.unpack(translateArgs(payload.args))), payload.good)
+	elseif kind == "modeIntro" then
+		showRules(payload.mode)
 	elseif kind == "offerSkip" then
 		local hasSkip = (profile.skip or 0) > 0
 		showPopup(T("offerSkip"), if hasSkip then T("skip") else robux(priceOf("product", "Skip")), function()

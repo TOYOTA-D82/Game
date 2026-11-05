@@ -266,16 +266,17 @@ end)
 ----------------------------------------------------------------------
 -- Weekly leaderboard (resets itself every Monday because the key changes)
 ----------------------------------------------------------------------
-local function weeklyStore(): OrderedDataStore?
+-- kind = "Solo" or "Team": solo and team clears are ranked separately
+local function weeklyStore(kind: string): OrderedDataStore?
 	local ok, store = pcall(function()
-		return DataStoreService:GetOrderedDataStore("WeeklyWins_" .. Calendar.weekNumber(os.time()))
+		return DataStoreService:GetOrderedDataStore(("WeeklyWins_%s_%d"):format(kind, Calendar.weekNumber(os.time())))
 	end)
 	return if ok then store else nil
 end
 
-function Progress.recordWin(player: Player)
+function Progress.recordWin(player: Player, isTeam: boolean)
 	task.spawn(function()
-		local store = weeklyStore()
+		local store = weeklyStore(if isTeam then "Team" else "Solo")
 		if store then
 			pcall(function()
 				store:IncrementAsync(tostring(player.UserId), 1)
@@ -296,7 +297,7 @@ local function nameOf(userId: number): string
 	return nameCache[userId]
 end
 
-function Progress.startLeaderboard(board: SurfaceGui)
+function Progress.startLeaderboard(board: SurfaceGui, kind: string)
 	local list = Instance.new("Frame")
 	list.BackgroundTransparency = 1
 	list.Size = UDim2.fromScale(1, 1)
@@ -318,7 +319,8 @@ function Progress.startLeaderboard(board: SurfaceGui)
 		return l
 	end
 
-	local header = row(0, "🏆 WEEKLY TOP CLIMBERS 🏆\n本週通關排行榜", Color3.fromRGB(255, 215, 80), 0.16)
+	local title = if kind == "Team" then "🔗 TEAM — WEEKLY TOP 🔗\n組隊本週排行榜" else "🧍 SOLO — WEEKLY TOP 🧍\n單人本週排行榜"
+	local header = row(0, title, Color3.fromRGB(255, 215, 80), 0.16)
 	header.TextWrapped = true
 	local rows = {}
 	for i = 1, 10 do
@@ -327,7 +329,7 @@ function Progress.startLeaderboard(board: SurfaceGui)
 
 	task.spawn(function()
 		while true do
-			local store = weeklyStore()
+			local store = weeklyStore(kind)
 			if store then
 				local ok, pages = pcall(function()
 					return store:GetSortedAsync(false, 10)

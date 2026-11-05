@@ -14,7 +14,7 @@ local World = {}
 World.LobbySpawn = CFrame.new(0, 3, -115)
 
 export type Pad = { part: BasePart, mode: string }
-export type Lobby = { pads: { Pad }, board: SurfaceGui, sign: TextLabel }
+export type Lobby = { pads: { Pad }, soloBoard: SurfaceGui, teamBoard: SurfaceGui, sign: TextLabel }
 export type Tower = {
 	folder: Folder,
 	layout: TowerLayout.Result,
@@ -140,21 +140,26 @@ function World.buildLobby(): Lobby
 	local eventLine = label(signGui, "", 0.4, Color3.fromRGB(255, 255, 255))
 	eventLine.Position = UDim2.fromScale(0, 0.6)
 
-	-- Weekly leaderboard
-	local boardPart = makePart({
-		Name = "Leaderboard",
-		Size = Vector3.new(1, 14, 18),
-		CFrame = CFrame.new(-42, 8, -105),
-		Color = Color3.fromRGB(30, 30, 45),
-	})
-	boardPart.Parent = folder
-	local board = Instance.new("SurfaceGui")
-	board.Face = Enum.NormalId.Right
-	board.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	board.PixelsPerStud = 25
-	board.Parent = boardPart
+	-- Two weekly leaderboards: solo on the left wall, teams on the right wall
+	local function makeBoard(name: string, x: number, face: Enum.NormalId, color: Color3): SurfaceGui
+		local boardPart = makePart({
+			Name = name,
+			Size = Vector3.new(1, 14, 18),
+			CFrame = CFrame.new(x, 8, -105),
+			Color = color,
+		})
+		boardPart.Parent = folder
+		local board = Instance.new("SurfaceGui")
+		board.Face = face
+		board.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		board.PixelsPerStud = 25
+		board.Parent = boardPart
+		return board
+	end
+	local soloBoard = makeBoard("SoloLeaderboard", -42, Enum.NormalId.Right, Color3.fromRGB(25, 45, 70))
+	local teamBoard = makeBoard("TeamLeaderboard", 42, Enum.NormalId.Left, Color3.fromRGB(55, 30, 70))
 
-	return { pads = pads, board = board, sign = eventLine }
+	return { pads = pads, soloBoard = soloBoard, teamBoard = teamBoard, sign = eventLine }
 end
 
 ----------------------------------------------------------------------
