@@ -30,6 +30,8 @@ export type Lobby = {
 	teamHubBoard: SurfaceGui, -- today's points again, on the team island
 	podium: { TextLabel }, -- hall of fame name labels: 1st, 2nd, 3rd
 	sign: TextLabel,
+	challengeBoard: SurfaceGui, -- today's best challenge times (challenge island)
+	challengeLeader: TextLabel, -- lobby route board: today's challenge leader
 }
 export type Level = {
 	theme: Themes.Theme,
@@ -133,6 +135,9 @@ end
 -- Where level `level`'s gate stands on a world island.
 local function gatePosition(world: string, level: number): Vector3
 	local o = hubOrigin(world)
+	if world == "challenge" then
+		return o + Vector3.new(0, 0.5, 20)
+	end
 	local count = Themes.levelCount(world)
 	local spacing = if world == "solo" then 30 else 34
 	local x = (level - (count + 1) / 2) * spacing
@@ -151,6 +156,9 @@ end
 -- Each level course sits far away from the others so every one feels like its own world.
 function World.levelOrigin(theme: Themes.Theme): { number }
 	local o = hubOrigin(theme.world)
+	if theme.world == "challenge" then
+		return { o.X, o.Y + 40, 9000 } -- between the solo and team lines, far from both
+	end
 	-- solo levels line up to the north, team levels to the south, 1800 apart
 	local dir = if theme.world == "solo" then 1 else -1
 	return { o.X, o.Y + 40, dir * (4000 + theme.level * 1800) }
@@ -261,12 +269,21 @@ function World.buildLobby(): Lobby
 	end
 	portal(main, C + Vector3.new(-26, 0.5, 52), "solo", Color3.fromRGB(90, 170, 255), 14)
 	portal(main, C + Vector3.new(26, 0.5, 52), "team", Color3.fromRGB(180, 90, 255), 14)
+	-- the daily challenge portal: gold, in the middle, a little further back
+	local GOLD = Color3.fromRGB(255, 200, 60)
+	portal(main, C + Vector3.new(0, 0.5, 60), "challenge", GOLD, 12)
+	makePart({
+		Size = Vector3.new(7, 0.3, 14),
+		CFrame = CFrame.new(C + Vector3.new(0, 0.15, 47)),
+		Color = Color3.fromRGB(215, 205, 190),
+		Material = Enum.Material.Pavement,
+	}).Parent = main
 	-- glowing rings floating over the portals
-	for _, info in { { -26, Color3.fromRGB(90, 170, 255) }, { 26, Color3.fromRGB(180, 90, 255) } } do
+	for _, info in { { -26, Color3.fromRGB(90, 170, 255), 22, 16 }, { 26, Color3.fromRGB(180, 90, 255), 22, 16 }, { 0, GOLD, 18, 11 } } do
 		local ring = decorPart(main, {
 			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(0.6, 16, 16),
-			CFrame = CFrame.new(C + Vector3.new(info[1] :: number, 22, 52)) * CFrame.Angles(0, math.pi / 2, 0),
+			Size = Vector3.new(0.6, info[4] :: number, info[4] :: number),
+			CFrame = CFrame.new(C + Vector3.new(info[1] :: number, info[3] :: number, if info[1] == 0 then 60 else 52)) * CFrame.Angles(0, math.pi / 2, 0),
 			Color = info[2],
 			Material = Enum.Material.Neon,
 			Transparency = 0.35,
@@ -303,6 +320,26 @@ function World.buildLobby(): Lobby
 		Color3.new(1, 1, 1)
 	)
 	howText.TextWrapped = true
+
+	-- Route board (mirror of the how-to sign): when every route changes next,
+	-- and today's challenge. The client fills in the live countdown.
+	local routeBoard = makePart({
+		Name = "RouteBoard",
+		Size = Vector3.new(16, 10, 0.6),
+		CFrame = CFrame.new(C + Vector3.new(17, 6, -30)) * CFrame.Angles(0, -0.35, 0),
+		Color = Color3.fromRGB(35, 45, 70),
+	})
+	routeBoard.Parent = main
+	local routeGui = surfaceGui(routeBoard, Enum.NormalId.Front, 25)
+	local routeTitle = label(routeGui, "🔄 NEW ROUTES IN 路線更新倒數", 0.22, Color3.fromRGB(150, 220, 255))
+	routeTitle.Name = "RouteTitle"
+	local routeClock = label(routeGui, "--:--:--", 0.3, Color3.fromRGB(255, 230, 120))
+	routeClock.Name = "RouteCountdown"
+	routeClock.Position = UDim2.fromScale(0, 0.22)
+	local routeInfo = label(routeGui, "", 0.48, Color3.new(1, 1, 1))
+	routeInfo.Name = "RouteInfo"
+	routeInfo.Position = UDim2.fromScale(0, 0.52)
+	routeInfo.TextWrapped = true
 
 	-- Leaderboards on stands: today (west) and this week (east)
 	local function makeBoard(parent: Instance, name: string, cf: CFrame, size: Vector3, face: Enum.NormalId, color: Color3): SurfaceGui
@@ -448,6 +485,7 @@ function World.buildLobby(): Lobby
 	end
 
 	local hubBoards: { [string]: SurfaceGui } = {}
+	local challengeBoard: SurfaceGui = nil :: any
 
 	-- World hubs: an island with one gate per level and a portal home
 	local pads: { Pad } = {}
@@ -480,6 +518,20 @@ function World.buildLobby(): Lobby
 			Enum.NormalId.Front,
 			if world == "solo" then Color3.fromRGB(25, 45, 70) else Color3.fromRGB(55, 30, 70)
 		)
+
+		-- countdown to tomorrow's routes, right above the level gates
+		local clockSign = makePart({
+			Name = "RouteSign",
+			Size = Vector3.new(20, 3, 1),
+			CFrame = CFrame.new(o + Vector3.new(0, 32.5, 36)),
+			Color = Color3.fromRGB(35, 45, 70),
+		})
+		clockSign.Parent = hub
+		local clockGui = surfaceGui(clockSign, Enum.NormalId.Front, 25)
+		label(clockGui, "🔄 NEW ROUTES 新路線", 0.45, Color3.fromRGB(150, 220, 255))
+		local hubClock = label(clockGui, "--:--:--", 0.55, Color3.fromRGB(255, 230, 120))
+		hubClock.Name = "RouteCountdown"
+		hubClock.Position = UDim2.fromScale(0, 0.45)
 
 		local count = Themes.levelCount(world)
 		for level = 1, count do
@@ -516,7 +568,76 @@ function World.buildLobby(): Lobby
 		end
 	end
 
+	-- Daily challenge island: one gate, its own best-time board, the rules
+	-- and the countdown to tomorrow's challenge. (Its own island keeps the
+	-- lobby uncluttered; the lobby only shows today's leader on the route board.)
+	do
+		local o = hubOrigin("challenge")
+		local hub = Instance.new("Folder")
+		hub.Name = "Hub_challenge"
+		hub.Parent = folder
+		makePart({
+			Name = "Island",
+			Size = Vector3.new(110, 2, 80),
+			CFrame = CFrame.new(o + Vector3.new(0, -1, 0)),
+			Color = Color3.fromRGB(60, 55, 70),
+			Material = Enum.Material.Slate,
+		}).Parent = hub
+		decorPart(hub, {
+			Size = Vector3.new(100, 14, 70),
+			CFrame = CFrame.new(o + Vector3.new(0, -9, 0)),
+			Color = Color3.fromRGB(90, 70, 60),
+			Material = Enum.Material.Rock,
+		})
+		-- glowing gold edge so it reads as "special"
+		for _, dz in { -40, 40 } do
+			decorPart(hub, {
+				Size = Vector3.new(110, 0.4, 1),
+				CFrame = CFrame.new(o + Vector3.new(0, 0.1, dz)),
+				Color = GOLD,
+				Material = Enum.Material.Neon,
+			})
+		end
+		portal(hub, o + Vector3.new(0, 0.5, -30), "main", Color3.fromRGB(255, 255, 255))
+
+		local base = gatePosition("challenge", 1)
+		local pad = gate(hub, base, 12, GOLD)
+		pad.Name = "Gate_Challenge"
+		pad:SetAttribute("Kind", "Pad")
+		pad:SetAttribute("Mode", "solo")
+		pad:SetAttribute("World", "challenge")
+		pad:SetAttribute("Level", 1)
+		pad:SetAttribute("Theme", "Challenge")
+		pad:SetAttribute("Count", 0)
+		pad:SetAttribute("Max", 1)
+		pad:SetAttribute("Countdown", -1)
+		table.insert(pads, { part = pad, mode = "solo", world = "challenge", level = 1 })
+
+		challengeBoard = makeBoard(hub, "ChallengeLeaderboard", CFrame.new(o + Vector3.new(-30, 12, 22)) * CFrame.Angles(0, 0.4, 0), Vector3.new(18, 20, 1), Enum.NormalId.Front, Color3.fromRGB(60, 45, 20))
+		local rules = makePart({
+			Name = "ChallengeRules",
+			Size = Vector3.new(18, 14, 0.6),
+			CFrame = CFrame.new(o + Vector3.new(30, 9, 22)) * CFrame.Angles(0, -0.4, 0),
+			Color = Color3.fromRGB(45, 40, 60),
+		})
+		rules.Parent = hub
+		local rulesGui = surfaceGui(rules, Enum.NormalId.Front, 25)
+		local rulesText = label(
+			rulesGui,
+			("⚡ DAILY CHALLENGE 每日挑戰\n%d sections · every trap · hardest\n%d 段・所有機關・最高難度\n🏆 Fastest 3 today win a 24h title\n今天最快的前 3 名拿 24 小時稱號"):format(Themes.ChallengeSections, Themes.ChallengeSections),
+			0.72,
+			Color3.new(1, 1, 1)
+		)
+		rulesText.Name = "ChallengeRulesText"
+		rulesText.TextWrapped = true
+		local clock = label(rulesGui, "--:--:--", 0.22, Color3.fromRGB(255, 230, 120))
+		clock.Name = "RouteCountdown"
+		clock.Position = UDim2.fromScale(0, 0.76)
+	end
+
 	return {
+		challengeBoard = challengeBoard,
+		challengeLeader = routeInfo,
 		pads = pads,
 		portals = portals,
 		dayBoard = dayBoard,
@@ -825,6 +946,10 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 	local folder = Instance.new("Folder")
 	folder.Name = "Level_" .. theme.id
 	folder:SetAttribute("Theme", theme.id)
+	folder:SetAttribute("Day", day)
+	if theme.base then
+		folder:SetAttribute("Base", theme.base)
+	end
 	local checkpoints: { [number]: BasePart } = {}
 	local spinners: { BasePart } = {}
 	local movers = {}
@@ -1221,7 +1346,7 @@ function World.buildLevel(theme: Themes.Theme, parent: Instance, day: number): L
 		local part = decorPart(landmark, props)
 		part.Name = "Landmark"
 	end
-	local natural = NATURAL[theme.id]
+	local natural = NATURAL[theme.base or theme.id]
 	local sculpted = false
 	if natural and terrain then
 		sculpted = sculpt(natural, center, baseY, win[2] + 30, coreHalf, if tower then 2 else 6)

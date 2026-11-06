@@ -65,6 +65,20 @@ Config.DailyRewards = {
 }
 
 -- Weekly top 10: wings for a whole week (rank <= upTo)
+-- Daily challenge (每日挑戰): one long, hardest level that changes every day.
+-- Points are worked out like a level with this number (much higher than 8),
+-- and the 3 fastest times of the day get a title for `titleHours`.
+Config.Challenge = {
+	pointsLevel = 16,
+	coins = 150, -- coins for every clear (x2 the first time today)
+	titleHours = 24,
+}
+Config.ChallengeTitles = {
+	{ text = "⚡ 挑戰王 Challenge King ⚡", color = Color3.fromRGB(255, 215, 60) },
+	{ text = "⚡ 挑戰亞軍 Challenge #2", color = Color3.fromRGB(215, 225, 240) },
+	{ text = "⚡ 挑戰季軍 Challenge #3", color = Color3.fromRGB(230, 150, 90) },
+}
+
 Config.WeeklyRewards = {
 	{ upTo = 1, wings = "Angel", halo = true, tag = "🏆", hours = 168 },
 	{ upTo = 2, wings = "Silver", tag = "🏆", hours = 168 },

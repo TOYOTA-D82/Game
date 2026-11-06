@@ -84,7 +84,9 @@ end
 -- its normal spawn.
 local function toHub(player: Player, world: string)
 	local offset = Vector3.new(math.random(-2, 2), 0, math.random(-1, 1))
-	if world == "solo" or world == "team" then
+	if world == "challenge" then
+		teleport(player, World.gateSpawn("challenge", 1) + offset)
+	elseif world == "solo" or world == "team" then
 		local level = 1
 		local p = Data.get(player)
 		if p then
@@ -231,10 +233,39 @@ end
 ----------------------------------------------------------------------
 -- Progress through the tower
 ----------------------------------------------------------------------
+-- Daily challenge cleared: best time of the day, big points, and a shot at
+-- tomorrow's top-3 title.
+local function finishChallenge(team: Team, seconds: number)
+	local sections = team.level.winIndex
+	for _, m in team.members do
+		local first, best, newBest = Progress.recordChallenge(m, seconds, team.level.day)
+		Progress.timeTick(m, false)
+		local points, fast = Ranking.clearPoints(Config.Challenge.pointsLevel, "solo", seconds, sections, first)
+		Progress.addPoints(m, points, if fast then "fast" elseif first then "first" else "clear")
+		local coins = Progress.addCoins(m, Config.Challenge.coins * (if first then 2 else 1), true)
+		local p = Data.get(m)
+		if p then
+			p.wins += 1
+			Data.markDirty(m)
+		end
+		Progress.addStat(m, "finishes")
+		Net.send(m, "finish", { coins = coins, seconds = seconds, best = best, points = points, challenge = true, newBest = newBest })
+	end
+	task.delay(5, function()
+		if teams[team.id] == team then
+			dissolve(team)
+		end
+	end)
+end
+
 local function finish(team: Team)
 	team.finished = true
 	local seconds = now() - team.startedAt
 	team.folder:SetAttribute("FinishedIn", seconds)
+	if team.level.theme.world == "challenge" then
+		finishChallenge(team, seconds)
+		return
+	end
 	local mult = Config.Modes[team.mode].coinMultiplier
 	local theme = team.level.theme
 	local hasNext = Themes.forLevel(theme.world, theme.level + 1) ~= nil
@@ -316,7 +347,7 @@ local function resetTeam(team: Team, _who: Player)
 	if team.mode ~= "solo" then
 		toastTeam(team, "teamFell")
 	end
-	if team.fails[cp] % Config.OfferSkipAfterFails == 0 and cp + 1 < team.level.winIndex then
+	if team.fails[cp] % Config.OfferSkipAfterFails == 0 and cp + 1 < team.level.winIndex and team.level.theme.world ~= "challenge" then
 		for _, m in team.members do
 			Net.send(m, "offerSkip")
 		end
@@ -519,10 +550,19 @@ local function breakPart(part: BasePart)
 	task.delay(Config.SmashRespawnSeconds, restore)
 end
 
+-- The daily challenge is a fair time race: no items that buy you time.
+local function itemsAllowed(team: Team, player: Player): boolean
+	if team.level.theme.world == "challenge" then
+		Net.send(player, "toast", { key = "noItemsChallenge" })
+		return false
+	end
+	return true
+end
+
 local function useSmash(player: Player)
 	local team = teamOf[player]
 	local root = rootOf(player)
-	if not team or not root or team.finished then
+	if not team or not root or team.finished or not itemsAllowed(team, player) then
 		return
 	end
 	local params = OverlapParams.new()
@@ -561,7 +601,7 @@ end
 function Game.useSkip(player: Player)
 	local team = teamOf[player]
 	local p = Data.get(player)
-	if not team or not p or team.finished then
+	if not team or not p or team.finished or not itemsAllowed(team, player) then
 		return
 	end
 	if team.checkpoint + 1 >= team.level.winIndex then
@@ -753,10 +793,10 @@ local function padTick()
 		local part = pad.part
 		local state = padStates[part] or {}
 		padStates[part] = state
-		local level = levels[(Themes.forLevel(pad.world, pad.level) :: Themes.Theme).id]
+		local level = if pad.world == "challenge" then levels.Challenge else levels[(Themes.forLevel(pad.world, pad.level) :: Themes.Theme).id]
 		local list = {}
 		for _, player in occupants(part) do
-			if unlockedLevel(player, pad.world) >= pad.level then
+			if pad.world == "challenge" or unlockedLevel(player, pad.world) >= pad.level then
 				table.insert(list, player)
 			elseif os.clock() - (lockedToast[player] or 0) > 4 then
 				lockedToast[player] = os.clock()
@@ -843,7 +883,7 @@ local function fallTick()
 	-- players walking around a world hub who fall off the island
 	for _, player in Players:GetPlayers() do
 		local zone = player:GetAttribute("Zone")
-		if not teamOf[player] and (zone == "solo" or zone == "team" or zone == "main") then
+		if not teamOf[player] and (zone == "solo" or zone == "team" or zone == "main" or zone == "challenge") then
 			local root = rootOf(player)
 			if root and root.Position.Y < World.hubSpawn(zone).Position.Y - 45 then
 				toHub(player, zone) -- fell off the island
@@ -916,18 +956,35 @@ function Game.start(theLobby: World.Lobby)
 	levelsFolder.Name = "Levels"
 	levelsFolder.Parent = Workspace
 	local builtDay = Calendar.dayNumber(os.time())
-	for _, theme in Themes.List do
-		local level = World.buildLevel(theme, levelsFolder, builtDay)
-		levels[theme.id] = level
-		wireLevel(level)
+	-- the 16 levels plus today's challenge (its look changes every day too)
+	local function themeFor(id: string, day: number): Themes.Theme
+		return Themes.get(id, day) :: Themes.Theme
 	end
+	local ids = {}
+	for _, theme in Themes.List do
+		table.insert(ids, theme.id)
+	end
+	table.insert(ids, "Challenge")
+	local function announce(level: World.Level)
+		if level.theme.id == "Challenge" then
+			Workspace:SetAttribute("ChallengeDay", level.day)
+			Workspace:SetAttribute("ChallengeBase", level.theme.base)
+		end
+	end
+	for _, id in ids do
+		local level = World.buildLevel(themeFor(id, builtDay), levelsFolder, builtDay)
+		levels[id] = level
+		wireLevel(level)
+		announce(level)
+	end
+	Workspace:SetAttribute("RoutesDay", builtDay)
 	updateSign()
 
 	-- A new day: rebuild every level with today's route. A level that a team
 	-- is still running is rebuilt as soon as they leave it.
 	local function rebuildIdleLevels()
-		for _, theme in Themes.List do
-			local level = levels[theme.id]
+		for _, id in ids do
+			local level = levels[id]
 			if level.day ~= builtDay then
 				local busy = false
 				for _, team in teams do
@@ -938,9 +995,10 @@ function Game.start(theLobby: World.Lobby)
 				if not busy then
 					World.clearTerrain(level) -- sculpted landmarks move with the route
 					level.folder:Destroy()
-					local fresh = World.buildLevel(theme, levelsFolder, builtDay)
-					levels[theme.id] = fresh
+					local fresh = World.buildLevel(themeFor(id, builtDay), levelsFolder, builtDay)
+					levels[id] = fresh
 					wireLevel(fresh)
+					announce(fresh)
 				end
 			end
 		end
@@ -951,6 +1009,7 @@ function Game.start(theLobby: World.Lobby)
 			local today = Calendar.dayNumber(os.time())
 			if today ~= builtDay then
 				builtDay = today
+				Workspace:SetAttribute("RoutesDay", builtDay)
 				Net.sendAll("toast", { key = "newDay", good = true })
 			end
 			rebuildIdleLevels()
@@ -988,7 +1047,7 @@ function Game.start(theLobby: World.Lobby)
 				teleport(player, World.checkpointCFrame(team.level, team.checkpoint, slot))
 			else
 				local zone = player:GetAttribute("Zone")
-				if zone == "solo" or zone == "team" then
+				if zone == "solo" or zone == "team" or zone == "challenge" then
 					toHub(player, zone)
 				else
 					setZone(player, "main", "main")

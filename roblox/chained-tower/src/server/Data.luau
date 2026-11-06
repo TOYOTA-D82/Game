@@ -43,6 +43,9 @@ export type Profile = {
 	lastSeen: number, -- os.time() of the last time-points tick (for time away)
 	lastRate: number, -- points per minute you were earning at that moment (0 = none)
 	offline: { id: number, minutes: number }, -- minutes of time away credited today
+	challenge: { id: number, best: number, at: number }, -- best daily-challenge time (id = day)
+	titleRank: number, -- daily challenge top-3 title while active
+	titleUntil: number,
 }
 
 -- at: os.time() when `points` was reached (leaderboard tie-breaker)
@@ -91,6 +94,9 @@ local function defaults(): Profile
 		lastSeen = 0,
 		lastRate = 0,
 		offline = { id = -1, minutes = 0 },
+		challenge = { id = -1, best = 0, at = 0 },
+		titleRank = 0,
+		titleUntil = 0,
 	}
 end
 

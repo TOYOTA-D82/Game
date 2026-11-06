@@ -786,8 +786,9 @@ local function showRules(mode: string, levelId: string?)
 	local solo = mode == "solo"
 	local theme = if levelId then Themes.ById[levelId] else nil
 	local header = if theme then "🏁 " .. T("levelLine", theme.level, T("lv_" .. theme.id)) .. " · " .. T("goal_" .. theme.id) .. "\n" else ""
-	rulesText.Text = header .. T(if solo then "rules_solo" else "rules_team")
-	rulesCard.BackgroundColor3 = if solo then Color3.fromRGB(25, 45, 70) else Color3.fromRGB(55, 30, 70)
+	local challenge = levelId == "Challenge"
+	rulesText.Text = if challenge then T("rules_challenge") else header .. T(if solo then "rules_solo" else "rules_team")
+	rulesCard.BackgroundColor3 = if challenge then Color3.fromRGB(70, 50, 15) elseif solo then Color3.fromRGB(25, 45, 70) else Color3.fromRGB(55, 30, 70)
 	rulesCard.Visible = true
 	local shownAt = os.clock()
 	task.delay(7, function()
@@ -850,7 +851,15 @@ local function labelPad(pad: BasePart)
 	local level = pad:GetAttribute("Level") :: number
 	local themeId = tostring(pad:GetAttribute("Theme"))
 	local bb = billboard(pad, 9)
-	text({ Size = UDim2.new(1, 0, 0.3, 0), Text = T("gateTitle", level, T("lv_" .. themeId)), TextStrokeTransparency = 0.2, Parent = bb })
+	local titleLabel = text({ Size = UDim2.new(1, 0, 0.3, 0), Text = T("gateTitle", level, T("lv_" .. themeId)), TextStrokeTransparency = 0.2, Parent = bb })
+	if world == "challenge" then
+		local function retitle()
+			local base = Workspace:GetAttribute("ChallengeBase")
+			titleLabel.Text = T("challengeGate", T("lv_" .. tostring(base)))
+		end
+		Workspace:GetAttributeChangedSignal("ChallengeBase"):Connect(retitle)
+		retitle()
+	end
 	local modeKey = if mode == "solo" then "soloGate" elseif mode == "duo" then "duoPad" else "squadPad"
 	text({
 		Position = UDim2.fromScale(0, 0.3),
@@ -865,6 +874,9 @@ local function labelPad(pad: BasePart)
 		local today = (profile.today or {})[world] or { cleared = 0, times = {} }
 		local unlockedTo = if profile.studioUnlockAll then math.huge else (today.cleared or 0) + 1
 		local best = (today.times or {})[tostring(level)]
+		if world == "challenge" then
+			best = if (profile.challengeBest or 0) > 0 then profile.challengeBest else nil
+		end
 		local countdown = pad:GetAttribute("Countdown") :: number? or -1
 		if level > unlockedTo then
 			status.Text = T("lockedShort")
@@ -1039,7 +1051,9 @@ local function tick()
 	local levelId = team and team:GetAttribute("Level")
 	colourFlags(levelId, section)
 	local theme = if type(levelId) == "string" then Themes.ById[levelId] else nil
-	if theme then
+	if levelId == "Challenge" then
+		placeLabel.Text = "⚡ " .. T("lv_Challenge")
+	elseif theme then
 		placeLabel.Text = T("levelLine", theme.level, T("lv_" .. theme.id))
 	else
 		local zone = player:GetAttribute("Zone")
@@ -1153,6 +1167,25 @@ local function onMessage(kind: string, payload: any)
 		else
 			UI.toast(T("rankResultNone", which), false)
 		end
+	elseif kind == "finish" and payload.challenge then
+		if payload.newBest then
+			UI.toast(T("challengeNewBest", Ranking.formatTime(payload.best or payload.seconds or 0)), true)
+		end
+		banner.Text = T("challengeFinished", Ranking.formatTime(payload.seconds or 0), payload.points or 0, payload.coins or 0)
+		banner.Visible = true
+		task.delay(4, function()
+			banner.Visible = false
+		end)
+	elseif kind == "challengeResult" then
+		if payload.rank then
+			UI.toast(T("challengeResult", payload.rank), true)
+			local title = Config.ChallengeTitles[payload.rank]
+			if title then
+				UI.toast(T("challengeTitleWon", title.text), true)
+			end
+		else
+			UI.toast(T("challengeResultNone"), false)
+		end
 	elseif kind == "finish" then
 		if payload.unlocked then
 			UI.toast(T("levelUnlocked", T("lv_" .. payload.unlocked)), true)
@@ -1188,6 +1221,44 @@ function UI.start()
 					labelPortal(child)
 				end
 			end
+		end
+	end)
+
+	-- route boards: countdown to tomorrow's routes, today's challenge and its leader
+	local clocks: { TextLabel } = {}
+	local infos: { TextLabel } = {}
+	Ambience.onArea(function(folder)
+		if string.sub(folder.Name, 1, 6) == "Level_" then
+			return
+		end
+		for _, child in folder:GetDescendants() do
+			if child:IsA("TextLabel") then
+				if child.Name == "RouteCountdown" then
+					table.insert(clocks, child)
+				elseif child.Name == "RouteInfo" then
+					table.insert(infos, child)
+				end
+			end
+		end
+	end)
+	task.spawn(function()
+		while true do
+			local day = Workspace:GetAttribute("RoutesDay")
+			local nowT = Workspace:GetServerTimeNow()
+			local left = if type(day) == "number" then math.max(0, math.floor((day + 1) * 86400 - nowT)) else 0
+			local clock = ("%02d:%02d:%02d"):format(left // 3600, (left % 3600) // 60, left % 60)
+			for _, l in clocks do
+				l.Text = clock
+			end
+			local base = Workspace:GetAttribute("ChallengeBase")
+			local lead = Workspace:GetAttribute("ChallengeLeader")
+			local look = T("lv_" .. tostring(base))
+			local name, time = string.match(if type(lead) == "string" then lead else "", "^(.*)|(.*)$")
+			local info = if name then T("routeInfo", look, name, time) else T("routeInfoNone", look)
+			for _, l in infos do
+				l.Text = info
+			end
+			task.wait(1)
 		end
 	end)
 

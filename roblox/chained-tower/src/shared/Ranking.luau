@@ -53,6 +53,17 @@ function Ranking.decodeScore(value: number): number
 	return value // SCALE
 end
 
+-- Challenge times (lower is better, boards sort ascending): hundredths of a
+-- second, then the moment it was set, so an equal time set earlier wins.
+function Ranking.encodeTime(seconds: number, reachedAt: number, periodStart: number): number
+	local elapsed = math.clamp(math.floor(reachedAt - periodStart), 0, SCALE - 1)
+	return math.floor(seconds * 100 + 0.5) * SCALE + elapsed
+end
+
+function Ranking.decodeTime(value: number): number
+	return (value // SCALE) / 100
+end
+
 -- When a day / week starts (UTC seconds). Matches Calendar.dayNumber/weekNumber.
 function Ranking.dayStart(day: number): number
 	return day * 86400

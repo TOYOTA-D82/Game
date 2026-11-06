@@ -19,6 +19,7 @@ export type Sky = {
 
 export type Theme = {
 	id: string,
+	base: string?, -- daily challenge only: the level whose look it borrows today
 	world: string, -- "solo" | "team"
 	level: number,
 	seed: number,
@@ -64,6 +65,14 @@ Themes.Worlds = {
 		section = 52, -- a bit longer so the bigger pads don't squeeze the obstacles
 		widthScale = 1.4,
 		origin = { -3000, 150, 0 },
+	},
+	-- the daily challenge: solo-sized course, its own island
+	challenge = {
+		lane = 5,
+		checkpoint = 5,
+		section = 56, -- longer runs between checkpoints
+		widthScale = 1,
+		origin = { 0, 150, 1800 },
 	},
 }
 
@@ -395,11 +404,70 @@ function Themes.levelCount(world: string): number
 	return n
 end
 
+----------------------------------------------------------------------
+-- Daily challenge (每日挑戰): ONE extra level, rebuilt every day. It borrows
+-- the look of a random level (never the same as yesterday), mixes in EVERY
+-- kind of section at the hardest difficulty, with lava, and is twice as long.
+----------------------------------------------------------------------
+Themes.ChallengeSections = 16
+-- every section type there is (Course.Builders); the first ones always appear
+Themes.ChallengeMust = { "LavaPlanks", "Rapids", "WallRun", "Spinner", "Conveyor", "Crumble", "Vanish", "Slide", "Barricade", "Mover" }
+Themes.ChallengeOthers = { "Stones", "Beams", "JumpPads", "Truss", "Detour", "Fragile", "Climb", "Tunnel", "Rooftops", "Shaft", "Gateway", "Drop", "Asteroids", "Pillars" }
+
+local function rawPick(day: number): number
+	local state = (day * 48271 + 12345) % 2147483647
+	state = (state * 48271) % 2147483647
+	return state % #list + 1
+end
+
+-- Which level the challenge looks like on `day`.
+function Themes.challengeBase(day: number): Theme
+	local i = rawPick(day)
+	if i == rawPick(day - 1) then
+		i = i % #list + 1
+	end
+	return list[i]
+end
+
+local challengeCache: { [number]: Theme } = {}
+function Themes.challengeFor(day: number): Theme
+	local cached = challengeCache[day]
+	if cached then
+		return cached
+	end
+	local base = Themes.challengeBase(day)
+	local t = table.clone(base)
+	t.id = "Challenge"
+	t.base = base.id
+	t.world = "challenge"
+	t.level = 1
+	t.seed = 90001
+	t.layout = nil -- always a long journey across the map
+	t.diff = { 3, 3 }
+	t.lava = true
+	local pool = table.clone(Themes.ChallengeMust)
+	for _, name in Themes.ChallengeOthers do
+		table.insert(pool, name)
+	end
+	t.pool = pool
+	challengeCache[day] = t
+	return t
+end
+
+-- A level by id; "Challenge" needs the day it was built for.
+function Themes.get(id: string, day: number?): Theme?
+	if id == "Challenge" then
+		return if day then Themes.challengeFor(day) else nil
+	end
+	return byId[id]
+end
+
 -- Sky used in the hubs between levels
 Themes.HubSky = {
 	main = { clock = 14.5, brightness = 2.2, ambient = rgb(150, 150, 170), atmosphere = rgb(200, 220, 255), density = 0.25, haze = 1 },
 	solo = { clock = 9, brightness = 2.4, ambient = rgb(160, 180, 210), atmosphere = rgb(190, 225, 255), density = 0.3, haze = 1.5 },
 	team = { clock = 17.5, brightness = 2, ambient = rgb(170, 130, 180), atmosphere = rgb(230, 180, 230), density = 0.3, haze = 1.5 },
+	challenge = { clock = 18.3, brightness = 1.8, ambient = rgb(170, 140, 110), atmosphere = rgb(255, 190, 120), density = 0.32, haze = 1.6 },
 } :: { [string]: Sky }
 
 return Themes

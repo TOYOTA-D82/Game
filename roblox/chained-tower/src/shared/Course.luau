@@ -696,7 +696,26 @@ Course.Builders = builders
 ----------------------------------------------------------------------
 -- Today's section list for a level: picked from the theme's pool, respecting
 -- difficulty, never the same type twice in a row, and as varied as possible.
+-- Daily challenge: every "must" section plus a random handful of the rest,
+-- shuffled, so each day has lava, water, walls, spinners... in a new order.
+local function challengeSequence(day: number): { string }
+	local rng = Course.rng(day * 6271 + 99)
+	local picked = table.clone(Themes.ChallengeMust)
+	local others = table.clone(Themes.ChallengeOthers)
+	while #picked < Themes.ChallengeSections and #others > 0 do
+		table.insert(picked, table.remove(others, rng:NextInteger(1, #others)) :: string)
+	end
+	for i = #picked, 2, -1 do
+		local j = rng:NextInteger(1, i)
+		picked[i], picked[j] = picked[j], picked[i]
+	end
+	return picked
+end
+
 function Course.sequenceFor(theme: Themes.Theme, day: number): { string }
+	if theme.id == "Challenge" then
+		return challengeSequence(day)
+	end
 	local rng = Course.rng(theme.seed * 31 + day * 7919 + 13)
 	local count = Themes.sectionCount(theme.level)
 	local half = math.ceil(count / 2)

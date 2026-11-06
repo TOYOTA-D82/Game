@@ -5,8 +5,9 @@ local World = require("./World")
 local Themes = require("./Themes")
 
 local lobby = World.buildLobby()
-assert(#lobby.portals == 4, "2 lobby portals + 1 back-portal per world hub, got " .. #lobby.portals)
-assert(#lobby.pads == 8 + 16, "8 solo gates + 8x2 team gates, got " .. #lobby.pads)
+assert(#lobby.portals == 6, "3 lobby portals + 1 back-portal per island (solo, team, challenge), got " .. #lobby.portals)
+assert(#lobby.pads == 8 + 16 + 1, "8 solo gates + 8x2 team gates + the challenge gate, got " .. #lobby.pads)
+assert(lobby.challengeBoard and lobby.challengeLeader, "challenge board and lobby route board")
 
 local folder = env.Instance.new("Folder")
 folder.Name = "Levels"
@@ -21,9 +22,21 @@ for _, theme in Themes.List do
 	assert(cf.Position.Y > Themes.Worlds[theme.world].origin[2], theme.id .. ": teleport target above the hub")
 	print(("  %-8s %-5s level %d: %4d instances, sections: %s"):format(theme.id, theme.world, theme.level, n, table.concat(level.layout.builders, ", ")))
 end
+-- today's daily challenge builds too (a few days, different looks)
+local all = table.clone(Themes.List)
+for day = 20400, 20403 do
+	local theme = Themes.challengeFor(day)
+	local level = World.buildLevel(theme, folder, day)
+	assert(level.checkpoints[0] and level.checkpoints[level.winIndex], "challenge: checkpoints exist")
+	assert(level.winIndex == Themes.ChallengeSections, "challenge has every section")
+	assert(level.folder:GetAttribute("Base") == theme.base, "challenge remembers its look")
+	print(("  Challenge(%s) day %d: %d instances, sections: %s"):format(theme.base :: string, day, #level.folder:GetDescendants(), table.concat(level.layout.builders, ", ")))
+	level.folder:Destroy()
+end
+table.insert(all, Themes.challengeFor(20400))
 -- levels must be far apart so each feels like its own world
-for _, a in Themes.List do
-	for _, b in Themes.List do
+for _, a in all do
+	for _, b in all do
 		if a ~= b then
 			local oa, ob = World.levelOrigin(a), World.levelOrigin(b)
 			local d = math.sqrt((oa[1] - ob[1]) ^ 2 + (oa[3] - ob[3]) ^ 2)

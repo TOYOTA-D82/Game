@@ -4,6 +4,7 @@
 -- Numbers come from Config so the book never disagrees with the game.
 
 local Config = require(script.Parent.Config)
+local Themes = require(script.Parent.Themes)
 
 local Manual = {}
 
@@ -67,9 +68,21 @@ Manual.Tabs = {
 				},
 			},
 			{
+				icon = "⚡",
+				color = rgb(255, 200, 60),
+				en = {
+					"Daily challenge (gold portal)",
+					("One extra solo level that changes every day: it borrows a different level's look, is %d long sections, uses EVERY kind of trap at the hardest difficulty, and pays far more points. No items allowed, so it's a fair race. The 3 fastest times of the day win a 24-hour title."):format(Themes.ChallengeSections),
+				},
+				zh = {
+					"每日挑戰（金色傳送門）",
+					("每天都不一樣的額外單人關：借用不同關卡的場景、%d 段長路線、所有機關都會出現、最高難度，積分比一般關卡多很多。不能用道具，公平比速度。當天最快的前 3 名拿 24 小時稱號。"):format(Themes.ChallengeSections),
+				},
+			},
+			{
 				icon = "📅",
-				en = { "A new route every day", "Every day at 08:00 (Taiwan) every level gets a brand-new route. Level 1 is open first; clear a level to open the next one for today." },
-				zh = { "每天都是新路線", "每天台灣早上 8 點，每一關都會換成全新的路線。每天從第 1 關開始，通過一關才會開下一關。" },
+				en = { "A new route every day", "Every day at 08:00 (Taiwan) every level gets a brand-new route. The 🔄 board in the lobby counts down to it. Level 1 is open first; clear a level to open the next one for today." },
+				zh = { "每天都是新路線", "每天台灣早上 8 點，每一關都會換成全新的路線，大廳的「🔄 路線更新倒數」看板會倒數。每天從第 1 關開始，通過一關才會開下一關。" },
 			},
 			{
 				icon = "🚪",
@@ -270,6 +283,11 @@ Manual.Tabs = {
 				icon = "🪽",
 				en = { "Weekly top 10", "Today's points also add up into the week (resets Monday 08:00). The top 10 wear glowing, flapping wings for a week; #1 also gets a halo." },
 				zh = { "每週前十名", "今日積分也會累加進本週積分（每週一早上 8 點歸零）。前十名拿到 1 週會拍動、會發光的翅膀，第 1 名還有光環。" },
+			},
+			{
+				icon = "⚡",
+				en = { "Challenge titles", "The 3 fastest daily-challenge times of the day get a glowing title over their head for 24 hours: Challenge King, #2 and #3. Same time: whoever set it first wins." },
+				zh = { "挑戰稱號", "每日挑戰當天最快的前 3 名，頭上會出現 24 小時的發光稱號：挑戰王、挑戰亞軍、挑戰季軍。時間一樣時，先跑出來的人排前面。" },
 			},
 			{
 				icon = "🚫",

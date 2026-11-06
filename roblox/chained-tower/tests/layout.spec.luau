@@ -25,7 +25,7 @@ local KNOWN = {
 local DAYS = 60 -- simulate two months of daily layouts
 local total, walls, movers = 0, 0, 0
 local usage = {}
-local thinnest = { solo = math.huge, team = math.huge }
+local thinnest = { solo = math.huge, team = math.huge, challenge = math.huge }
 
 local function verify(theme, course, label)
 	total += 1
@@ -176,6 +176,49 @@ for _, theme in Themes.List do
 	check(layouts >= 10, theme.id .. " only has " .. layouts .. " different daily layouts in " .. DAYS .. " days")
 end
 check(Themes.levelCount("solo") == 8 and Themes.levelCount("team") == 8, "8 levels per world")
+
+-- Daily challenge: long, every kind of trap, hardest, still beatable every day
+do
+	local all = {}
+	for _, name in Themes.ChallengeMust do
+		all[name] = true
+	end
+	for _, name in Themes.ChallengeOthers do
+		check(not all[name], "challenge lists " .. name .. " twice")
+		all[name] = true
+	end
+	for name in Course.Builders do
+		check(all[name] == true, "challenge never uses section type " .. name)
+	end
+	local origin = Themes.Worlds.challenge.origin
+	local bases, lastBase = {}, nil
+	for day = FIRST_DAY, FIRST_DAY + DAYS - 1 do
+		local theme = Themes.challengeFor(day)
+		check(theme.id == "Challenge" and theme.world == "challenge", "challenge identity")
+		check(theme.base ~= lastBase, "challenge looks the same two days in a row")
+		lastBase = theme.base
+		bases[theme.base] = true
+		local seq = Course.sequenceFor(theme, day)
+		check(#seq == Themes.ChallengeSections, "challenge length")
+		local has = {}
+		for i, name in seq do
+			check(Course.Builders[name] ~= nil, "challenge unknown section " .. name)
+			check(not has[name], "challenge repeats " .. name)
+			has[name] = true
+		end
+		for _, name in Themes.ChallengeMust do
+			check(has[name] == true, ("challenge day %d is missing %s"):format(day, name))
+		end
+		local seed = Course.dailySeed(theme, day)
+		verify(theme, Course.generate(theme, origin, makeRng(seed), seed, seq), ("Challenge(%s) day %d"):format(theme.base, day))
+	end
+	local n = 0
+	for _ in bases do
+		n += 1
+	end
+	check(n >= 10, "challenge borrows only " .. n .. " different looks in " .. DAYS .. " days")
+	print(("daily challenge: %d days, %d sections each, %d different looks"):format(DAYS, Themes.ChallengeSections, n))
+end
 
 -- Sanity: removing a section's platforms must make the course unbeatable
 do

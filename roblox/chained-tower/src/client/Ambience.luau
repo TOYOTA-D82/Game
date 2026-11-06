@@ -33,10 +33,16 @@ local function atmosphere(): Atmosphere
 	return a :: Atmosphere
 end
 
+-- A level by id; the daily challenge looks like a different level each day.
+local function themeOf(key: string): Themes.Theme?
+	local day = Workspace:GetAttribute("ChallengeDay")
+	return Themes.get(key, if type(day) == "number" then day else nil)
+end
+
 local function applySky(key: string, instant: boolean)
 	local sky: Themes.Sky
 	local gravity = DEFAULT_GRAVITY
-	local theme = Themes.ById[key]
+	local theme = themeOf(key)
 	if theme then
 		sky = theme.sky
 		gravity = theme.gravity or DEFAULT_GRAVITY
@@ -70,9 +76,9 @@ local areas: { [string]: Area } = {}
 local activeKey = "main"
 
 local function areaKeyFor(theme: string): string
-	if Themes.ById[theme] then
+	if Themes.ById[theme] or theme == "Challenge" then
 		return "Level_" .. theme
-	elseif theme == "solo" or theme == "team" then
+	elseif theme == "solo" or theme == "team" or theme == "challenge" then
 		return "Hub_" .. theme
 	end
 	return "Main"
@@ -157,8 +163,10 @@ subtitle.TextColor3 = Color3.new(1, 1, 1)
 subtitle.Parent = overlay
 
 local function titleFor(key: string): (string, string)
-	local theme = Themes.ById[key]
-	if theme then
+	local theme = themeOf(key)
+	if theme and theme.base then
+		return "⚡ " .. T("lv_Challenge"), T("challengeLook", T("lv_" .. theme.base))
+	elseif theme then
 		return T("lv_" .. theme.id), T("levelLine", theme.level, T("worldShort_" .. theme.world)) .. " · " .. T("goal_" .. theme.id)
 	end
 	return T("world_" .. key), ""

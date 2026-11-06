@@ -4,6 +4,7 @@
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -104,6 +105,7 @@ local function buildPayload(player: Player): { [string]: any }?
 		passes = p.passes,
 		starterBought = p.starterBought,
 		today = p.today,
+		challengeBest = if p.challenge.id == today() then p.challenge.best else 0,
 		dayPoints = dayPts,
 		weekPoints = weekPts,
 		points = p.points,
@@ -227,6 +229,9 @@ local function store(name: string): OrderedDataStore?
 end
 
 local function boardName(kind: string, id: number): string
+	if kind == "challenge" then
+		return ("ChallengeV1_Day_%d"):format(id) -- best times, lowest first
+	end
 	-- V2: values carry a tie-breaker (see Ranking.encodeScore)
 	return (if kind == "day" then "PointsV2_Day_%d" else "PointsV2_Week_%d"):format(id)
 end
@@ -291,7 +296,7 @@ local function rankOf(kind: string, id: number, userId: number): number?
 			return nil
 		end
 		local ok, pages = pcall(function()
-			return board:GetSortedAsync(false, 100)
+			return board:GetSortedAsync(kind == "challenge", 100)
 		end)
 		if not ok then
 			return nil
@@ -314,7 +319,7 @@ function Progress.settle(player: Player)
 	local remaining = {}
 	local changed = false
 	for _, entry in p.pending do
-		local current = if entry.kind == "day" then today() else thisWeek()
+		local current = if entry.kind == "week" then thisWeek() else today()
 		if entry.id >= current then
 			table.insert(remaining, entry)
 			continue
@@ -324,6 +329,17 @@ function Progress.settle(player: Player)
 		local now = os.time()
 		if entry.kind == "day" and entry.id > p.prevDay.id then
 			p.prevDay = { id = entry.id, place = rank or 0 }
+		end
+		if entry.kind == "challenge" then
+			local title = rank and Config.ChallengeTitles[rank]
+			if title and rank then
+				if p.titleUntil <= now or rank < p.titleRank then
+					p.titleRank = rank
+				end
+				p.titleUntil = math.max(p.titleUntil, now + Config.Challenge.titleHours * 3600)
+			end
+			Net.send(player, "challengeResult", { rank = rank })
+			continue
 		end
 		if entry.kind == "day" then
 			local reward = Ranking.dailyReward(rank)
@@ -390,6 +406,38 @@ function Progress.applyCosmetics(player: Player)
 		local old = head:FindFirstChild("CT_Vip")
 		if old then
 			old:Destroy()
+		end
+		local oldTitle = head:FindFirstChild("CT_Title")
+		if oldTitle then
+			oldTitle:Destroy()
+		end
+		-- daily challenge top 3: a glowing title above everything else
+		local title = Progress.activeTitle(player)
+		if title then
+			local bb = Instance.new("BillboardGui")
+			bb.Name = "CT_Title"
+			bb.Size = UDim2.fromOffset(220, 30)
+			bb.StudsOffset = Vector3.new(0, if weekly and weekly.halo then 4.8 else 3.8, 0)
+			bb.MaxDistance = 90
+			bb.LightInfluence = 0
+			local l = Instance.new("TextLabel")
+			l.BackgroundTransparency = 1
+			l.Size = UDim2.fromScale(1, 1)
+			l.Font = Enum.Font.FredokaOne
+			l.TextScaled = true
+			l.Text = title.text
+			l.TextColor3 = title.color
+			l.TextStrokeColor3 = Color3.fromRGB(60, 30, 0)
+			l.TextStrokeTransparency = 0
+			l.Parent = bb
+			local shine = Instance.new("UIGradient")
+			shine.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 250, 220)),
+				ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)),
+			})
+			shine.Parent = l
+			bb.Parent = head
 		end
 		local tags = {}
 		if weekly then
@@ -480,17 +528,114 @@ local function topOf(kind: string, id: number, count: number): { { name: string,
 	if not board then
 		return nil
 	end
+	local challenge = kind == "challenge"
 	local ok, pages = pcall(function()
-		return board:GetSortedAsync(false, count)
+		return board:GetSortedAsync(challenge, count)
 	end)
 	if not ok or not pages then
 		return nil
 	end
 	local list = {}
 	for _, e in (pages :: DataStorePages):GetCurrentPage() do
-		table.insert(list, { name = nameOf(tonumber(e.key) or 0), value = Ranking.decodeScore(e.value) })
+		local value = if challenge then Ranking.decodeTime(e.value) else Ranking.decodeScore(e.value)
+		table.insert(list, { name = nameOf(tonumber(e.key) or 0), value = value })
 	end
 	return list
+end
+
+----------------------------------------------------------------------
+-- Daily challenge: best time of the day, its board and top-3 titles
+----------------------------------------------------------------------
+local function postChallenge(player: Player)
+	local p = Data.get(player)
+	if not p or p.challenge.best <= 0 then
+		return
+	end
+	local board = store(boardName("challenge", p.challenge.id))
+	if board then
+		local value = Ranking.encodeTime(p.challenge.best, p.challenge.at, Ranking.dayStart(p.challenge.id))
+		pcall(function()
+			board:UpdateAsync(tostring(player.UserId), function(old)
+				return if old == nil or value < old then value else old
+			end)
+		end)
+	end
+end
+
+-- A finished challenge run on the route of `day`. Returns (firstClearToday, best, newBest).
+function Progress.recordChallenge(player: Player, seconds: number, day: number): (boolean, number, boolean)
+	local p = Data.get(player)
+	if not p then
+		return false, seconds, false
+	end
+	seconds = math.floor(seconds * 100 + 0.5) / 100
+	local first = p.challenge.id ~= day or p.challenge.best <= 0
+	local improved = first or seconds < p.challenge.best
+	if improved then
+		p.challenge = { id = day, best = seconds, at = os.time() }
+		addPending(p, "challenge", day)
+		task.spawn(postChallenge, player)
+		Data.markDirty(player)
+	end
+	return first, p.challenge.best, improved
+end
+
+function Progress.activeTitle(player: Player): typeof(Config.ChallengeTitles[1])?
+	local p = Data.get(player)
+	if not p or p.titleRank <= 0 or p.titleUntil <= os.time() then
+		return nil
+	end
+	return Config.ChallengeTitles[p.titleRank]
+end
+
+-- The board on the challenge island (today's 10 fastest), and today's leader
+-- for the lobby route board (as a Workspace attribute the clients read).
+function Progress.startChallengeBoard(board: SurfaceGui)
+	local list = Instance.new("Frame")
+	list.BackgroundTransparency = 1
+	list.Size = UDim2.fromScale(1, 1)
+	list.Parent = board
+	local layout = Instance.new("UIListLayout")
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = list
+	local function row(order: number, text: string, color: Color3, height: number): TextLabel
+		local l = Instance.new("TextLabel")
+		l.LayoutOrder = order
+		l.BackgroundTransparency = 1
+		l.Size = UDim2.fromScale(1, height)
+		l.Font = Enum.Font.FredokaOne
+		l.TextScaled = true
+		l.TextColor3 = color
+		l.Text = text
+		l.Parent = list
+		return l
+	end
+	local header = row(0, "⚡ TODAY'S FASTEST ⚡\n今日挑戰最快紀錄\nTop 3: title for 24h 前三名拿稱號", Color3.fromRGB(255, 215, 80), 0.2)
+	header.TextWrapped = true
+	local medal = { "🥇", "🥈", "🥉" }
+	local rows = {}
+	for i = 1, 10 do
+		rows[i] = row(i, "", if i <= 3 then Color3.fromRGB(255, 235, 150) else Color3.new(1, 1, 1), 0.075)
+	end
+	task.spawn(function()
+		while true do
+			local top = topOf("challenge", today(), 10)
+			if top then
+				for i = 1, 10 do
+					local e = top[i]
+					rows[i].Text = if e then ("%s %d. %s — %s"):format(medal[i] or "", i, e.name, Ranking.formatTime(e.value)) else ""
+				end
+				if #top == 0 then
+					rows[1].Text = "No one yet — be the first! 還沒有人上榜"
+				end
+				local lead = top[1]
+				Workspace:SetAttribute("ChallengeLeader", if lead then ("%s|%s"):format(lead.name, Ranking.formatTime(lead.value)) else "")
+			else
+				rows[1].Text = "(publish the game to see the leaderboard)"
+			end
+			task.wait(60)
+		end
+	end)
 end
 
 -- kind: "day" (today's points) or "week" (this week's points)
@@ -601,9 +746,14 @@ function Progress.start()
 				task.spawn(Progress.settle, player)
 				local p = Data.get(player)
 				local now = os.time()
-				if p and ((p.rewardRank > 0 and p.rewardUntil <= now) or (p.weekRewardRank > 0 and p.weekRewardUntil <= now)) then
+				local expired = p
+					and ((p.rewardRank > 0 and p.rewardUntil <= now) or (p.weekRewardRank > 0 and p.weekRewardUntil <= now) or (p.titleRank > 0 and p.titleUntil <= now))
+				if p and expired then
 					if p.rewardUntil <= now then
 						p.rewardRank = 0
+					end
+					if p.titleUntil <= now then
+						p.titleRank = 0
 					end
 					if p.weekRewardUntil <= now then
 						p.weekRewardRank = 0
@@ -628,7 +778,8 @@ function Progress.timeRate(player: Player): number
 		return 0
 	end
 	Data.refreshDaily(player)
-	if p.today.solo.cleared + p.today.team.cleared <= 0 then
+	local challengeToday = p.challenge.id == today() and p.challenge.best > 0
+	if p.today.solo.cleared + p.today.team.cleared <= 0 and not challengeToday then
 		return 0
 	end
 	return Ranking.minuteRate(Progress.yesterdayPlace(player))
