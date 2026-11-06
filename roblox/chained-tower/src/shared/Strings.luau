@@ -120,6 +120,9 @@ local en: { [string]: string } = {
 	trails = "Trails",
 	daily = "Daily",
 	leave = "Leave level",
+	guide = "Guide",
+	guideTitle = "Game guide",
+	guideHint = "New here? Tap 📖 Guide on the left to see how to play and what every block does.",
 	close = "Close",
 	buy = "Buy",
 	owned = "Owned",
@@ -316,6 +319,9 @@ local zh: { [string]: string } = {
 	trails = "特效",
 	daily = "每日",
 	leave = "離開關卡",
+	guide = "說明",
+	guideTitle = "遊戲說明手冊",
+	guideHint = "第一次玩嗎？按左邊「📖 說明」看看怎麼玩、每種方塊是做什麼的。",
 	close = "關閉",
 	buy = "購買",
 	owned = "已擁有",
@@ -419,6 +425,10 @@ function Strings.setLocale(localeId: string)
 	else
 		current = en
 	end
+end
+
+function Strings.isChinese(): boolean
+	return current == zh
 end
 
 function Strings.get(key: string, ...: any): string

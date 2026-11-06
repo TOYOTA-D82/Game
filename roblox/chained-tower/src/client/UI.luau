@@ -14,6 +14,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Strings = require(Shared:WaitForChild("Strings"))
 local Themes = require(Shared:WaitForChild("Themes"))
 local Ranking = require(Shared:WaitForChild("Ranking"))
+local Manual = require(Shared:WaitForChild("Manual"))
 local Chains = require(script.Parent.Chains)
 local Ambience = require(script.Parent.Ambience)
 
@@ -360,11 +361,11 @@ end)
 local menu = make("Frame", {
 	AnchorPoint = Vector2.new(0, 0),
 	Position = UDim2.new(0, 12, 0, 118),
-	Size = UDim2.fromOffset(96, 260),
+	Size = UDim2.fromOffset(96, 280),
 	BackgroundTransparency = 1,
 	Parent = gui,
 }, {
-	make("UIListLayout", { Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Top }),
+	make("UIListLayout", { Padding = UDim.new(0, 6), VerticalAlignment = Enum.VerticalAlignment.Top, SortOrder = Enum.SortOrder.LayoutOrder }),
 })
 
 local panels: { [string]: Frame } = {}
@@ -377,7 +378,7 @@ end
 local function menuButton(order: number, label: string, color: Color3, onClick: () -> ()): TextButton
 	return button({
 		LayoutOrder = order,
-		Size = UDim2.fromOffset(96, 56),
+		Size = UDim2.fromOffset(96, 50),
 		BackgroundColor3 = color,
 		Text = label,
 		Parent = menu,
@@ -394,7 +395,10 @@ end)
 menuButton(3, "📅 " .. T("daily"), COLORS.green, function()
 	openPanel(if panels.daily.Visible then nil else "daily")
 end)
-local leaveButton = menuButton(4, "🚪 " .. T("leave"), COLORS.gray, function()
+menuButton(4, "📖 " .. T("guide"), COLORS.purple, function()
+	openPanel(if panels.guide.Visible then nil else "guide")
+end)
+local leaveButton = menuButton(5, "🚪 " .. T("leave"), COLORS.gray, function()
 	toServer:FireServer("leaveTeam")
 end)
 
@@ -547,6 +551,96 @@ for i, trail in Config.Trails do
 	make("UIGradient", { Color = ColorSequence.new(keypoints), Parent = preview })
 	c.title.Text = T("t_" .. trail.id)
 	table.insert(trailCards, { card = c, trail = trail })
+end
+
+-- Guide book: tabs across the top, one row per topic below
+do
+	local zhText = Strings.isChinese()
+	local list = panel("guide", "📖 " .. T("guideTitle"))
+	local frame = list.Parent :: Frame
+	local grid = list:FindFirstChildOfClass("UIGridLayout")
+	if grid then
+		grid:Destroy()
+	end
+	list.Position = UDim2.fromOffset(12, 104)
+	list.Size = UDim2.new(1, -24, 1, -116)
+	make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = list })
+	local tabBar = make("Frame", {
+		Position = UDim2.fromOffset(12, 56),
+		Size = UDim2.new(1, -24, 0, 40),
+		BackgroundTransparency = 1,
+		Parent = frame,
+	}, {
+		make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6) }),
+	})
+	local tabButtons: { TextButton } = {}
+	local function show(index: number)
+		for _, child in list:GetChildren() do
+			if child:IsA("Frame") then
+				child:Destroy()
+			end
+		end
+		for i, b in tabButtons do
+			b.BackgroundColor3 = if i == index then COLORS.purple else COLORS.card
+		end
+		for order, entry in Manual.Tabs[index].entries do
+			local words = if zhText then entry.zh else entry.en
+			local row = make("Frame", {
+				LayoutOrder = order,
+				Size = UDim2.new(1, -10, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				BackgroundColor3 = COLORS.card,
+				Parent = list,
+			}, { corner(12), make("UIPadding", { PaddingBottom = UDim.new(0, 10) }) })
+			make("Frame", {
+				Position = UDim2.fromOffset(10, 10),
+				Size = UDim2.fromOffset(48, 48),
+				BackgroundColor3 = entry.color or COLORS.panel,
+				Parent = row,
+			}, {
+				corner(10),
+				stroke(Color3.new(1, 1, 1), 1),
+				text({ Size = UDim2.fromScale(1, 1), Text = entry.icon, TextStrokeTransparency = 0.4 }),
+			})
+			text({
+				Position = UDim2.fromOffset(70, 8),
+				Size = UDim2.new(1, -80, 0, 24),
+				TextScaled = false,
+				TextSize = 20,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Text = words[1],
+				Parent = row,
+			})
+			text({
+				Position = UDim2.fromOffset(70, 34),
+				Size = UDim2.new(1, -80, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				TextScaled = false,
+				TextSize = 16,
+				TextWrapped = true,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Top,
+				TextColor3 = COLORS.sub,
+				Font = Enum.Font.GothamMedium,
+				TextStrokeTransparency = 1,
+				Text = words[2],
+				Parent = row,
+			})
+		end
+		list.CanvasPosition = Vector2.zero
+	end
+	for i, tab in Manual.Tabs do
+		tabButtons[i] = button({
+			LayoutOrder = i,
+			Size = UDim2.new(1 / #Manual.Tabs, -5, 1, 0),
+			BackgroundColor3 = COLORS.card,
+			Text = if zhText then tab.zh else tab.en,
+			Parent = tabBar,
+		}, function()
+			show(i)
+		end)
+	end
+	show(1)
 end
 
 -- Daily
@@ -1005,9 +1099,19 @@ local function translateArgs(args: { any }?): { any }
 	return out
 end
 
+local guideHinted = false
 local function onMessage(kind: string, payload: any)
 	if kind == "profile" then
 		profile = payload
+		-- players who have never cleared a level get one gentle pointer to the guide
+		if not guideHinted then
+			guideHinted = true
+			if (payload.wins or 0) == 0 then
+				task.delay(6, function()
+					UI.toast(T("guideHint"), true)
+				end)
+			end
+		end
 		refresh()
 		for _, r in padRefreshers do
 			r()
