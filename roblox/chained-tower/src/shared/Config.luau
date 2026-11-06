@@ -150,10 +150,10 @@ Config.OfferSkipAfterFails = 5 -- fail the same section 5 times = a small skip o
 -- is the one you set on the Creator Dashboard.
 ----------------------------------------------------------------------
 Config.GamePasses = {
-	VIP = { id = 0, price = 299 },
-	FireTrail = { id = 0, price = 99 },
-	LightningTrail = { id = 0, price = 129 },
-	GalaxyTrail = { id = 0, price = 199 },
+	VIP = { id = 2075960340, price = 299 },
+	FireTrail = { id = 2076212318, price = 99 },
+	LightningTrail = { id = 2075150326, price = 129 },
+	GalaxyTrail = { id = 2075708337, price = 199 },
 }
 
 -- Developer Products (can be bought again and again)
