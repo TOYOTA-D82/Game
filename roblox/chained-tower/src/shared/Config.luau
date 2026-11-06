@@ -158,13 +158,13 @@ Config.GamePasses = {
 
 -- Developer Products (can be bought again and again)
 Config.Products = {
-	StarterPack = { id = 0, price = 25, grant = { unchain = 10, smash = 5, trail = "Rainbow" }, oncePerPlayer = true },
-	Skip = { id = 0, price = 15, grant = { skip = 1 } },
-	Unchain5 = { id = 0, price = 19, grant = { unchain = 5 } },
-	Unchain20 = { id = 0, price = 59, grant = { unchain = 20 } },
-	Smash3 = { id = 0, price = 25, grant = { smash = 3 } },
-	Smash12 = { id = 0, price = 79, grant = { smash = 12 } },
-	Coins1000 = { id = 0, price = 49, grant = { coins = 1000 } },
+	StarterPack = { id = 3728715985, price = 25, grant = { unchain = 10, smash = 5, trail = "Rainbow" }, oncePerPlayer = true },
+	Skip = { id = 3728716247, price = 15, grant = { skip = 1 } },
+	Unchain5 = { id = 3728716467, price = 19, grant = { unchain = 5 } },
+	Unchain20 = { id = 3728716620, price = 59, grant = { unchain = 20 } },
+	Smash3 = { id = 3728716811, price = 25, grant = { smash = 3 } },
+	Smash12 = { id = 3728716951, price = 79, grant = { smash = 12 } },
+	Coins1000 = { id = 3728718108, price = 49, grant = { coins = 1000 } },
 }
 
 -- The order products appear in the shop
