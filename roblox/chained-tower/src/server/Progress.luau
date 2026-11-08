@@ -469,6 +469,24 @@ function Progress.applyCosmetics(player: Player)
 	end
 end
 
+-- Recording tour: while it runs, show off the Fire trail and the reward
+-- wings, halo and crown. Only in Studio, or for the game's owner.
+Net.on("trailer", function(player, on)
+	local allowed = RunService:IsStudio() or (game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId)
+	local character = player.Character
+	if not allowed or not character then
+		return
+	end
+	if on == true then
+		player:SetAttribute("Trailer", true)
+		TrailFx.apply(character, "Fire")
+		Cosmetics.apply(character, "Angel", true, true)
+	else
+		player:SetAttribute("Trailer", nil)
+		Progress.applyCosmetics(player)
+	end
+end)
+
 Net.on("equipTrail", function(player, id)
 	if type(id) ~= "string" or not Progress.ownsTrail(player, id) then
 		return

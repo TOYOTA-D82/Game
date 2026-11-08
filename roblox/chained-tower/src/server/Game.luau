@@ -883,7 +883,7 @@ local function fallTick()
 	-- players walking around a world hub who fall off the island
 	for _, player in Players:GetPlayers() do
 		local zone = player:GetAttribute("Zone")
-		if not teamOf[player] and (zone == "solo" or zone == "team" or zone == "main" or zone == "challenge") then
+		if not teamOf[player] and not player:GetAttribute("Trailer") and (zone == "solo" or zone == "team" or zone == "main" or zone == "challenge") then
 			local root = rootOf(player)
 			if root and root.Position.Y < World.hubSpawn(zone).Position.Y - 45 then
 				toHub(player, zone) -- fell off the island

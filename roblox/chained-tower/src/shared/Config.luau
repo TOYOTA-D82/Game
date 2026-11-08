@@ -16,6 +16,11 @@ Config.SecondsBetweenResets = 1.5 -- debounce for team resets
 Config.FirstClearBonus = 20 -- extra coins the first time each day you clear a level (x level number)
 -- Testing helper: in Roblox Studio every level is unlocked so you can try them
 -- all. Has no effect in the real (published) game.
+-- Recording tour (自動錄影導覽): when true, pressing Play in Studio runs an
+-- automatic camera tour through the real levels so you can screen-record a
+-- trailer. Only ever works in Studio; in the live game only the game's owner
+-- can start it by typing /trailer in chat.
+Config.TrailerMode = false
 Config.StudioUnlockAll = true
 
 ----------------------------------------------------------------------

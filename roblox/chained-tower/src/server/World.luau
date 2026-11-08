@@ -154,15 +154,7 @@ function World.gateSpawn(world: string, level: number): CFrame
 end
 
 -- Each level course sits far away from the others so every one feels like its own world.
-function World.levelOrigin(theme: Themes.Theme): { number }
-	local o = hubOrigin(theme.world)
-	if theme.world == "challenge" then
-		return { o.X, o.Y + 40, 9000 } -- between the solo and team lines, far from both
-	end
-	-- solo levels line up to the north, team levels to the south, 1800 apart
-	local dir = if theme.world == "solo" then 1 else -1
-	return { o.X, o.Y + 40, dir * (4000 + theme.level * 1800) }
-end
+World.levelOrigin = Themes.levelOrigin
 
 ----------------------------------------------------------------------
 -- Lobby and world hubs

@@ -126,6 +126,12 @@ local function showOnly(key: string)
 	end
 end
 
+-- Instantly show an area with its sky (used by the recording tour).
+function Ambience.setArea(key: string)
+	showOnly(areaKeyFor(key))
+	applySky(key, true)
+end
+
 ----------------------------------------------------------------------
 -- Fade-to-black with a title
 ----------------------------------------------------------------------

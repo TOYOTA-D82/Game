@@ -454,6 +454,18 @@ function Themes.challengeFor(day: number): Theme
 	return t
 end
 
+-- Where a level's course starts (each sits far from the others so every one
+-- feels like its own world). Shared so clients can rebuild the same route.
+function Themes.levelOrigin(theme: Theme): { number }
+	local o = Themes.Worlds[theme.world].origin
+	if theme.world == "challenge" then
+		return { o[1], o[2] + 40, 9000 } -- between the solo and team lines, far from both
+	end
+	-- solo levels line up to the north, team levels to the south, 1800 apart
+	local dir = if theme.world == "solo" then 1 else -1
+	return { o[1], o[2] + 40, dir * (4000 + theme.level * 1800) }
+end
+
 -- A level by id; "Challenge" needs the day it was built for.
 function Themes.get(id: string, day: number?): Theme?
 	if id == "Challenge" then
