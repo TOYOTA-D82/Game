@@ -563,7 +563,9 @@ end
 function Trailer.start()
 	if RunService:IsStudio() and Config.TrailerMode then
 		task.spawn(function()
-			player.CharacterAdded:Wait()
+			if not player.Character then
+				player.CharacterAdded:Wait()
+			end
 			Workspace:WaitForChild("Levels", 60)
 			task.wait(4) -- let every level arrive
 			Trailer.run()
