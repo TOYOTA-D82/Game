@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Chained Tower Trailer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&family=Fredoka:wght@600;700&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+  #stage { position: relative; overflow: hidden; }
+  canvas { display: block; }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+  .cap {
+    position: absolute; left: 0; right: 0; text-align: center; opacity: 0;
+    font-family: "Noto Sans TC", "WenQuanYi Zen Hei", sans-serif; font-weight: 900; color: #fff;
+    -webkit-text-stroke: var(--stroke) #1b1636; paint-order: stroke fill;
+    text-shadow: 0 var(--sh) 0 #1b1636, 0 calc(var(--sh) * 2) calc(var(--sh) * 3) rgba(0,0,0,.35);
+    line-height: 1.15; will-change: transform, opacity;
+  }
+  .cap .en { display: block; font-family: "Fredoka", "Noto Sans TC", sans-serif; font-weight: 700; color: #ffe066; }
+  .cap .hl { color: #ffd23f; }
+  .cap .hot { color: #ff7b2e; }
+  .cap .cool { color: #7fd8ff; }
+  #title, #end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; }
+  .logo { font-family: "Fredoka", sans-serif; font-weight: 700; color: #fff; letter-spacing: 0.02em;
+    -webkit-text-stroke: var(--stroke) #1b1636; paint-order: stroke fill; text-shadow: 0 var(--sh) 0 #1b1636; }
+  .logo-zh { font-family: "Noto Sans TC", sans-serif; font-weight: 900; color: #ffd23f;
+    -webkit-text-stroke: var(--stroke) #1b1636; paint-order: stroke fill; text-shadow: 0 var(--sh) 0 #1b1636; }
+  .icon { border-radius: 22%; box-shadow: 0 10px 40px rgba(0,0,0,.45); border: 6px solid #fff; }
+  .pill { font-family: "Noto Sans TC", sans-serif; font-weight: 900; color: #1b1636; background: #ffd23f;
+    border: 5px solid #1b1636; border-radius: 999px; padding: .25em .9em; box-shadow: 0 8px 0 #1b1636; }
+  .sub { font-family: "Noto Sans TC", sans-serif; font-weight: 700; color: #fff; -webkit-text-stroke: calc(var(--stroke) * .7) #1b1636; paint-order: stroke fill; }
+  #badge { position: absolute; font-family: "Noto Sans TC", sans-serif; font-weight: 900; color: #fff; background: rgba(27,22,54,.72);
+    border-radius: 14px; padding: .35em .7em; opacity: 0; }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="layer" id="ui">
+    <div id="title">
+      <img class="icon" id="titleIcon" src="icon-512.png">
+      <div class="logo" id="titleLogo">CHAINED TOWER</div>
+      <div class="logo-zh" id="titleZh">綁腳塔</div>
+    </div>
+    <div id="end">
+      <img class="icon" id="endIcon" src="icon-512.png">
+      <div class="logo" id="endLogo">CHAINED TOWER</div>
+      <div class="logo-zh" id="endZh">綁腳塔</div>
+      <div class="pill" id="endPill">Roblox 搜尋「Chained Tower」</div>
+      <div class="sub" id="endSub">找朋友一起綁起來玩！ · Play with friends!</div>
+    </div>
+    <div id="badge"></div>
+    <div id="flash"></div>
+  </div>
+</div>
+<script type="importmap">{ "imports": { "three": "./node_modules/three/build/three.module.js" } }</script>
+<script type="module" src="trailer.js"></script>
+</body>
+</html>

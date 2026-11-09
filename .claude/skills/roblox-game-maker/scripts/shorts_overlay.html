@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@900&family=Fredoka:wght@700&display=block" rel="stylesheet">
+<style>
+html,body{margin:0;width:1080px;height:1920px;background:transparent;overflow:hidden}
+.top{position:absolute;top:95px;left:0;right:0;display:flex;flex-direction:column;align-items:center}
+.row{display:flex;align-items:center;gap:28px}
+.icon{width:150px;height:150px;border-radius:24%;border:6px solid #fff;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.icon[src=""]{display:none}
+.logo{font-family:Fredoka,'Noto Sans TC';font-weight:700;font-size:92px;color:#fff;-webkit-text-stroke:14px #1b1636;paint-order:stroke fill;text-shadow:0 7px 0 #1b1636;line-height:1}
+.zh{font-family:'Noto Sans TC';font-weight:900;font-size:110px;color:#ffd23f;-webkit-text-stroke:16px #1b1636;paint-order:stroke fill;text-shadow:0 8px 0 #1b1636;line-height:1.1}
+.tag{margin-top:22px;font-family:'Noto Sans TC';font-weight:900;font-size:62px;color:#fff;-webkit-text-stroke:12px #1b1636;paint-order:stroke fill;text-shadow:0 6px 0 #1b1636;text-align:center}
+.tag b{color:#7fd8ff}
+.bottom{position:absolute;bottom:250px;left:0;right:0;display:flex;flex-direction:column;align-items:center}
+.pill{font-family:'Noto Sans TC';font-weight:900;font-size:60px;color:#1b1636;background:#ffd23f;border:6px solid #1b1636;border-radius:999px;padding:14px 48px;box-shadow:0 10px 0 #1b1636}
+.pill:empty,.sub:empty,.tag:empty,.zh:empty{display:none}
+.sub{margin-top:36px;font-family:'Noto Sans TC';font-weight:900;font-size:44px;color:#fff;-webkit-text-stroke:10px #1b1636;paint-order:stroke fill}
+</style></head><body>
+<!-- Overlay for 9:16 Shorts: the game footage sits between y≈585 and y≈1395. -->
+<div class="top"><div class="row"><img class="icon" id="icon" src=""><div class="logo" id="title"></div></div>
+<div class="zh" id="zh"></div><div class="tag" id="tagline"></div></div>
+<div class="bottom"><div class="pill" id="search"></div><div class="sub" id="sub"></div></div>
+</body></html>
