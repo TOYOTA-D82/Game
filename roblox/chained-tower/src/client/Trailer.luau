@@ -332,8 +332,8 @@ local SHOTS: { Shot } = {
 	{ area = "Castle", alts = { "Harbor", "Pirate" }, kind = "run", seconds = 7, wanted = { "Crumble", "Gateway", "Climb" }, friend = true },
 	{ area = "Jungle", alts = { "Harbor", "Pirate", "Factory" }, kind = "run", seconds = 6, wanted = { "Stones", "Truss", "Tunnel" }, friend = true },
 	{ area = "Volcano", alts = { "Factory", "Pirate" }, kind = "run", seconds = 6.5, wanted = { "LavaPlanks", "Crumble", "Vanish" }, friend = true },
-	{ area = "Space", alts = { "Clouds", "Ice" }, kind = "run", seconds = 5.5, wanted = { "Asteroids", "JumpPads" } },
-	{ area = "Snow", alts = { "Pirate", "Harbor", "Factory" }, kind = "run", seconds = 6.5, wanted = { "Rooftops", "Crumble", "Stones" }, friend = true },
+	{ area = "Space", alts = { "Clouds", "Beach" }, kind = "run", seconds = 5.5, wanted = { "Asteroids", "JumpPads" } },
+	{ area = "Harbor", alts = { "Pirate", "Factory" }, kind = "run", seconds = 6.5, wanted = { "Rooftops", "Crumble", "Stones" }, friend = true },
 	{ area = "Challenge", kind = "run", seconds = 6, wanted = { "LavaPlanks", "Vanish", "Crumble", "JumpPads" } },
 	{ area = "Neon", kind = "orbit", seconds = 4, logo = true },
 }
@@ -353,6 +353,14 @@ function Trailer.run()
 	local toServer = ReplicatedStorage:WaitForChild("Net"):WaitForChild("ToServer") :: RemoteEvent
 	toServer:FireServer("trailer", true) -- Fire trail, wings, halo and crown for the tour
 	task.wait(1)
+	-- tone the glow down for video (bright glow on bright levels looks harsh)
+	for _, d in character:GetDescendants() do
+		if d:IsA("ParticleEmitter") or d:IsA("Trail") then
+			(d :: any).LightEmission *= 0.5
+		elseif d:IsA("PointLight") then
+			d.Range *= 0.6
+		end
+	end
 
 	local routes: { [string]: Route } = {}
 	for _, s in SHOTS do
@@ -405,6 +413,8 @@ function Trailer.run()
 		ghost.model.Parent = nil
 	end
 
+	local camParams = RaycastParams.new()
+	camParams.FilterType = Enum.RaycastFilterType.Exclude
 	-- camera + ghost run every frame; `mode` says what the camera does
 	local mode = "orbit"
 	local orbitCenter, orbitT0 = Vector3.zero, os.clock()
@@ -459,7 +469,21 @@ function Trailer.run()
 			local side = if showGhost then -10 else 4
 			local want = pos - flatDir * 19 + Vector3.new(0, 9, 0) + right * side
 			camPos = camPos:Lerp(want, 1 - math.exp(-dt * 2.5)) -- calm camera
-			camera.CFrame = CFrame.lookAt(camPos, pos + Vector3.new(0, 1.5, 0) + flatDir * 4)
+			local focus = pos + Vector3.new(0, 1.5, 0)
+			local ignore: { Instance } = { character }
+			if ghost then
+				table.insert(ignore, ghost.model)
+			end
+			for _, l in chainLinks do
+				table.insert(ignore, l)
+			end
+			camParams.FilterDescendantsInstances = ignore
+			local hit = Workspace:Raycast(focus, camPos - focus, camParams)
+			if hit then
+				-- something is between the camera and you (a tunnel roof, a wall): move in front of it
+				camPos = hit.Position + (focus - hit.Position).Unit * 1.2
+			end
+			camera.CFrame = CFrame.lookAt(camPos, focus + flatDir * 4)
 		end
 	end)
 
@@ -516,7 +540,7 @@ function Trailer.run()
 				end
 			end
 			-- fell off, or stuck (after a short grace period)
-			local fell = os.clock() - t0 > 0.6 and p.Y < math.min(cur.top, nxt.top) + HIP - 14
+			local fell = os.clock() - t0 > 0.6 and humanoid:GetState() ~= Enum.HumanoidStateType.Climbing and p.Y < math.min(cur.top, nxt.top) + HIP - 4
 			if fell or humanoid.Health <= 0 or os.clock() - lastProgress > 4 then
 				humanoid:Move(Vector3.zero, false)
 				print(("[Trailer] stopped at hop %d: %s (at %.0f,%.0f,%.0f; stone top %.0f)"):format(
@@ -649,6 +673,9 @@ function Trailer.run()
 					root.Anchored = false
 					print(("[Trailer] %s: running from hop %d (try %d)"):format(area, start, attempt))
 					local ok = runBot(rt, start, shot.seconds)
+					if not ok then
+						showGhost = false -- cut away before the friend would "replay" the miss
+					end
 					root.Anchored = true -- hold still again between shots
 					root.AssemblyLinearVelocity = Vector3.zero
 					if ok then
