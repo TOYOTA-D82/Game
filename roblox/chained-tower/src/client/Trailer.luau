@@ -384,6 +384,10 @@ function Trailer.run()
 	end)
 
 	local home = root.CFrame
+	-- hold the character still: the lobby is hidden during the tour, and an
+	-- unheld character would fall into the void (Roblox deletes it below -500)
+	root.Anchored = true
+	root.AssemblyLinearVelocity = Vector3.zero
 	local homeTheme = player:GetAttribute("Theme")
 	local overlay, logo, black = makeOverlay()
 	camera.CameraType = Enum.CameraType.Scriptable
@@ -542,6 +546,10 @@ function Trailer.run()
 		if not rt then
 			continue
 		end
+		if not root.Parent or humanoid.Health <= 0 then
+			print("[Trailer] the character is gone (respawned?) - stopping the tour")
+			break
+		end
 		if shot.kind == "orbit" then
 			if index > 1 then
 				fade(1, 0.2)
@@ -606,7 +614,10 @@ function Trailer.run()
 					task.wait(0.25)
 					root.Anchored = false
 					print(("[Trailer] %s: running from hop %d (try %d)"):format(shot.area, start, attempt))
-					if runBot(rt, start, shot.seconds) then
+					local ok = runBot(rt, start, shot.seconds)
+					root.Anchored = true -- hold still again between shots
+					root.AssemblyLinearVelocity = Vector3.zero
+					if ok then
 						ran = true
 						break
 					end
@@ -650,7 +661,10 @@ function Trailer.run()
 	overlay:Destroy()
 	humanoid:Move(Vector3.zero, false)
 	Ambience.setArea(if type(homeTheme) == "string" then homeTheme else "main")
-	teleport(home)
+	if root.Parent then
+		teleport(home)
+		root.Anchored = false
+	end
 	camera.CameraType = Enum.CameraType.Custom
 	if controls then
 		pcall(function()
