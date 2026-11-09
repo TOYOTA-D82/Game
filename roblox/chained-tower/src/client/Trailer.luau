@@ -355,6 +355,9 @@ function Trailer.run()
 			local ok, rt = pcall(route, s.area)
 			if ok and rt and #rt.path > 2 then
 				routes[s.area] = rt
+				print(("[Trailer] %s: route with %d stones"):format(s.area, #rt.path))
+			else
+				print(("[Trailer] %s: could not rebuild the route (%s)"):format(s.area, if ok then "level not found yet" else tostring(rt)))
 			end
 		end
 	end
@@ -497,9 +500,12 @@ function Trailer.run()
 					return true
 				end
 			end
-			-- fell off, or stuck
-			if p.Y < math.min(cur.top, nxt.top) - 12 or humanoid.Health <= 0 or os.clock() - lastProgress > 4 then
+			-- fell off, or stuck (after a short grace period)
+			local fell = os.clock() - t0 > 0.6 and p.Y < math.min(cur.top, nxt.top) + HIP - 14
+			if fell or humanoid.Health <= 0 or os.clock() - lastProgress > 4 then
 				humanoid:Move(Vector3.zero, false)
+				print(("[Trailer] stopped at hop %d: %s (at %.0f,%.0f,%.0f; stone top %.0f)"):format(
+					i, if fell then "fell" elseif humanoid.Health <= 0 then "died" else "stuck", p.X, p.Y, p.Z, cur.top))
 				return false
 			end
 			local gap, dy = gapXZ(cur, nxt), nxt.top - cur.top
@@ -559,15 +565,37 @@ function Trailer.run()
 			end
 			setLogo(logo, if index == #SHOTS then 1 else 0)
 		else
+			Ambience.setArea(shot.area)
+			RunService.Heartbeat:Wait()
 			local start = pickStart(rt, shot.wanted or {}, 7)
-			if start then
-				for _ = 1, 3 do
-					fade(1, 0.2)
-					Ambience.setArea(shot.area)
+			local ran = false
+			if not start then
+				print(("[Trailer] %s: no clean stretch to run today"):format(shot.area))
+			else
+				for attempt = 1, 3 do
 					local s = rt.path[start]
 					local nxt = rt.path[start + 1]
-					local p = centerOf(s) + Vector3.new(0, HIP, 0)
+					local c = centerOf(s)
+					-- find the real floor under the start stone before standing on it
+					local params = RaycastParams.new()
+					params.FilterType = Enum.RaycastFilterType.Exclude
+					params.FilterDescendantsInstances = { character, ghost and ghost.model or character }
+					local floor: RaycastResult? = nil
+					for _ = 1, 30 do
+						floor = Workspace:Raycast(Vector3.new(c.X, c.Y + 30, c.Z), Vector3.new(0, -60, 0), params)
+						if floor then
+							break
+						end
+						RunService.Heartbeat:Wait()
+					end
+					if not floor then
+						print(("[Trailer] %s: no floor found at the start (%.0f,%.0f,%.0f)"):format(shot.area, c.X, c.Y, c.Z))
+						break
+					end
+					local hit = floor :: RaycastResult
+					local p = hit.Position + Vector3.new(0, HIP, 0)
 					local look = Vector3.new(centerOf(nxt).X, p.Y, centerOf(nxt).Z)
+					root.Anchored = true -- hold still while the cut happens
 					teleport(CFrame.lookAt(p, look))
 					flatDir = Vector3.new(look.X - p.X, 0, look.Z - p.Z)
 					flatDir = if flatDir.Magnitude > 0.01 then flatDir.Unit else Vector3.zAxis
@@ -575,11 +603,35 @@ function Trailer.run()
 					table.clear(history)
 					mode = "follow"
 					showGhost = shot.friend == true and ghost ~= nil
-					task.wait(0.35) -- let the character settle
-					fade(0, 0.2)
+					task.wait(0.25)
+					root.Anchored = false
+					print(("[Trailer] %s: running from hop %d (try %d)"):format(shot.area, start, attempt))
 					if runBot(rt, start, shot.seconds) then
+						ran = true
 						break
 					end
+				end
+			end
+			if not ran then
+				-- can't run it: fly the camera along today's real route instead
+				showGhost = false
+				mode = "fly"
+				local path = rt.path
+				local from = start or math.max(1, math.floor(#path / 3))
+				local t0 = os.clock()
+				while os.clock() - t0 < shot.seconds do
+					local u = (os.clock() - t0) / shot.seconds
+					local f = from + u * math.min(8, #path - from - 1)
+					local k = math.floor(f)
+					local a0, a1 = centerOf(path[k]), centerOf(path[math.min(#path, k + 1)])
+					local at = a0:Lerp(a1, f - k)
+					local ahead = centerOf(path[math.min(#path, k + 3)])
+					local dir = Vector3.new(ahead.X - at.X, 0, ahead.Z - at.Z)
+					dir = if dir.Magnitude > 0.01 then dir.Unit else Vector3.zAxis
+					local eye = at - dir * 14 + Vector3.new(0, 10, 0)
+					camPos = camPos:Lerp(eye, 0.15)
+					camera.CFrame = CFrame.lookAt(camPos, ahead + Vector3.new(0, 2, 0))
+					RunService.RenderStepped:Wait()
 				end
 			end
 		end
