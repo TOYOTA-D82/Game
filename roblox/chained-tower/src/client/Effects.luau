@@ -643,8 +643,8 @@ local function updateWings(character: Model, state: State, moving: boolean, air:
 	if not wings or not wings:IsA("Model") then
 		return
 	end
-	local speed = if air then 11 elseif moving then 5.5 else 2.4
-	local target = if air then 0.6 elseif moving then 0.36 else 0.2
+	local speed = if air then 7.5 elseif moving then 5 else 2.4
+	local target = if air then 0.5 elseif moving then 0.34 else 0.2
 	state.amp += (target - state.amp) * math.min(1, dt * 4)
 	state.phase += dt * speed
 	local swing = math.sin(state.phase) * state.amp
@@ -720,9 +720,9 @@ local function update(dt: number)
 			end
 		end
 
-		-- flickering firelight
+		-- gently flickering firelight (soft, so it's easy on the eyes)
 		if s.fx == "Fire" and s.glow then
-			s.glow.Brightness = 1.6 + math.noise(os.clock() * 6, 0, 0) * 1.4
+			s.glow.Brightness = 1.6 + math.noise(os.clock() * 2.5, 0, 0) * 0.45
 		end
 
 		local handler = s.fx and HANDLERS[s.fx]

@@ -322,17 +322,22 @@ end
 ----------------------------------------------------------------------
 -- The tour
 ----------------------------------------------------------------------
-type Shot = { area: string, kind: string, seconds: number, wanted: { string }?, friend: boolean?, logo: boolean? }
+-- alts: other levels to use if today's route has no clean stretch here.
+-- friend = the chained duo shot.
+type Shot = { area: string, alts: { string }?, kind: string, seconds: number, wanted: { string }?, friend: boolean?, logo: boolean? }
 
 local SHOTS: { Shot } = {
 	{ area = "Candy", kind = "orbit", seconds = 3.5, logo = true },
-	{ area = "Meadow", kind = "run", seconds = 5, wanted = { "Gateway", "Tunnel", "Rooftops", "Stones" } },
-	{ area = "Castle", kind = "run", seconds = 5, wanted = { "Crumble", "Gateway", "Climb" }, friend = true },
-	{ area = "Volcano", kind = "run", seconds = 4.5, wanted = { "LavaPlanks", "Crumble", "Vanish" } },
-	{ area = "Space", kind = "run", seconds = 4.5, wanted = { "Asteroids", "JumpPads" } },
-	{ area = "Challenge", kind = "run", seconds = 4.5, wanted = { "LavaPlanks", "Vanish", "Crumble", "JumpPads" } },
+	{ area = "Meadow", alts = { "Beach", "Clouds" }, kind = "run", seconds = 6, wanted = { "Gateway", "Tunnel", "Rooftops", "Stones" } },
+	{ area = "Castle", alts = { "Harbor", "Pirate" }, kind = "run", seconds = 7, wanted = { "Crumble", "Gateway", "Climb" }, friend = true },
+	{ area = "Jungle", alts = { "Harbor", "Pirate", "Factory" }, kind = "run", seconds = 6, wanted = { "Stones", "Truss", "Tunnel" }, friend = true },
+	{ area = "Volcano", alts = { "Factory", "Pirate" }, kind = "run", seconds = 6.5, wanted = { "LavaPlanks", "Crumble", "Vanish" }, friend = true },
+	{ area = "Space", alts = { "Clouds", "Ice" }, kind = "run", seconds = 5.5, wanted = { "Asteroids", "JumpPads" } },
+	{ area = "Snow", alts = { "Pirate", "Harbor", "Factory" }, kind = "run", seconds = 6.5, wanted = { "Rooftops", "Crumble", "Stones" }, friend = true },
+	{ area = "Challenge", kind = "run", seconds = 6, wanted = { "LavaPlanks", "Vanish", "Crumble", "JumpPads" } },
 	{ area = "Neon", kind = "orbit", seconds = 4, logo = true },
 }
+local WALK_SPEED = 12 -- calmer than normal play (16) so it's easy on the eyes
 
 function Trailer.run()
 	if running then
@@ -351,13 +356,15 @@ function Trailer.run()
 
 	local routes: { [string]: Route } = {}
 	for _, s in SHOTS do
-		if routes[s.area] == nil then
-			local ok, rt = pcall(route, s.area)
-			if ok and rt and #rt.path > 2 then
-				routes[s.area] = rt
-				print(("[Trailer] %s: route with %d stones"):format(s.area, #rt.path))
-			else
-				print(("[Trailer] %s: could not rebuild the route (%s)"):format(s.area, if ok then "level not found yet" else tostring(rt)))
+		for _, area in { s.area, table.unpack(s.alts or {}) } do
+			if routes[area] == nil then
+				local ok, rt = pcall(route, area)
+				if ok and rt and #rt.path > 2 then
+					routes[area] = rt
+					print(("[Trailer] %s: route with %d stones"):format(area, #rt.path))
+				else
+					print(("[Trailer] %s: could not rebuild the route (%s)"):format(area, if ok then "level not found yet" else tostring(rt)))
+				end
 			end
 		end
 	end
@@ -382,6 +389,8 @@ function Trailer.run()
 		controls = module:GetControls()
 		controls:Disable()
 	end)
+	local oldSpeed = humanoid.WalkSpeed
+	humanoid.WalkSpeed = WALK_SPEED
 
 	local home = root.CFrame
 	-- hold the character still: the lobby is hidden during the tour, and an
@@ -430,7 +439,7 @@ function Trailer.run()
 			if showGhost then
 				local pick = history[1]
 				for _, h in history do
-					if h.t <= now - 0.55 then
+					if h.t <= now - 0.7 then
 						pick = h
 					end
 				end
@@ -447,10 +456,10 @@ function Trailer.run()
 			camPos = eye
 		elseif mode == "follow" then
 			local right = Vector3.new(flatDir.Z, 0, -flatDir.X)
-			local side = if showGhost then -9 else 4
-			local want = pos - flatDir * 17 + Vector3.new(0, 8, 0) + right * side
-			camPos = camPos:Lerp(want, 1 - math.exp(-dt * 4))
-			camera.CFrame = CFrame.lookAt(camPos, pos + Vector3.new(0, 1.5, 0) + flatDir * 5)
+			local side = if showGhost then -10 else 4
+			local want = pos - flatDir * 19 + Vector3.new(0, 9, 0) + right * side
+			camPos = camPos:Lerp(want, 1 - math.exp(-dt * 2.5)) -- calm camera
+			camera.CFrame = CFrame.lookAt(camPos, pos + Vector3.new(0, 1.5, 0) + flatDir * 4)
 		end
 	end)
 
@@ -476,6 +485,7 @@ function Trailer.run()
 		local i = startI
 		local t0 = os.clock()
 		local lastProgress = t0
+		local pauseUntil = 0
 		local function onTop(s: Surface, p: Vector3, margin: number): boolean
 			return p.X >= s.minX - margin and p.X <= s.maxX + margin and p.Z >= s.minZ - margin and p.Z <= s.maxZ + margin and math.abs(p.Y - HIP - s.top) < 1.8
 		end
@@ -494,6 +504,7 @@ function Trailer.run()
 					if k ~= i and onTop(path[k], p, 0.4) then
 						if k > i then
 							lastProgress = os.clock()
+							pauseUntil = os.clock() + 0.12 -- a short beat after landing, like a player
 						end
 						i = k
 						cur, nxt = path[i], path[i + 1]
@@ -511,6 +522,10 @@ function Trailer.run()
 				print(("[Trailer] stopped at hop %d: %s (at %.0f,%.0f,%.0f; stone top %.0f)"):format(
 					i, if fell then "fell" elseif humanoid.Health <= 0 then "died" else "stuck", p.X, p.Y, p.Z, cur.top))
 				return false
+			end
+			if grounded and os.clock() < pauseUntil then
+				humanoid:Move(Vector3.zero, false)
+				continue
 			end
 			local gap, dy = gapXZ(cur, nxt), nxt.top - cur.top
 			local land = into(nxt, centerOf(cur), 1.2):Lerp(centerOf(nxt), 0.45)
@@ -541,11 +556,31 @@ function Trailer.run()
 		return true
 	end
 
+	local used: { [string]: boolean } = {}
 	for index, shot in SHOTS do
-		local rt = routes[shot.area]
+		local area, rt, start = shot.area, routes[shot.area], nil :: number?
+		if shot.kind == "run" then
+			-- first level (main, then backups) with a clean stretch, longest first
+			local hopsWanted = math.ceil(shot.seconds * 1.5)
+			local found = false
+			for _, hops in { hopsWanted, hopsWanted - 2, hopsWanted - 4, 5 } do
+				for _, a in { shot.area, table.unpack(shot.alts or {}) } do
+					local r = routes[a]
+					local st = r and not used[a] and pickStart(r, shot.wanted or {}, hops)
+					if r and st then
+						area, rt, start, found = a, r, st, true
+						break
+					end
+				end
+				if found then
+					break
+				end
+			end
+		end
 		if not rt then
 			continue
 		end
+		used[area] = true
 		if not root.Parent or humanoid.Health <= 0 then
 			print("[Trailer] the character is gone (respawned?) - stopping the tour")
 			break
@@ -573,12 +608,11 @@ function Trailer.run()
 			end
 			setLogo(logo, if index == #SHOTS then 1 else 0)
 		else
-			Ambience.setArea(shot.area)
+			Ambience.setArea(area)
 			RunService.Heartbeat:Wait()
-			local start = pickStart(rt, shot.wanted or {}, 7)
 			local ran = false
 			if not start then
-				print(("[Trailer] %s: no clean stretch to run today"):format(shot.area))
+				print(("[Trailer] %s: no clean stretch to run today"):format(area))
 			else
 				for attempt = 1, 3 do
 					local s = rt.path[start]
@@ -597,7 +631,7 @@ function Trailer.run()
 						RunService.Heartbeat:Wait()
 					end
 					if not floor then
-						print(("[Trailer] %s: no floor found at the start (%.0f,%.0f,%.0f)"):format(shot.area, c.X, c.Y, c.Z))
+						print(("[Trailer] %s: no floor found at the start (%.0f,%.0f,%.0f)"):format(area, c.X, c.Y, c.Z))
 						break
 					end
 					local hit = floor :: RaycastResult
@@ -613,7 +647,7 @@ function Trailer.run()
 					showGhost = shot.friend == true and ghost ~= nil
 					task.wait(0.25)
 					root.Anchored = false
-					print(("[Trailer] %s: running from hop %d (try %d)"):format(shot.area, start, attempt))
+					print(("[Trailer] %s: running from hop %d (try %d)"):format(area, start, attempt))
 					local ok = runBot(rt, start, shot.seconds)
 					root.Anchored = true -- hold still again between shots
 					root.AssemblyLinearVelocity = Vector3.zero
@@ -665,6 +699,7 @@ function Trailer.run()
 		teleport(home)
 		root.Anchored = false
 	end
+	humanoid.WalkSpeed = oldSpeed
 	camera.CameraType = Enum.CameraType.Custom
 	if controls then
 		pcall(function()
