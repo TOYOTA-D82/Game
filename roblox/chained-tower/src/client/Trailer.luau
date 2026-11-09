@@ -1,13 +1,16 @@
 --!strict
--- Recording tour (自動錄影導覽): an automatic ~29 second camera tour through
--- the REAL game (real levels, real lighting, real effects) so a trailer can be
--- screen-recorded without playing. Your character runs today's real routes
--- with the normal run / jump / climb animations, wearing the Fire trail and
--- the reward wings, halo and crown.
+-- Recording tour (自動錄影導覽): an automatic ~30 second tour through the REAL
+-- game so a trailer can be screen-recorded without playing.
+--
+-- Your character really plays: it is steered like a player would (walk,
+-- jump, steer in the air) with normal Roblox physics, collisions and
+-- animations, so nothing passes through walls. The tour only films stretches
+-- of today's routes the bot can run cleanly (no moving walls, spinners or
+-- moving platforms), and if it falls it quickly retries that shot.
 --
 -- Starts by itself when you press Play in Studio with Config.TrailerMode on.
--- In the live game only the game's owner can start it: type /trailer in chat
--- (or press Shift+T). Everything goes back to normal when it ends.
+-- In the live game only the game's owner can start it: /trailer in chat or
+-- Shift+T. Everything goes back to normal afterwards.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,13 +30,18 @@ local Ambience = require(script.Parent.Ambience)
 local Trailer = {}
 
 local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
 local running = false
 
+-- Sections the bot films (it can run these cleanly) and ones it never films.
+local AVOID = { WallRun = true, Spinner = true, Mover = true, Rapids = true, Slide = true, Conveyor = true }
+local HIP = 3 -- root part height above the floor
+
 ----------------------------------------------------------------------
--- Rebuild a level's real route (same generator, same seed as the server)
+-- Today's real route of a level (same generator + seed as the server)
 ----------------------------------------------------------------------
-type Seg = { kind: string, a: Vector3, b: Vector3, t0: number, t1: number, h: number }
-type Route = { segs: { Seg }, total: number, sectionStart: { [number]: number }, builders: { string }, center: Vector3, top: number, bottom: number, tower: boolean }
+type Surface = Course.Surface
+type Route = { path: { Surface }, builders: { string }, center: Vector3 }
 
 local function levelFolder(id: string): Instance?
 	local levels = Workspace:FindFirstChild("Levels")
@@ -54,8 +62,6 @@ local function route(id: string): Route?
 	local origin = Themes.levelOrigin(theme)
 	local seed = Course.dailySeed(theme, day)
 	local r = Course.generate(theme, origin, Course.rng(seed), seed, Course.sequenceFor(theme, day))
-
-	-- shortest jump path start -> finish
 	local adj: { [number]: { number } } = {}
 	for _, l in r.links do
 		adj[l[1]] = adj[l[1]] or {}
@@ -88,57 +94,6 @@ local function route(id: string): Route?
 		table.insert(path, 1, r.surfaces[at])
 		at = parent[at]
 	end
-	if #path < 2 then
-		return nil
-	end
-
-	-- walk / jump / climb timeline
-	local low = (theme.gravity or 196.2) < 120
-	local speed = 16
-	local segs: { Seg } = {}
-	local sectionStart: { [number]: number } = {}
-	local t = 0
-	local function center(s): Vector3
-		return Vector3.new((s.minX + s.maxX) / 2, s.top, (s.minZ + s.maxZ) / 2)
-	end
-	local function into(s, p: Vector3): Vector3
-		local x = if s.maxX - s.minX > 1.8 then math.clamp(p.X, s.minX + 0.9, s.maxX - 0.9) else (s.minX + s.maxX) / 2
-		local z = if s.maxZ - s.minZ > 1.8 then math.clamp(p.Z, s.minZ + 0.9, s.maxZ - 0.9) else (s.minZ + s.maxZ) / 2
-		return Vector3.new(x, s.top, z)
-	end
-	local entry = center(path[1])
-	for i, s in path do
-		if sectionStart[s.section] == nil then
-			sectionStart[s.section] = t
-		end
-		local n = path[i + 1]
-		local exit = if n then into(s, center(n)) else center(s)
-		local d = (exit - entry).Magnitude
-		if d > 0.05 then
-			table.insert(segs, { kind = "run", a = entry, b = exit, t0 = t, t1 = t + d / speed, h = 0 })
-			t += d / speed
-		end
-		if not n then
-			break
-		end
-		local nxt = into(n, exit)
-		local h = Vector3.new(nxt.X - exit.X, 0, nxt.Z - exit.Z).Magnitude
-		local dy = nxt.Y - exit.Y
-		if h < 3 and math.abs(dy) > 3 then
-			local dur = math.abs(dy) / 11 + 0.15
-			table.insert(segs, { kind = "climb", a = exit, b = nxt, t0 = t, t1 = t + dur, h = 0 })
-			t += dur
-		else
-			local dur = math.clamp(0.34 + h * 0.045 + math.max(dy, 0) * 0.05, 0.36, 0.95)
-			if low then
-				dur *= 1.35
-			end
-			local arc = (if low then 4.5 else 2.4) + math.abs(dy) * 0.45 + math.max(0, h - 9) * 0.25
-			table.insert(segs, { kind = "jump", a = exit, b = nxt, t0 = t, t1 = t + dur, h = arc })
-			t += dur
-		end
-		entry = nxt
-	end
 	local mid = Vector3.zero
 	for _, c in r.checkpoints do
 		mid += Vector3.new(c[1], c[2], c[3]) / #r.checkpoints
@@ -146,113 +101,128 @@ local function route(id: string): Route?
 	if r.mode == "tower" then
 		mid = Vector3.new(r.center[1], (r.top + r.bottom) / 2, r.center[2])
 	end
-	return { segs = segs, total = t, sectionStart = sectionStart, builders = r.builders, center = mid, top = r.top, bottom = r.bottom, tower = r.mode == "tower" }
+	return { path = path, builders = r.builders, center = mid }
 end
 
--- Where the runner is at time t: position, what it's doing, which way it faces.
-local function stateAt(rt: Route, t: number): (Vector3, string, Vector3)
-	local segs = rt.segs
-	local seg = segs[#segs]
-	if t <= 0 then
-		seg = segs[1]
-	else
-		for _, s in segs do
-			if t < s.t1 then
-				seg = s
-				break
+local function centerOf(s: Surface): Vector3
+	return Vector3.new((s.minX + s.maxX) / 2, s.top, (s.minZ + s.maxZ) / 2)
+end
+
+-- a point on surface s, as close to p as possible, `inset` studs from the edge
+local function into(s: Surface, p: Vector3, inset: number): Vector3
+	local x = if s.maxX - s.minX > inset * 2 then math.clamp(p.X, s.minX + inset, s.maxX - inset) else (s.minX + s.maxX) / 2
+	local z = if s.maxZ - s.minZ > inset * 2 then math.clamp(p.Z, s.minZ + inset, s.maxZ - inset) else (s.minZ + s.maxZ) / 2
+	return Vector3.new(x, s.top, z)
+end
+
+local function gapXZ(a: Surface, b: Surface): number
+	local dx = math.max(0, math.max(a.minX, b.minX) - math.min(a.maxX, b.maxX))
+	local dz = math.max(0, math.max(a.minZ, b.minZ) - math.min(a.maxZ, b.maxZ))
+	return math.sqrt(dx * dx + dz * dz)
+end
+
+local function builderOf(rt: Route, s: Surface): string
+	return rt.builders[s.section] or ""
+end
+
+-- Can a player-like bot do this hop reliably?
+local function doable(rt: Route, a: Surface, b: Surface): boolean
+	if AVOID[builderOf(rt, a)] or AVOID[builderOf(rt, b)] then
+		return false
+	end
+	local gap, dy = gapXZ(a, b), b.top - a.top
+	if a.kind == "pad" then
+		return gap <= 12
+	end
+	if gap <= 2.5 and dy > 3.6 then
+		local name = builderOf(rt, b)
+		return name == "Truss" or name == "Shaft" or name == "Climb"
+	end
+	return gap <= 6 and dy <= 3.6
+end
+
+-- Where to start a shot: the first stretch of `hops` doable hops, preferring
+-- sections of the wanted types.
+local function pickStart(rt: Route, wanted: { string }, hops: number): number?
+	local function clean(i: number): boolean
+		for k = i, math.min(#rt.path - 1, i + hops - 1) do
+			if not doable(rt, rt.path[k], rt.path[k + 1]) then
+				return false
 			end
 		end
+		return i + hops <= #rt.path
 	end
-	local u = math.clamp((t - seg.t0) / math.max(1e-3, seg.t1 - seg.t0), 0, 1)
-	local p = seg.a:Lerp(seg.b, u)
-	if seg.kind == "jump" then
-		p = Vector3.new(p.X, seg.a.Y + (seg.b.Y - seg.a.Y) * u + 4 * seg.h * u * (1 - u), p.Z)
-	end
-	local dir = Vector3.new(seg.b.X - seg.a.X, 0, seg.b.Z - seg.a.Z)
-	local kind = if t >= rt.total then "idle" elseif seg.kind == "jump" and u > 0.55 and seg.b.Y < seg.a.Y - 2 then "fall" else seg.kind
-	return p, kind, dir
-end
-
--- First section whose type is one of `wanted` (to show off lava, spinners...).
-local function startFor(rt: Route, wanted: { string }, fallback: number): number
 	for _, name in wanted do
-		local i = table.find(rt.builders, name)
-		if i and rt.sectionStart[i] then
-			return math.max(0, rt.sectionStart[i] - 0.6)
-		end
-	end
-	return rt.sectionStart[fallback] or 0
-end
-
-----------------------------------------------------------------------
--- Characters and animations
-----------------------------------------------------------------------
-type Runner = { model: Model, root: BasePart, tracks: { [string]: AnimationTrack }, playing: string?, lastDir: Vector3 }
-
-local function loadTracks(model: Model, animateFrom: Instance?): { [string]: AnimationTrack }
-	local tracks: { [string]: AnimationTrack } = {}
-	local humanoid = model:FindFirstChildOfClass("Humanoid")
-	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-	local animate = animateFrom or model:FindFirstChild("Animate")
-	if not (animator and animate) then
-		return tracks
-	end
-	for kind, folderName in { run = "run", jump = "jump", fall = "fall", climb = "climb", idle = "idle" } do
-		local f = animate:FindFirstChild(folderName)
-		local anim = f and f:FindFirstChildOfClass("Animation")
-		if anim then
-			local ok, track = pcall(function()
-				return (animator :: Animator):LoadAnimation(anim)
-			end)
-			if ok and track then
-				track.Priority = Enum.AnimationPriority.Action
-				tracks[kind] = track
+		for i = 1, #rt.path - 1 do
+			if builderOf(rt, rt.path[i]) == name and clean(i) then
+				return i
 			end
 		end
 	end
-	return tracks
-end
-
-local function playKind(r: Runner, kind: string)
-	local want = if kind == "jump" or kind == "fall" or kind == "climb" or kind == "run" then kind else "idle"
-	if r.playing == want then
-		return
-	end
-	for name, track in r.tracks do
-		if name ~= want and track.IsPlaying then
-			track:Stop(0.12)
+	for i = 2, #rt.path - 1 do
+		if clean(i) then
+			return i
 		end
 	end
-	local track = r.tracks[want] or r.tracks.run
-	if track then
-		track:Play(0.12)
-		if want == "run" then
-			track:AdjustSpeed(1.25)
+	return nil
+end
+
+----------------------------------------------------------------------
+-- Overlay: logo (allowed on Roblox video thumbnails) and a black fade
+----------------------------------------------------------------------
+local function makeOverlay(): (ScreenGui, Frame, Frame)
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "CT_TrailerOverlay"
+	gui.IgnoreGuiInset = true
+	gui.ResetOnSpawn = false
+	gui.DisplayOrder = 60
+	local logo = Instance.new("Frame")
+	logo.BackgroundTransparency = 1
+	logo.Size = UDim2.fromScale(1, 1)
+	logo.Parent = gui
+	local function line(text: string, y: number, h: number, color: Color3)
+		local l = Instance.new("TextLabel")
+		l.BackgroundTransparency = 1
+		l.AnchorPoint = Vector2.new(0.5, 0.5)
+		l.Position = UDim2.fromScale(0.5, y)
+		l.Size = UDim2.fromScale(0.9, h)
+		l.Font = Enum.Font.FredokaOne
+		l.TextScaled = true
+		l.Text = text
+		l.TextColor3 = color
+		l.TextStrokeColor3 = Color3.fromRGB(27, 22, 54)
+		l.TextStrokeTransparency = 1
+		l.TextTransparency = 1
+		l.Parent = logo
+	end
+	line("CHAINED TOWER", 0.43, 0.12, Color3.new(1, 1, 1))
+	line("綁腳塔", 0.55, 0.12, Color3.fromRGB(255, 210, 63))
+	local black = Instance.new("Frame")
+	black.Size = UDim2.fromScale(1, 1)
+	black.BackgroundColor3 = Color3.new(0, 0, 0)
+	black.BackgroundTransparency = 1
+	black.BorderSizePixel = 0
+	black.Parent = gui
+	gui.Parent = player:WaitForChild("PlayerGui")
+	return gui, logo, black
+end
+
+local function setLogo(logo: Frame, alpha: number)
+	for _, l in logo:GetChildren() do
+		if l:IsA("TextLabel") then
+			l.TextTransparency = 1 - alpha
+			l.TextStrokeTransparency = 1 - alpha
 		end
 	end
-	r.playing = want
 end
 
-local function place(r: Runner, rt: Route, t: number, dt: number)
-	local p, kind, dir = stateAt(rt, t)
-	if dir.Magnitude < 0.01 then
-		dir = r.lastDir
-	else
-		r.lastDir = dir.Unit
-	end
-	local hip = 3 -- the root part stands ~3 studs above the floor
-	local pos = p + Vector3.new(0, hip, 0)
-	local before = r.root.Position
-	r.root.CFrame = CFrame.lookAt(pos, pos + r.lastDir)
-	-- give the anchored root a velocity so trail particles and footsteps react
-	if dt > 0 then
-		r.root.AssemblyLinearVelocity = (pos - before) / dt
-	end
-	playKind(r, kind)
-end
+----------------------------------------------------------------------
+-- A friend chained behind you for the team shot. It replays exactly where
+-- you were half a second earlier, so it only ever goes where you really went.
+----------------------------------------------------------------------
+type Ghost = { model: Model, root: BasePart, tracks: { [string]: AnimationTrack }, playing: string? }
 
--- A friend chained to you for the team shot: a copy of your avatar in yellow.
-local function makeFriend(character: Model): Runner?
+local function makeGhost(character: Model): Ghost?
 	character.Archivable = true
 	local ok, copy = pcall(function()
 		return character:Clone()
@@ -267,27 +237,58 @@ local function makeFriend(character: Model): Runner?
 		if d:IsA("LuaSourceContainer") or d:IsA("Accessory") or d:IsA("Clothing") or d:IsA("ShirtGraphic") or d:IsA("BillboardGui") then
 			d:Destroy()
 		elseif d:IsA("BasePart") then
-			if d.Parent == friend then -- body parts only (wings keep their colours)
+			if d.Parent == friend then
 				d.Color = Color3.fromRGB(255, 205, 50)
 			end
 			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
 		end
 	end
 	local humanoid = friend:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-	end
 	local root = friend:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not root then
+	if not (humanoid and root) then
 		friend:Destroy()
 		return nil
 	end
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	root.Anchored = true
-	friend.Parent = Workspace
-	return { model = friend, root = root, tracks = loadTracks(friend, character:FindFirstChild("Animate")), lastDir = Vector3.zAxis }
+	local tracks: { [string]: AnimationTrack } = {}
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	local animate = character:FindFirstChild("Animate")
+	if animator and animate then
+		for kind, folderName in { run = "run", jump = "jump", fall = "fall", climb = "climb", idle = "idle" } do
+			local f = animate:FindFirstChild(folderName)
+			local anim = f and f:FindFirstChildOfClass("Animation")
+			if anim then
+				local okLoad, track = pcall(function()
+					return animator:LoadAnimation(anim)
+				end)
+				if okLoad and track then
+					tracks[kind] = track
+				end
+			end
+		end
+	end
+	return { model = friend, root = root, tracks = tracks }
 end
 
--- The ankle chain between the two runners (same look as the team chain).
+local function ghostAnim(g: Ghost, kind: string)
+	if g.playing == kind then
+		return
+	end
+	for name, track in g.tracks do
+		if name ~= kind and track.IsPlaying then
+			track:Stop(0.15)
+		end
+	end
+	local track = g.tracks[kind]
+	if track then
+		track:Play(0.15)
+	end
+	g.playing = kind
+end
+
 local chainLinks: { BasePart } = {}
 local function drawChain(a: BasePart?, b: BasePart?, show: boolean)
 	if #chainLinks == 0 then
@@ -319,83 +320,18 @@ local function drawChain(a: BasePart?, b: BasePart?, show: boolean)
 end
 
 ----------------------------------------------------------------------
--- Camera
-----------------------------------------------------------------------
-local camera = Workspace.CurrentCamera
-local function followCam(rt: Route, t: number, dist: number, height: number, side: number)
-	local tgt = Vector3.zero
-	for k = 0, 7 do
-		local p = stateAt(rt, t - k * 0.1)
-		tgt += p / 8
-	end
-	local f = (stateAt(rt, t + 0.5)) - (stateAt(rt, t - 1.2))
-	f = Vector3.new(f.X, 0, f.Z)
-	f = if f.Magnitude < 0.01 then Vector3.zAxis else f.Unit
-	local right = Vector3.new(f.Z, 0, -f.X)
-	local eye = tgt - f * dist + Vector3.new(0, height, 0) + right * side
-	camera.CFrame = CFrame.lookAt(eye, tgt + Vector3.new(0, 2.5, 0) + f * 5)
-end
-
-local function orbitCam(c: Vector3, r: number, h: number, a: number)
-	camera.CFrame = CFrame.lookAt(c + Vector3.new(math.cos(a) * r, h, math.sin(a) * r), c)
-end
-
-----------------------------------------------------------------------
--- Logo overlay (logos / branding are allowed on Roblox video thumbnails)
-----------------------------------------------------------------------
-local function makeOverlay(): (ScreenGui, Frame)
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "CT_TrailerOverlay"
-	gui.IgnoreGuiInset = true
-	gui.ResetOnSpawn = false
-	gui.DisplayOrder = 60
-	local frame = Instance.new("Frame")
-	frame.BackgroundTransparency = 1
-	frame.Size = UDim2.fromScale(1, 1)
-	frame.Parent = gui
-	local function line(text: string, y: number, h: number, color: Color3)
-		local l = Instance.new("TextLabel")
-		l.BackgroundTransparency = 1
-		l.AnchorPoint = Vector2.new(0.5, 0.5)
-		l.Position = UDim2.fromScale(0.5, y)
-		l.Size = UDim2.fromScale(0.9, h)
-		l.Font = Enum.Font.FredokaOne
-		l.TextScaled = true
-		l.Text = text
-		l.TextColor3 = color
-		l.TextStrokeColor3 = Color3.fromRGB(27, 22, 54)
-		l.TextStrokeTransparency = 0
-		l.Parent = frame
-		return l
-	end
-	line("CHAINED TOWER", 0.43, 0.12, Color3.new(1, 1, 1))
-	line("綁腳塔", 0.55, 0.12, Color3.fromRGB(255, 210, 63))
-	gui.Parent = player:WaitForChild("PlayerGui")
-	return gui, frame
-end
-
-local function setOverlay(frame: Frame, alpha: number)
-	for _, l in frame:GetChildren() do
-		if l:IsA("TextLabel") then
-			l.TextTransparency = 1 - alpha
-			l.TextStrokeTransparency = 1 - alpha
-		end
-	end
-end
-
-----------------------------------------------------------------------
 -- The tour
 ----------------------------------------------------------------------
-type Shot = { t0: number, t1: number, area: string, cam: string, wanted: { string }?, from: number?, friend: boolean?, logo: boolean? }
+type Shot = { area: string, kind: string, seconds: number, wanted: { string }?, friend: boolean?, logo: boolean? }
 
 local SHOTS: { Shot } = {
-	{ t0 = 0, t1 = 3.5, area = "Candy", cam = "orbit", logo = true },
-	{ t0 = 3.5, t1 = 8.5, area = "Meadow", cam = "follow", wanted = { "Gateway", "Tunnel", "Rooftops" }, from = 1 },
-	{ t0 = 8.5, t1 = 13.5, area = "Castle", cam = "follow", wanted = { "Crumble", "Gateway", "Mover" }, from = 1, friend = true },
-	{ t0 = 13.5, t1 = 17.5, area = "Volcano", cam = "follow", wanted = { "LavaPlanks", "Crumble" }, from = 1 },
-	{ t0 = 17.5, t1 = 21.5, area = "Space", cam = "follow", wanted = { "Asteroids", "Spinner" }, from = 1 },
-	{ t0 = 21.5, t1 = 25.5, area = "Challenge", cam = "follow", wanted = { "WallRun", "Rapids", "Spinner", "LavaPlanks" }, from = 3 },
-	{ t0 = 25.5, t1 = 29.5, area = "Neon", cam = "orbit", logo = true },
+	{ area = "Candy", kind = "orbit", seconds = 3.5, logo = true },
+	{ area = "Meadow", kind = "run", seconds = 5, wanted = { "Gateway", "Tunnel", "Rooftops", "Stones" } },
+	{ area = "Castle", kind = "run", seconds = 5, wanted = { "Crumble", "Gateway", "Climb" }, friend = true },
+	{ area = "Volcano", kind = "run", seconds = 4.5, wanted = { "LavaPlanks", "Crumble", "Vanish" } },
+	{ area = "Space", kind = "run", seconds = 4.5, wanted = { "Asteroids", "JumpPads" } },
+	{ area = "Challenge", kind = "run", seconds = 4.5, wanted = { "LavaPlanks", "Vanish", "Crumble", "JumpPads" } },
+	{ area = "Neon", kind = "orbit", seconds = 4, logo = true },
 }
 
 function Trailer.run()
@@ -410,21 +346,20 @@ function Trailer.run()
 	end
 	running = true
 	local toServer = ReplicatedStorage:WaitForChild("Net"):WaitForChild("ToServer") :: RemoteEvent
-	toServer:FireServer("trailer", true) -- show off the Fire trail, wings, halo and crown
+	toServer:FireServer("trailer", true) -- Fire trail, wings, halo and crown for the tour
 	task.wait(1)
 
-	-- routes for every shot
 	local routes: { [string]: Route } = {}
 	for _, s in SHOTS do
-		if not routes[s.area] then
+		if routes[s.area] == nil then
 			local ok, rt = pcall(route, s.area)
-			if ok and rt then
+			if ok and rt and #rt.path > 2 then
 				routes[s.area] = rt
 			end
 		end
 	end
 
-	-- hide every HUD, chat, player list and the top bar
+	-- no HUD, chat, player list or top bar; you don't steer, the bot does
 	local hidden: { ScreenGui } = {}
 	for _, g in player:WaitForChild("PlayerGui"):GetChildren() do
 		if g:IsA("ScreenGui") and g.Enabled and g.Name ~= "CT_Transition" then
@@ -438,110 +373,238 @@ function Trailer.run()
 	pcall(function()
 		StarterGui:SetCore("TopbarEnabled", false)
 	end)
+	local controls: any = nil
+	pcall(function()
+		local module = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule") :: ModuleScript) :: any
+		controls = module:GetControls()
+		controls:Disable()
+	end)
 
 	local home = root.CFrame
 	local homeTheme = player:GetAttribute("Theme")
-	local animate = character:FindFirstChild("Animate") :: LocalScript?
-	if animate then
-		animate.Disabled = true
-	end
-	for _, track in humanoid:GetPlayingAnimationTracks() do
-		track:Stop(0)
-	end
-	root.Anchored = true
-	local me: Runner = { model = character, root = root, tracks = loadTracks(character, nil), lastDir = Vector3.zAxis }
-	local friend = makeFriend(character)
-	if friend then
-		friend.model.Parent = nil
-	end
+	local overlay, logo, black = makeOverlay()
 	camera.CameraType = Enum.CameraType.Scriptable
-	local overlay, logo = makeOverlay()
+	local ghost = makeGhost(character)
+	if ghost then
+		ghost.model.Parent = nil
+	end
 
-	local started = os.clock()
-	local last = 0
-	local shownArea = ""
-	local starts: { [Shot]: number } = {}
-	local done = Instance.new("BindableEvent")
-	local conn
-	conn = RunService.RenderStepped:Connect(function()
-		local T = os.clock() - started
-		local dt = T - last
-		last = T
-		local shot = SHOTS[#SHOTS]
-		for _, s in SHOTS do
-			if T < s.t1 then
-				shot = s
-				break
+	-- camera + ghost run every frame; `mode` says what the camera does
+	local mode = "orbit"
+	local orbitCenter, orbitT0 = Vector3.zero, os.clock()
+	local camPos = camera.CFrame.Position
+	local flatDir = Vector3.zAxis
+	local history: { { t: number, cf: CFrame, state: string } } = {}
+	local showGhost = false
+	local frameConn = RunService.RenderStepped:Connect(function(dt)
+		local now = os.clock()
+		local pos = root.Position
+		local vel = root.AssemblyLinearVelocity
+		local flat = Vector3.new(vel.X, 0, vel.Z)
+		if flat.Magnitude > 2 then
+			flatDir = flatDir:Lerp(flat.Unit, math.min(1, dt * 3))
+			if flatDir.Magnitude > 0.01 then
+				flatDir = flatDir.Unit
 			end
 		end
-		if shot.area ~= shownArea then
-			shownArea = shot.area
-			Ambience.setArea(shot.area)
+		-- record where you are, for the chained friend
+		local st = humanoid:GetState()
+		local state = if st == Enum.HumanoidStateType.Climbing then "climb"
+			elseif st == Enum.HumanoidStateType.Jumping then "jump"
+			elseif st == Enum.HumanoidStateType.Freefall then "fall"
+			elseif flat.Magnitude > 1 then "run"
+			else "idle"
+		table.insert(history, { t = now, cf = root.CFrame, state = state })
+		while #history > 0 and now - history[1].t > 2 do
+			table.remove(history, 1)
 		end
-		local rt = routes[shot.area]
-		local isFriend = shot.friend == true and friend ~= nil
-		if friend then
-			friend.model.Parent = if isFriend then Workspace else nil
-		end
-		if rt then
-			if starts[shot] == nil then
-				starts[shot] = startFor(rt, shot.wanted or {}, shot.from or 1)
+		if ghost then
+			ghost.model.Parent = if showGhost then Workspace else nil
+			if showGhost then
+				local pick = history[1]
+				for _, h in history do
+					if h.t <= now - 0.55 then
+						pick = h
+					end
+				end
+				ghost.root.CFrame = pick.cf
+				ghostAnim(ghost, pick.state)
 			end
-			local local_ = T - shot.t0
-			if shot.cam == "orbit" then
-				local r = 130 - local_ * 6
-				orbitCam(rt.center + Vector3.new(0, local_ * 3, 0), r, 20, 0.6 + T * 0.18)
-				place(me, rt, (rt.sectionStart[2] or 0) + T * 0.9, dt)
+		end
+		drawChain(root, ghost and ghost.root, showGhost)
+
+		if mode == "orbit" then
+			local k = now - orbitT0
+			local eye = orbitCenter + Vector3.new(math.cos(0.6 + k * 0.18) * (130 - k * 6), 20 + k * 3, math.sin(0.6 + k * 0.18) * (130 - k * 6))
+			camera.CFrame = CFrame.lookAt(eye, orbitCenter + Vector3.new(0, k * 3, 0))
+			camPos = eye
+		elseif mode == "follow" then
+			local right = Vector3.new(flatDir.Z, 0, -flatDir.X)
+			local side = if showGhost then -9 else 4
+			local want = pos - flatDir * 17 + Vector3.new(0, 8, 0) + right * side
+			camPos = camPos:Lerp(want, 1 - math.exp(-dt * 4))
+			camera.CFrame = CFrame.lookAt(camPos, pos + Vector3.new(0, 1.5, 0) + flatDir * 5)
+		end
+	end)
+
+	local function fade(to: number, seconds: number)
+		local from = 1 - black.BackgroundTransparency
+		local t0 = os.clock()
+		while os.clock() - t0 < seconds do
+			local k = (os.clock() - t0) / seconds
+			black.BackgroundTransparency = 1 - (from + (to - from) * k)
+			RunService.RenderStepped:Wait()
+		end
+		black.BackgroundTransparency = 1 - to
+	end
+
+	local function teleport(cf: CFrame)
+		root.AssemblyLinearVelocity = Vector3.zero
+		character:PivotTo(cf)
+	end
+
+	-- The bot plays from path[i] for `seconds`. Returns false if it fell.
+	local function runBot(rt: Route, startI: number, seconds: number): boolean
+		local path = rt.path
+		local i = startI
+		local t0 = os.clock()
+		local lastProgress = t0
+		local function onTop(s: Surface, p: Vector3, margin: number): boolean
+			return p.X >= s.minX - margin and p.X <= s.maxX + margin and p.Z >= s.minZ - margin and p.Z <= s.maxZ + margin and math.abs(p.Y - HIP - s.top) < 1.8
+		end
+		while os.clock() - t0 < seconds do
+			RunService.Heartbeat:Wait()
+			local cur, nxt = path[i], path[i + 1]
+			if not nxt then
+				humanoid:Move(Vector3.zero, false)
+				return true
+			end
+			local p = root.Position
+			local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
+			-- landed further along the route (or back on an earlier stone)?
+			if grounded then
+				for k = math.max(startI, i - 2), math.min(#path, i + 3) do
+					if k ~= i and onTop(path[k], p, 0.4) then
+						if k > i then
+							lastProgress = os.clock()
+						end
+						i = k
+						cur, nxt = path[i], path[i + 1]
+						break
+					end
+				end
+				if not nxt then
+					return true
+				end
+			end
+			-- fell off, or stuck
+			if p.Y < math.min(cur.top, nxt.top) - 12 or humanoid.Health <= 0 or os.clock() - lastProgress > 4 then
+				humanoid:Move(Vector3.zero, false)
+				return false
+			end
+			local gap, dy = gapXZ(cur, nxt), nxt.top - cur.top
+			local land = into(nxt, centerOf(cur), 1.2):Lerp(centerOf(nxt), 0.45)
+			local function steer(to: Vector3)
+				local d = Vector3.new(to.X - p.X, 0, to.Z - p.Z)
+				humanoid:Move(if d.Magnitude > 0.35 then d.Unit else Vector3.zero, false)
+			end
+			local climbing = humanoid:GetState() == Enum.HumanoidStateType.Climbing
+			local touching = gap < 0.6 and dy < 1 and dy > -3
+			local ladder = gap <= 2.5 and dy > 3.6
+			if climbing or (grounded and (touching or ladder)) then
+				-- climbing a ladder/truss, walking across, or walking into a ladder
+				steer(centerOf(nxt))
+			elseif not grounded then
+				steer(land) -- steer in the air like a player does
 			else
-				local tRun = starts[shot] + local_
-				place(me, rt, tRun, dt)
-				if isFriend and friend then
-					place(friend, rt, tRun - 0.42, dt)
-					local side = Vector3.new(friend.lastDir.Z, 0, -friend.lastDir.X)
-					friend.root.CFrame += side * 2.2
-					followCam(rt, tRun - 0.2, 19, 8, -10)
+				local exit = into(cur, centerOf(nxt), 0.9)
+				local d = Vector3.new(exit.X - p.X, 0, exit.Z - p.Z).Magnitude
+				if d > 1.1 then
+					steer(exit)
 				else
-					followCam(rt, tRun, if shot.area == "Space" then 22 else 19, if shot.area == "Space" then 10 else 8, 4)
+					steer(land)
+					humanoid.Jump = true
 				end
 			end
 		end
-		drawChain(me.root, friend and friend.root, isFriend)
-		-- logo at the start and the end
-		local a = 0
-		if shot.logo then
-			local k = T - shot.t0
-			a = math.clamp(k / 0.4, 0, 1) * math.clamp((shot.t1 - T) / 0.4, 0, 1)
-			if shot == SHOTS[#SHOTS] then
-				a = math.clamp(k / 0.4, 0, 1)
+		humanoid:Move(Vector3.zero, false)
+		return true
+	end
+
+	for index, shot in SHOTS do
+		local rt = routes[shot.area]
+		if not rt then
+			continue
+		end
+		if shot.kind == "orbit" then
+			if index > 1 then
+				fade(1, 0.2)
+			end
+			Ambience.setArea(shot.area)
+			orbitCenter, orbitT0 = rt.center, os.clock()
+			mode = "orbit"
+			showGhost = false
+			if index > 1 then
+				fade(0, 0.2)
+			end
+			local t0 = os.clock()
+			while os.clock() - t0 < shot.seconds do
+				local k = os.clock() - t0
+				local a = if shot.logo then math.clamp(k / 0.4, 0, 1) else 0
+				if shot.logo and index < #SHOTS then
+					a *= math.clamp((shot.seconds - k) / 0.4, 0, 1)
+				end
+				setLogo(logo, a)
+				RunService.RenderStepped:Wait()
+			end
+			setLogo(logo, if index == #SHOTS then 1 else 0)
+		else
+			local start = pickStart(rt, shot.wanted or {}, 7)
+			if start then
+				for _ = 1, 3 do
+					fade(1, 0.2)
+					Ambience.setArea(shot.area)
+					local s = rt.path[start]
+					local nxt = rt.path[start + 1]
+					local p = centerOf(s) + Vector3.new(0, HIP, 0)
+					local look = Vector3.new(centerOf(nxt).X, p.Y, centerOf(nxt).Z)
+					teleport(CFrame.lookAt(p, look))
+					flatDir = Vector3.new(look.X - p.X, 0, look.Z - p.Z)
+					flatDir = if flatDir.Magnitude > 0.01 then flatDir.Unit else Vector3.zAxis
+					camPos = p - flatDir * 17 + Vector3.new(0, 8, 0)
+					table.clear(history)
+					mode = "follow"
+					showGhost = shot.friend == true and ghost ~= nil
+					task.wait(0.35) -- let the character settle
+					fade(0, 0.2)
+					if runBot(rt, start, shot.seconds) then
+						break
+					end
+				end
 			end
 		end
-		setOverlay(logo, a)
-		if T >= SHOTS[#SHOTS].t1 then
-			conn:Disconnect()
-			done:Fire()
-		end
-	end)
-	done.Event:Wait()
+	end
+	task.wait(0.8)
 
 	-- back to normal
+	frameConn:Disconnect()
 	for _, l in chainLinks do
 		l:Destroy()
 	end
 	table.clear(chainLinks)
-	if friend then
-		friend.model:Destroy()
+	if ghost then
+		ghost.model:Destroy()
 	end
 	overlay:Destroy()
-	for _, track in me.tracks do
-		track:Stop(0)
-	end
-	root.Anchored = false
-	root.CFrame = home
-	if animate then
-		animate.Disabled = false
-	end
-	camera.CameraType = Enum.CameraType.Custom
+	humanoid:Move(Vector3.zero, false)
 	Ambience.setArea(if type(homeTheme) == "string" then homeTheme else "main")
+	teleport(home)
+	camera.CameraType = Enum.CameraType.Custom
+	if controls then
+		pcall(function()
+			controls:Enable()
+		end)
+	end
 	for _, g in hidden do
 		g.Enabled = true
 	end
